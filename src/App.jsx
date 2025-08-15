@@ -8,6 +8,7 @@ import TrainPage from './pages/TrainPage'
 import Profile from './pages/Profile'
 import Deposit from './pages/Deposit'
 import './App.css'
+import Footer from './components/common/Footer'
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
             <Route path="/deposit" element={<Deposit />} />
           </Routes>
         </main>
+        <Footer />
       </div>
     </Router>
   )
