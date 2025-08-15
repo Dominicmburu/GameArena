@@ -1,0 +1,11 @@
+:root {
+    --primary-color: #3498db; /* Main theme color */
+    --secondary-color: #2ecc71; /* Secondary theme color */
+    --background-color: #f4f4f4; /* Background color */
+    --text-color: #333; /* Default text color */
+    --header-height: 60px; /* Height of the header */
+    --footer-height: 40px; /* Height of the footer */
+    --border-radius: 5px; /* Default border radius */
+    --box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Default box shadow */
+    --transition-speed: 0.3s; /* Default transition speed */
+}

@@ -1,0 +1,128 @@
+
+.card {
+  background: rgba(31, 31, 35, 0.9) !important;
+  border: 1px solid rgba(0, 240, 255, 0.3) !important;
+  color: #F5F5F5 !important;
+}
+
+.card-header {
+  background: rgba(0, 240, 255, 0.1) !important;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.3) !important;
+}
+
+.btn-primary {
+  background: linear-gradient(45deg, #00F0FF, #9B00FF) !important;
+  border: none !important;
+  color: #0E0E10 !important;
+  font-weight: 600 !important;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(45deg, #9B00FF, #00F0FF) !important;
+  color: #F5F5F5 !important;
+  transform: translateY(-2px) !important;
+}
+
+.btn-outline-primary {
+  border-color: #00F0FF !important;
+  color: #00F0FF !important;
+}
+
+.btn-outline-primary:hover {
+  background-color: #00F0FF !important;
+  color: #0E0E10 !important;
+}
+
+.form-control {
+  background: rgba(31, 31, 35, 0.8) !important;
+  border: 1px solid rgba(0, 240, 255, 0.3) !important;
+  color: #F5F5F5 !important;
+}
+
+.form-control:focus {
+  background: rgba(31, 31, 35, 0.9) !important;
+  border-color: #00F0FF !important;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3) !important;
+  color: #F5F5F5 !important;
+}
+
+.form-select {
+  background: rgba(31, 31, 35, 0.8) !important;
+  border: 1px solid rgba(0, 240, 255, 0.3) !important;
+  color: #F5F5F5 !important;
+}
+
+.form-select:focus {
+  border-color: #00F0FF !important;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3) !important;
+}
+
+.modal-content {
+  background: rgba(31, 31, 35, 0.95) !important;
+  border: 1px solid rgba(0, 240, 255, 0.3) !important;
+  color: #F5F5F5 !important;
+}
+
+.modal-header {
+  border-bottom: 1px solid rgba(0, 240, 255, 0.3) !important;
+}
+
+.modal-footer {
+  border-top: 1px solid rgba(0, 240, 255, 0.3) !important;
+}
+
+.table-dark {
+  background-color: rgba(31, 31, 35, 0.9) !important;
+}
+
+.navbar-dark .navbar-nav .nav-link {
+  color: #F5F5F5 !important;
+}
+
+.navbar-dark .navbar-nav .nav-link:hover {
+  color: #00F0FF !important;
+}
+
+/* Loading Animation */
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 240, 255, 0.3);
+  border-top: 3px solid #00F0FF;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Utility Classes */
+.text-neon {
+  color: #00F0FF !important;
+}
+
+.text-purple {
+  color: #9B00FF !important;
+}
+
+.text-cyber-red {
+  color: #FF003C !important;
+}
+
+.text-energy-green {
+  color: #00FF85 !important;
+}
+
+.bg-gunmetal {
+  background-color: #1F1F23 !important;
+}
+
+.border-neon {
+  border-color: #00F0FF !important;
+}
+
+.border-purple {
+  border-color: #9B00FF !important;
+}
