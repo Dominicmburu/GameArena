@@ -1,666 +1,1219 @@
-import React, { useState } from 'react'
-import { Container, Row, Col, Card, Button, Badge, ProgressBar, Tab, Tabs } from 'react-bootstrap'
-import { Target, TrendingUp, Award, Clock, Zap, Brain, Gamepad2, BarChart3 } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Container, Row, Col, Card, Form, Button, Badge, Modal, Alert, ProgressBar } from 'react-bootstrap'
+import { Plus, Gamepad2, Users, Clock, DollarSign, Lock, Globe, Calendar, Trophy, Settings, CheckCircle, AlertTriangle } from 'lucide-react'
 
-const TrainPage = () => {
-  const [activeTab, setActiveTab] = useState('practice')
+const MakeGame = () => {
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [selectedGame, setSelectedGame] = useState(null)
+  const [currentStep, setCurrentStep] = useState(1)
+  const [isCreating, setIsCreating] = useState(false)
+  const [createdCompetitions, setCreatedCompetitions] = useState([])
+  const [errors, setErrors] = useState({})
 
-  // Mock training data
-  const trainingGames = [
+  const [formData, setFormData] = useState({
+    title: '',
+    gameType: '',
+    startDate: '',
+    startTime: '',
+    endDate: '',
+    endTime: '',
+    entryFee: '',
+    maxPlayers: '',
+    privacy: 'public',
+    description: '',
+    prizePool: '',
+    difficulty: 'intermediate',
+    rules: [''],
+    eligibility: 'all',
+    autoStart: true,
+    allowSpectators: true,
+    streamingAllowed: true
+  })
+
+  // Load created competitions on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('createdCompetitions')
+    if (saved) {
+      setCreatedCompetitions(JSON.parse(saved))
+    }
+  }, [])
+
+  // Save to localStorage
+  const saveCreatedCompetitions = (competitions) => {
+    localStorage.setItem('createdCompetitions', JSON.stringify(competitions))
+    setCreatedCompetitions(competitions)
+  }
+
+  // Mock available games with enhanced data
+  const availableGames = [
     {
       id: 1,
-      name: "Aim Trainer",
-      description: "Improve your accuracy and reaction time",
-      category: "Accuracy",
+      name: "Battle Royale",
+      description: "Last player standing wins in this intense survival game",
+      category: "Action",
+      difficulty: "Expert",
       icon: "🎯",
-      difficulty: "Adjustable",
-      sessions: 45,
-      bestScore: 2450,
-      avgScore: 1850,
-      improvement: "+12%",
-      lastPlayed: "2 hours ago",
-      color: "#00F0FF"
+      players: "1-100",
+      avgDuration: "15-30 min",
+      popular: true
     },
     {
       id: 2,
-      name: "Speed Clicker",
-      description: "Enhance your clicking speed and precision",
-      category: "Speed",
-      icon: "⚡",
-      difficulty: "Progressive",
-      sessions: 32,
-      bestScore: 180,
-      avgScore: 145,
-      improvement: "+8%",
-      lastPlayed: "1 day ago",
-      color: "#9B00FF"
+      name: "Speed Racing",
+      description: "Fast-paced racing with power-ups and obstacles",
+      category: "Racing",
+      difficulty: "Intermediate",
+      icon: "🏎️",
+      players: "1-20",
+      avgDuration: "5-10 min",
+      popular: true
     },
     {
       id: 3,
-      name: "Memory Palace",
-      description: "Train your memory with pattern recognition",
-      category: "Memory",
-      icon: "🧠",
+      name: "Brain Puzzle",
+      description: "Mind-bending puzzles that test your logic and creativity",
+      category: "Puzzle",
       difficulty: "Advanced",
-      sessions: 28,
-      bestScore: 3200,
-      avgScore: 2650,
-      improvement: "+15%",
-      lastPlayed: "3 hours ago",
-      color: "#00FF85"
+      icon: "🧩",
+      players: "1-50",
+      avgDuration: "10-20 min",
+      popular: false
     },
     {
       id: 4,
-      name: "Strategy Simulator",
-      description: "Practice strategic thinking and planning",
+      name: "Strategy Wars",
+      description: "Build your empire and dominate the battlefield",
       category: "Strategy",
-      icon: "♟️",
       difficulty: "Expert",
-      sessions: 18,
-      bestScore: 1890,
-      avgScore: 1420,
-      improvement: "+6%",
-      lastPlayed: "5 hours ago",
-      color: "#FF003C"
+      icon: "⚔️",
+      players: "2-8",
+      avgDuration: "30-60 min",
+      popular: true
     },
     {
       id: 5,
-      name: "Reflex Master",
-      description: "Sharpen your reflexes and reaction times",
-      category: "Reflexes",
-      icon: "⚡",
-      difficulty: "Dynamic",
-      sessions: 52,
-      bestScore: 98,
-      avgScore: 78,
-      improvement: "+18%",
-      lastPlayed: "30 min ago",
-      color: "#00F0FF"
+      name: "Card Duel",
+      description: "Strategic card battles with deck building elements",
+      category: "Card Game",
+      difficulty: "Intermediate",
+      icon: "🃏",
+      players: "2-4",
+      avgDuration: "15-25 min",
+      popular: false
     },
     {
       id: 6,
-      name: "Puzzle Solver",
-      description: "Challenge your problem-solving abilities",
-      category: "Logic",
-      icon: "🧩",
-      difficulty: "Variable",
-      sessions: 34,
-      bestScore: 4250,
-      avgScore: 3100,
-      improvement: "+22%",
-      lastPlayed: "6 hours ago",
-      color: "#9B00FF"
+      name: "Memory Match",
+      description: "Test your memory with increasingly complex patterns",
+      category: "Memory",
+      difficulty: "Beginner",
+      icon: "🧠",
+      players: "1-10",
+      avgDuration: "5-15 min",
+      popular: false,
+      thumbnail: '/images/memory-match.jpg',
+      features: ['Pattern recognition', 'Memory training', 'Progressive difficulty', 'Time challenges'],
+      minPlayers: 1,
+      maxPlayersLimit: 50,
+      defaultDuration: 15
     }
   ]
 
-  // Mock recent training sessions
-  const recentSessions = [
-    { game: "Aim Trainer", score: 2450, improvement: "+5%", date: "2 hours ago", duration: "15 min" },
-    { game: "Memory Palace", score: 3200, improvement: "+12%", date: "3 hours ago", duration: "20 min" },
-    { game: "Reflex Master", score: 98, improvement: "+3%", date: "30 min ago", duration: "10 min" },
-    { game: "Puzzle Solver", score: 4100, improvement: "+8%", date: "1 day ago", duration: "25 min" },
-    { game: "Speed Clicker", score: 175, improvement: "+2%", date: "1 day ago", duration: "12 min" }
-  ]
+  // Form validation
+  const validateForm = () => {
+    const newErrors = {}
 
-  // Mock achievements
-  const achievements = [
-    { 
-      id: 1, 
-      title: "Sharpshooter", 
-      description: "Score 2000+ in Aim Trainer", 
-      icon: "🏹", 
-      unlocked: true,
-      rarity: "Rare"
-    },
-    { 
-      id: 2, 
-      title: "Memory Master", 
-      description: "Complete 50 Memory Palace sessions", 
-      icon: "🎓", 
-      unlocked: true,
-      rarity: "Epic"
-    },
-    { 
-      id: 3, 
-      title: "Lightning Fast", 
-      description: "Achieve 100+ clicks per second", 
-      icon: "⚡", 
-      unlocked: false,
-      rarity: "Legendary",
-      progress: 87
-    },
-    { 
-      id: 4, 
-      title: "Strategic Mind", 
-      description: "Win 10 strategy simulations in a row", 
-      icon: "🧠", 
-      unlocked: false,
-      rarity: "Epic",
-      progress: 60
+    if (!formData.title.trim()) {
+      newErrors.title = 'Tournament title is required'
+    } else if (formData.title.length < 3) {
+      newErrors.title = 'Title must be at least 3 characters'
     }
-  ]
 
-  const getRarityColor = (rarity) => {
-    switch (rarity) {
-      case 'Common': return '#B0B0B0'
-      case 'Rare': return '#00F0FF'
-      case 'Epic': return '#9B00FF'
-      case 'Legendary': return '#FF003C'
+    if (!formData.startDate) {
+      newErrors.startDate = 'Start date is required'
+    }
+
+    if (!formData.startTime) {
+      newErrors.startTime = 'Start time is required'
+    }
+
+    if (!formData.endDate) {
+      newErrors.endDate = 'End date is required'
+    }
+
+    if (!formData.endTime) {
+      newErrors.endTime = 'End time is required'
+    }
+
+    if (formData.startDate && formData.endDate) {
+      const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`)
+      const endDateTime = new Date(`${formData.endDate}T${formData.endTime}`)
+
+      if (startDateTime <= new Date()) {
+        newErrors.startDate = 'Start time must be in the future'
+      }
+
+      if (endDateTime <= startDateTime) {
+        newErrors.endDate = 'End time must be after start time'
+      }
+    }
+
+    if (!formData.maxPlayers || formData.maxPlayers < 2) {
+      newErrors.maxPlayers = 'Must allow at least 2 players'
+    }
+
+    if (selectedGame && formData.maxPlayers > selectedGame.maxPlayersLimit) {
+      newErrors.maxPlayers = `Maximum ${selectedGame.maxPlayersLimit} players for this game`
+    }
+
+    if (formData.entryFee && parseFloat(formData.entryFee) < 0) {
+      newErrors.entryFee = 'Entry fee cannot be negative'
+    }
+
+    if (formData.prizePool && parseFloat(formData.prizePool) < 0) {
+      newErrors.prizePool = 'Prize pool cannot be negative'
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const getDifficultyColor = (difficulty) => {
+    switch (difficulty) {
+      case 'Beginner': return '#00FF85'
+      case 'Intermediate': return '#00F0FF'
+      case 'Advanced': return '#9B00FF'
+      case 'Expert': return '#FF003C'
       default: return '#B0B0B0'
     }
   }
 
+  const nextStep = () => {
+    if (currentStep === 1 && !validateBasicInfo()) return
+    if (currentStep < 3) {
+      setCurrentStep(currentStep + 1)
+    }
+  }
+
+  const prevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    }
+  }
+
+  const validateBasicInfo = () => {
+    const basicErrors = {}
+
+    if (!formData.title.trim()) basicErrors.title = 'Title is required'
+    if (!formData.startDate) basicErrors.startDate = 'Start date is required'
+    if (!formData.startTime) basicErrors.startTime = 'Start time is required'
+    if (!formData.endDate) basicErrors.endDate = 'End date is required'
+    if (!formData.endTime) basicErrors.endTime = 'End time is required'
+    if (!formData.maxPlayers) basicErrors.maxPlayers = 'Max players is required'
+
+    setErrors(basicErrors)
+    return Object.keys(basicErrors).length === 0
+  }
+
+  const handleCreateCompetition = async (e) => {
+    e.preventDefault()
+
+    if (!validateForm()) {
+      return
+    }
+
+    setIsCreating(true)
+
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      const newCompetition = {
+        id: `comp_${Date.now()}`,
+        ...formData,
+        game: selectedGame.name,
+        gameIcon: selectedGame.icon,
+        organizer: 'You',
+        status: 'upcoming',
+        players: 0,
+        createdAt: new Date().toISOString(),
+        featured: false
+      }
+
+      const updated = [...createdCompetitions, newCompetition]
+      saveCreatedCompetitions(updated)
+
+      setShowCreateModal(false)
+      setCurrentStep(1)
+      resetForm()
+
+      alert('Competition created successfully!')
+
+    } catch (error) {
+      alert('Failed to create competition. Please try again.')
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleInputChange = (e) => {
+  }
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      gameType: '',
+      startDate: '',
+      startTime: '',
+      endDate: '',
+      endTime: '',
+      entryFee: '',
+      maxPlayers: '',
+      privacy: 'public',
+      description: '',
+      prizePool: '',
+      difficulty: 'intermediate',
+      rules: [''],
+      eligibility: 'all',
+      autoStart: true,
+      allowSpectators: true,
+      streamingAllowed: true
+    })
+    setSelectedGame(null)
+    setErrors({})
+  }
+
+  const calculateEstimatedPrize = () => {
+    const entryFee = parseFloat(formData.entryFee) || 0
+    const maxPlayers = parseInt(formData.maxPlayers) || 0
+    const additionalPrize = parseFloat(formData.prizePool) || 0
+
+    return (entryFee * maxPlayers * 0.9) + additionalPrize // 10% platform fee
+  }
+
   return (
-    <div className="trainpage animated-bg">
+    <div className="makegame-page animated-bg">
       <Container fluid className="py-4">
         {/* Header */}
         <Row className="mb-4">
           <Col>
             <div className="page-header cyber-card p-4">
-              <div className="d-flex justify-content-between align-items-center flex-wrap">
-                <div>
-                  <h1 className="cyber-text text-neon mb-2">
-                    <Target size={32} className="me-3" />
-                    Training Arena
-                  </h1>
-                  <p className="text-muted mb-0">Sharpen your skills and dominate the competition</p>
-                </div>
-                <div className="training-stats d-flex gap-3 flex-wrap">
-                  <div className="stat-item text-center">
-                    <div className="stat-value text-neon fw-bold h4">209</div>
-                    <div className="stat-label text-muted small">Sessions</div>
-                  </div>
-                  <div className="stat-item text-center">
-                    <div className="stat-value text-purple fw-bold h4">47h</div>
-                    <div className="stat-label text-muted small">Training Time</div>
-                  </div>
-                  <div className="stat-item text-center">
-                    <div className="stat-value text-energy-green fw-bold h4">+14%</div>
-                    <div className="stat-label text-muted small">Avg Improvement</div>
-                  </div>
-                </div>
-              </div>
+              <h1 className="cyber-text text-neon mb-2">
+                <Plus size={32} className="me-3" />
+                Create Competition
+              </h1>
+              <p className="text-muted mb-0">Choose a game and set up your own tournament</p>
             </div>
           </Col>
         </Row>
 
-        <Row>
-          {/* Main Content */}
-          <Col lg={8}>
-            <Tabs
-              activeKey={activeTab}
-              onSelect={(tab) => setActiveTab(tab)}
-              className="cyber-tabs mb-4"
-            >
-              <Tab eventKey="practice" title="Practice Games">
-                <Row>
-                  {trainingGames.map(game => (
-                    <Col lg={6} key={game.id} className="mb-4">
-                      <Card className="cyber-card h-100 training-card">
-                        <Card.Body>
-                          <div className="d-flex justify-content-between align-items-start mb-3">
-                            <div className="d-flex align-items-center">
-                              <div 
-                                className="game-icon me-3"
-                                style={{
-                                  fontSize: '2.5rem',
-                                  width: '60px',
-                                  height: '60px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  background: `linear-gradient(45deg, ${game.color}, rgba(155, 0, 255, 0.3))`,
-                                  borderRadius: '12px'
-                                }}
-                              >
-                                {game.icon}
-                              </div>
-                              <div>
-                                <h5 className="text-white mb-1">{game.name}</h5>
-                                <Badge style={{ background: game.color, color: '#0E0E10' }}>
-                                  {game.category}
-                                </Badge>
-                              </div>
-                            </div>
-                            <div 
-                              className="improvement-badge"
-                              style={{
-                                background: 'rgba(0, 255, 133, 0.2)',
-                                border: '1px solid #00FF85',
-                                borderRadius: '20px',
-                                padding: '4px 12px',
-                                color: '#00FF85',
-                                fontSize: '0.8rem',
-                                fontWeight: 'bold'
-                              }}
-                            >
-                              {game.improvement}
-                            </div>
-                          </div>
+        {/* Created Competitions Section */}
+        {createdCompetitions.length > 0 && (
+          <>
+            <Row className="mb-4">
+              <Col>
+                <h3 className="cyber-text text-white mb-3">Your Created Competitions</h3>
+              </Col>
+            </Row>
 
-                          <p className="text-muted mb-3">{game.description}</p>
-
-                          <div className="training-stats mb-3">
-                            <Row className="g-2">
-                              <Col xs={6}>
-                                <div className="stat-item">
-                                  <small className="text-muted">Best Score</small>
-                                  <div className="stat-value text-neon fw-bold">{game.bestScore.toLocaleString()}</div>
-                                </div>
-                              </Col>
-                              <Col xs={6}>
-                                <div className="stat-item">
-                                  <small className="text-muted">Avg Score</small>
-                                  <div className="stat-value text-purple fw-bold">{game.avgScore.toLocaleString()}</div>
-                                </div>
-                              </Col>
-                              <Col xs={6}>
-                                <div className="stat-item">
-                                  <small className="text-muted">Sessions</small>
-                                  <div className="stat-value text-white fw-bold">{game.sessions}</div>
-                                </div>
-                              </Col>
-                              <Col xs={6}>
-                                <div className="stat-item">
-                                  <small className="text-muted">Last Played</small>
-                                  <div className="stat-value text-silver-gray">{game.lastPlayed}</div>
-                                </div>
-                              </Col>
-                            </Row>
-                          </div>
-
-                          <div className="d-flex gap-2">
-                            <Button className="btn-cyber flex-fill">
-                              <Target size={18} className="me-2" />
-                              Start Training
-                            </Button>
-                            <Button className="btn-outline-cyber" style={{ minWidth: '50px' }}>
-                              <BarChart3 size={18} />
-                            </Button>
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </Col>
-                  ))}
-                </Row>
-              </Tab>
-
-              <Tab eventKey="progress" title="Progress Tracking">
-                <div className="progress-section">
-                  {/* Recent Sessions */}
-                  <Card className="cyber-card mb-4">
-                    <Card.Header>
-                      <h5 className="mb-0 d-flex align-items-center">
-                        <Clock size={20} className="me-2 text-neon" />
-                        Recent Training Sessions
-                      </h5>
-                    </Card.Header>
-                    <Card.Body className="p-0">
-                      {recentSessions.map((session, index) => (
-                        <div 
-                          key={index}
-                          className="session-item p-3 d-flex justify-content-between align-items-center"
-                          style={{
-                            borderBottom: index < recentSessions.length - 1 ? '1px solid rgba(0, 240, 255, 0.1)' : 'none'
-                          }}
-                        >
-                          <div className="session-info">
-                            <h6 className="text-white mb-1">{session.game}</h6>
-                            <small className="text-muted">{session.date} • {session.duration}</small>
-                          </div>
-                          <div className="session-stats text-end">
-                            <div className="score text-neon fw-bold">{session.score.toLocaleString()}</div>
-                            <div className="improvement text-energy-green small">{session.improvement}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </Card.Body>
-                  </Card>
-
-                  {/* Skills Progress */}
-                  <Card className="cyber-card">
-                    <Card.Header>
-                      <h5 className="mb-0 d-flex align-items-center">
-                        <TrendingUp size={20} className="me-2 text-purple" />
-                        Skill Development
-                      </h5>
-                    </Card.Header>
-                    <Card.Body>
-                      <Row>
-                        <Col md={6} className="mb-4">
-                          <div className="skill-item">
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                              <span className="text-white">Accuracy</span>
-                              <span className="text-neon fw-bold">87%</span>
-                            </div>
-                            <ProgressBar 
-                              now={87} 
-                              style={{ height: '8px' }}
-                              className="skill-progress"
-                            />
-                          </div>
-                        </Col>
-                        <Col md={6} className="mb-4">
-                          <div className="skill-item">
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                              <span className="text-white">Reaction Time</span>
-                              <span className="text-purple fw-bold">92%</span>
-                            </div>
-                            <ProgressBar 
-                              now={92} 
-                              style={{ height: '8px' }}
-                              className="skill-progress"
-                            />
-                          </div>
-                        </Col>
-                        <Col md={6} className="mb-4">
-                          <div className="skill-item">
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                              <span className="text-white">Memory</span>
-                              <span className="text-energy-green fw-bold">78%</span>
-                            </div>
-                            <ProgressBar 
-                              now={78} 
-                              style={{ height: '8px' }}
-                              className="skill-progress"
-                            />
-                          </div>
-                        </Col>
-                        <Col md={6} className="mb-4">
-                          <div className="skill-item">
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                              <span className="text-white">Strategy</span>
-                              <span className="text-cyber-red fw-bold">65%</span>
-                            </div>
-                            <ProgressBar 
-                              now={65} 
-                              style={{ height: '8px' }}
-                              className="skill-progress"
-                            />
-                          </div>
-                        </Col>
-                      </Row>
-                    </Card.Body>
-                  </Card>
-                </div>
-              </Tab>
-
-              <Tab eventKey="achievements" title="Achievements">
-                <Row>
-                  {achievements.map(achievement => (
-                    <Col lg={6} key={achievement.id} className="mb-4">
-                      <Card 
-                        className={`cyber-card h-100 achievement-card ${achievement.unlocked ? 'unlocked' : 'locked'}`}
+            <Row className="mb-5">
+              {createdCompetitions.slice(-3).map(comp => (
+                <Col lg={4} md={6} key={comp.id} className="mb-4">
+                  <Card className="cyber-card h-100">
+                    <Card.Header className="d-flex justify-content-between align-items-center">
+                      <Badge
                         style={{
-                          opacity: achievement.unlocked ? 1 : 0.7,
-                          border: `1px solid ${achievement.unlocked ? getRarityColor(achievement.rarity) : 'rgba(176, 176, 176, 0.3)'}`
+                          background: comp.status === 'upcoming' ? '#00F0FF' : '#00FF85',
+                          color: '#0E0E10'
                         }}
                       >
-                        <Card.Body className="text-center">
-                          <div 
-                            className="achievement-icon mb-3"
-                            style={{
-                              fontSize: '3rem',
-                              filter: achievement.unlocked ? 'none' : 'grayscale(1)'
-                            }}
-                          >
-                            {achievement.icon}
-                          </div>
-                          
-                          <div className="d-flex justify-content-between align-items-center mb-2">
-                            <h5 className="text-white mb-0">{achievement.title}</h5>
-                            <Badge 
-                              style={{ 
-                                background: getRarityColor(achievement.rarity),
-                                color: '#0E0E10'
-                              }}
-                            >
-                              {achievement.rarity}
-                            </Badge>
-                          </div>
-                          
-                          <p className="text-muted mb-3">{achievement.description}</p>
-                          
-                          {achievement.unlocked ? (
-                            <Badge 
-                              className="w-100 py-2"
-                              style={{ 
-                                background: 'rgba(0, 255, 133, 0.2)',
-                                border: '1px solid #00FF85',
-                                color: '#00FF85'
-                              }}
-                            >
-                              <Award size={16} className="me-2" />
-                              UNLOCKED
-                            </Badge>
-                          ) : (
-                            <div>
-                              <div className="progress mb-2" style={{ height: '6px' }}>
-                                <div 
-                                  className="progress-bar"
-                                  style={{
-                                    width: `${achievement.progress}%`,
-                                    background: `linear-gradient(90deg, ${getRarityColor(achievement.rarity)}, rgba(155, 0, 255, 0.5))`
-                                  }}
-                                />
-                              </div>
-                              <small className="text-muted">{achievement.progress}% Complete</small>
+                        {comp.status.toUpperCase()}
+                      </Badge>
+                      <small className="text-muted">
+                        {new Date(comp.createdAt).toLocaleDateString()}
+                      </small>
+                    </Card.Header>
+                    <Card.Body>
+                      <h5 className="text-white mb-2">{comp.title}</h5>
+                      <p className="text-muted small mb-3">{comp.game}</p>
+
+                      <div className="competition-stats">
+                        <Row className="g-2 mb-3">
+                          <Col xs={6}>
+                            <div className="stat-item text-center">
+                              <Users size={16} color="#9B00FF" className="mb-1" />
+                              <div className="text-purple small">{comp.players}/{comp.maxPlayers}</div>
                             </div>
-                          )}
-                        </Card.Body>
-                      </Card>
-                    </Col>
-                  ))}
-                </Row>
-              </Tab>
-            </Tabs>
+                          </Col>
+                          <Col xs={6}>
+                            <div className="stat-item text-center">
+                              <Trophy size={16} color="#00FF85" className="mb-1" />
+                              <div className="text-energy-green small">${parseFloat(comp.prizePool || 0).toLocaleString()}</div>
+                            </div>
+                          </Col>
+                        </Row>
+                      </div>
+
+                      <Button className="btn-outline-cyber w-100" size="sm">
+                        Manage Competition
+                      </Button>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+          </>
+        )}
+
+        {/* Game Selection Grid */}
+        <Row className="mb-4">
+          <Col>
+            <h3 className="cyber-text text-white mb-3">Select a Game</h3>
           </Col>
+        </Row>
 
-          {/* Sidebar */}
-          <Col lg={4}>
-            {/* Daily Challenge */}
-            <Card className="cyber-card mb-4">
-              <Card.Header className="d-flex align-items-center justify-content-between">
-                <div className="d-flex align-items-center">
-                  <Zap size={20} color="#FF003C" className="me-2" />
-                  <span className="fw-bold">Daily Challenge</span>
-                </div>
-                <Badge className="pulse" style={{ background: '#FF003C' }}>
-                  NEW
-                </Badge>
-              </Card.Header>
-              <Card.Body>
-                <div className="challenge-content text-center">
-                  <div className="challenge-icon mb-3" style={{ fontSize: '3rem' }}>
-                    🎯
-                  </div>
-                  <h6 className="text-white mb-2">Precision Master</h6>
-                  <p className="text-muted mb-3">
-                    Score 2500+ in Aim Trainer with 95% accuracy
-                  </p>
-                  <div className="challenge-reward mb-3">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <span className="text-muted">Reward:</span>
-                      <span className="text-energy-green fw-bold">500 XP + Badge</span>
-                    </div>
-                  </div>
-                  <Button className="btn-cyber w-100">
-                    Accept Challenge
-                  </Button>
-                </div>
-              </Card.Body>
-            </Card>
-
-            {/* Training Streak */}
-            <Card className="cyber-card mb-4">
-              <Card.Header>
-                <div className="d-flex align-items-center">
-                  <Target size={20} color="#00FF85" className="me-2" />
-                  <span className="fw-bold">Training Streak</span>
-                </div>
-              </Card.Header>
-              <Card.Body className="text-center">
-                <div className="streak-display">
-                  <div 
-                    className="streak-number fw-bold display-4"
+        <Row>
+          {availableGames.map(game => (
+            <Col lg={4} md={6} key={game.id} className="mb-4">
+              <Card
+                className="cyber-card h-100 game-card cursor-pointer"
+                onClick={() => handleGameSelect(game)}
+                style={{
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer',
+                  position: 'relative'
+                }}
+              >
+                {game.popular && (
+                  <div
+                    className="popular-badge position-absolute"
                     style={{
+                      top: '15px',
+                      right: '15px',
                       background: 'linear-gradient(45deg, #00FF85, #00F0FF)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text'
+                      color: '#0E0E10',
+                      padding: '4px 12px',
+                      borderRadius: '15px',
+                      fontSize: '0.75rem',
+                      fontWeight: 'bold',
+                      zIndex: 10
                     }}
                   >
-                    7
+                    POPULAR
                   </div>
-                  <div className="streak-label text-muted mb-3">Days in a row</div>
-                  
-                  <div className="streak-calendar d-flex justify-content-center gap-2 mb-3">
-                    {[1, 2, 3, 4, 5, 6, 7].map(day => (
-                      <div 
-                        key={day}
-                        className="day-indicator"
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '50%',
-                          background: day <= 7 ? '#00FF85' : 'rgba(176, 176, 176, 0.3)',
-                          border: `1px solid ${day <= 7 ? '#00FF85' : '#B0B0B0'}`
-                        }}
-                      />
-                    ))}
-                  </div>
-                  
-                  <small className="text-muted">
-                    Keep it up! Next milestone at 14 days
-                  </small>
-                </div>
-              </Card.Body>
-            </Card>
+                )}
 
-            {/* Quick Stats */}
-            <Card className="cyber-card">
-              <Card.Header>
-                <div className="d-flex align-items-center">
-                  <Brain size={20} color="#9B00FF" className="me-2" />
-                  <span className="fw-bold">Quick Stats</span>
-                </div>
-              </Card.Header>
-              <Card.Body>
-                <div className="quick-stats">
-                  <div className="stat-row d-flex justify-content-between align-items-center mb-3">
-                    <span className="text-muted">Total Training Time</span>
-                    <span className="text-neon fw-bold">47h 23m</span>
+                <Card.Body className="text-center p-4">
+                  <div className="game-icon mb-3" style={{ fontSize: '4rem' }}>
+                    {game.icon}
                   </div>
-                  <div className="stat-row d-flex justify-content-between align-items-center mb-3">
-                    <span className="text-muted">Games Mastered</span>
-                    <span className="text-purple fw-bold">4/6</span>
+
+                  <h4 className="text-white mb-2">{game.name}</h4>
+                  <p className="text-muted mb-3">{game.description}</p>
+
+                  <div className="game-details mb-3">
+                    <Badge
+                      className="me-2 mb-2"
+                      style={{
+                        background: getDifficultyColor(game.difficulty),
+                        color: '#0E0E10'
+                      }}
+                    >
+                      {game.difficulty}
+                    </Badge>
+                    <Badge className="me-2 mb-2" style={{ background: '#9B00FF' }}>
+                      {game.category}
+                    </Badge>
                   </div>
-                  <div className="stat-row d-flex justify-content-between align-items-center mb-3">
-                    <span className="text-muted">Achievements</span>
-                    <span className="text-energy-green fw-bold">2/4</span>
+
+                  <div className="game-stats">
+                    <Row className="g-2 text-center">
+                      <Col xs={4}>
+                        <div className="stat-item">
+                          <Users size={16} color="#00F0FF" className="mb-1" />
+                          <div className="stat-value text-neon small">{game.players}</div>
+                        </div>
+                      </Col>
+                      <Col xs={8}>
+                        <div className="stat-item">
+                          <Clock size={16} color="#9B00FF" className="mb-1" />
+                          <div className="stat-value text-purple small">{game.avgDuration}</div>
+                        </div>
+                      </Col>
+                    </Row>
                   </div>
-                  <div className="stat-row d-flex justify-content-between align-items-center mb-3">
-                    <span className="text-muted">Rank</span>
-                    <span className="text-cyber-red fw-bold">Expert</span>
-                  </div>
-                  <div className="stat-row d-flex justify-content-between align-items-center">
-                    <span className="text-muted">Next Level</span>
-                    <span className="text-white fw-bold">230 XP</span>
-                  </div>
-                </div>
-              </Card.Body>
-            </Card>
+                </Card.Body>
+
+                <Card.Footer
+                  className="text-center"
+                  style={{ background: 'rgba(0, 240, 255, 0.1)' }}
+                >
+                  <Button className="btn-cyber w-100">
+                    <Plus size={18} className="me-2" />
+                    Create Tournament
+                  </Button>
+                </Card.Footer>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+
+        {/* Quick Stats */}
+        <Row className="mt-5">
+          <Col>
+            <h3 className="cyber-text text-white mb-3">Tournament Statistics</h3>
+          </Col>
+        </Row>
+
+        <Row>
+          <Col md={3} sm={6} className="mb-3">
+            <div className="stat-card cyber-card p-3 text-center h-100">
+              <Trophy size={30} color="#00F0FF" className="mb-2" />
+              <h4 className="text-neon fw-bold">156</h4>
+              <small className="text-muted">Tournaments Created</small>
+            </div>
+          </Col>
+          <Col md={3} sm={6} className="mb-3">
+            <div className="stat-card cyber-card p-3 text-center h-100">
+              <Users size={30} color="#9B00FF" className="mb-2" />
+              <h4 className="text-purple fw-bold">8.4K</h4>
+              <small className="text-muted">Total Participants</small>
+            </div>
+          </Col>
+          <Col md={3} sm={6} className="mb-3">
+            <div className="stat-card cyber-card p-3 text-center h-100">
+              <DollarSign size={30} color="#00FF85" className="mb-2" />
+              <h4 className="text-energy-green fw-bold">$45K</h4>
+              <small className="text-muted">Prize Money Awarded</small>
+            </div>
+          </Col>
+          <Col md={3} sm={6} className="mb-3">
+            <div className="stat-card cyber-card p-3 text-center h-100">
+              <Gamepad2 size={30} color="#FF003C" className="mb-2" />
+              <h4 className="text-cyber-red fw-bold">24</h4>
+              <small className="text-muted">Active Tournaments</small>
+            </div>
           </Col>
         </Row>
       </Container>
 
+      {/* Create Competition Modal */}
+      <Modal
+        show={showCreateModal}
+        onHide={() => setShowCreateModal(false)}
+        size="lg"
+        className="cyber-modal"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center">
+            <Settings size={24} className="me-2 text-neon" />
+            Create {selectedGame?.name} Tournament
+          </Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body>
+          <div className="creation-progress mb-4">
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <span className="text-muted">Step {currentStep} of 3</span>
+              <span className="text-muted">{Math.round((currentStep / 3) * 100)}%</span>
+            </div>
+            <ProgressBar
+              now={(currentStep / 3) * 100}
+              style={{ height: '6px' }}
+              className="creation-progress-bar"
+            />
+          </div>
+
+          <Form onSubmit={handleCreateCompetition}>
+            {/* Step 1: Basic Information */}
+            {currentStep === 1 && (
+              <div className="step-content">
+                <h5 className="text-neon mb-3">Basic Information</h5>
+
+                <Row>
+                  <Col md={8}>
+                    <Form.Group className="mb-3">
+                      <Form.Label className="text-white">Tournament Title *</Form.Label>
+                      <Form.Control
+                        type="text"
+                        name="title"
+                        value={formData.title}
+                        onChange={handleInputChange}
+                        placeholder="Enter tournament name"
+                        isInvalid={!!errors.title}
+                      />
+                      <Form.Control.Feedback type="invalid">
+                        {errors.title}
+                      </Form.Control.Feedback>
+                    </Form.Group>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Group className="mb-3">
+                      <Form.Label className="text-white">Difficulty Level</Form.Label>
+                      <Form.Select
+                        name="difficulty"
+                        value={formData.difficulty}
+                        onChange={handleInputChange}
+                      >
+                        <option value="beginner">Beginner</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                        <option value="expert">Expert</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label className="text-white">Start Date & Time *</Form.Label>
+                      <Row>
+                        <Col xs={7}>
+                          <Form.Control
+                            type="date"
+                            name="startDate"
+                            value={formData.startDate}
+                            onChange={handleInputChange}
+                            isInvalid={!!errors.startDate}
+                            min={new Date().toISOString().split('T')[0]}
+                          />
+                        </Col>
+                        <Col xs={5}>
+                          <Form.Control
+                            type="time"
+                            name="startTime"
+                            value={formData.startTime}
+                            onChange={handleInputChange}
+                            isInvalid={!!errors.startTime}
+                          />
+                        </Col>
+                      </Row>
+                      {(errors.startDate || errors.startTime) && (
+                        <div className="text-danger small mt-1">
+                          {errors.startDate || errors.startTime}
+                        </div>
+                      )}
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label className="text-white">End Date & Time *</Form.Label>
+                      <Row>
+                        <Col xs={7}>
+                          <Form.Control
+                            type="date"
+                            name="endDate"
+                            value={formData.endDate}
+                            onChange={handleInputChange}
+                            isInvalid={!!errors.endDate}
+                            min={formData.startDate || new Date().toISOString().split('T')[0]}
+                          />
+                        </Col>
+                        <Col xs={5}>
+                          <Form.Control
+                            type="time"
+                            name="endTime"
+                            value={formData.endTime}
+                            onChange={handleInputChange}
+                            isInvalid={!!errors.endTime}
+                          />
+                        </Col>
+                      </Row>
+                      {(errors.endDate || errors.endTime) && (
+                        <div className="text-danger small mt-1">
+                          {errors.endDate || errors.endTime}
+                        </div>
+                      )}
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row>
+                  <Col md={4}>
+                    <Form.Group className="mb-3">
+                      <Form.Label className="text-white">Max Players *</Form.Label>
+                      <Form.Control
+                        type="number"
+                        name="maxPlayers"
+                        value={formData.maxPlayers}
+                        onChange={handleInputChange}
+                        placeholder="100"
+                        min="2"
+                        max={selectedGame?.maxPlayersLimit || 1000}
+                        isInvalid={!!errors.maxPlayers}
+                      />
+                      <Form.Control.Feedback type="invalid">
+                        {errors.maxPlayers}
+                      </Form.Control.Feedback>
+                      {selectedGame && (
+                        <Form.Text className="text-muted">
+                          Max {selectedGame.maxPlayersLimit} for {selectedGame.name}
+                        </Form.Text>
+                      )}
+                    </Form.Group>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Group className="mb-3">
+                      <Form.Label className="text-white">Entry Fee ($)</Form.Label>
+                      <Form.Control
+                        type="number"
+                        name="entryFee"
+                        value={formData.entryFee}
+                        onChange={handleInputChange}
+                        placeholder="0"
+                        min="0"
+                        step="0.01"
+                        isInvalid={!!errors.entryFee}
+                      />
+                      <Form.Control.Feedback type="invalid">
+                        {errors.entryFee}
+                      </Form.Control.Feedback>
+                    </Form.Group>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Group className="mb-3">
+                      <Form.Label className="text-white">Additional Prize Pool ($)</Form.Label>
+                      <Form.Control
+                        type="number"
+                        name="prizePool"
+                        value={formData.prizePool}
+                        onChange={handleInputChange}
+                        placeholder="0"
+                        min="0"
+                        step="0.01"
+                        isInvalid={!!errors.prizePool}
+                      />
+                      <Form.Control.Feedback type="invalid">
+                        {errors.prizePool}
+                      </Form.Control.Feedback>
+                    </Form.Group>
+                  </Col>
+                </Row>
+              </div>
+            )}
+
+            {/* Step 2: Rules & Settings */}
+            {currentStep === 2 && (
+              <div className="step-content">
+                <h5 className="text-purple mb-3">Rules & Settings</h5>
+
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-white">Privacy Setting</Form.Label>
+                  <div className="d-flex gap-3 mb-3">
+                    <Form.Check
+                      type="radio"
+                      id="public"
+                      name="privacy"
+                      value="public"
+                      checked={formData.privacy === 'public'}
+                      onChange={handleInputChange}
+                      label={
+                        <span className="text-white">
+                          <Globe size={16} className="me-2" />
+                          Public
+                        </span>
+                      }
+                    />
+                    <Form.Check
+                      type="radio"
+                      id="private"
+                      name="privacy"
+                      value="private"
+                      checked={formData.privacy === 'private'}
+                      onChange={handleInputChange}
+                      label={
+                        <span className="text-white">
+                          <Lock size={16} className="me-2" />
+                          Private (Invite Only)
+                        </span>
+                      }
+                    />
+                  </div>
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-white">Competition Rules</Form.Label>
+                  {formData.rules.map((rule, index) => (
+                    <div key={index} className="d-flex gap-2 mb-2">
+                      <Form.Control
+                        type="text"
+                        value={rule}
+                        onChange={(e) => handleRuleChange(index, e.target.value)}
+                        placeholder={`Rule ${index + 1}`}
+                      />
+                      {formData.rules.length > 1 && (
+                        <Button
+                          variant="outline-danger"
+                          size="sm"
+                          onClick={() => removeRule(index)}
+                        >
+                          ×
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline-primary"
+                    size="sm"
+                    onClick={addRule}
+                    className="mt-2"
+                  >
+                    Add Rule
+                  </Button>
+                </Form.Group>
+
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3">
+                      <Form.Label className="text-white">Eligibility</Form.Label>
+                      <Form.Select
+                        name="eligibility"
+                        value={formData.eligibility}
+                        onChange={handleInputChange}
+                      >
+                        <option value="all">All Players</option>
+                        <option value="premium">Premium Members Only</option>
+                        <option value="verified">Verified Players Only</option>
+                        <option value="rank-restricted">Rank Restricted</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <div className="settings-checkboxes">
+                  <Form.Check
+                    type="checkbox"
+                    id="auto-start"
+                    name="autoStart"
+                    checked={formData.autoStart}
+                    onChange={handleInputChange}
+                    label="Auto-start when full"
+                    className="text-white mb-2"
+                  />
+                  <Form.Check
+                    type="checkbox"
+                    id="allow-spectators"
+                    name="allowSpectators"
+                    checked={formData.allowSpectators}
+                    onChange={handleInputChange}
+                    label="Allow spectators"
+                    className="text-white mb-2"
+                  />
+                  <Form.Check
+                    type="checkbox"
+                    id="streaming-allowed"
+                    name="streamingAllowed"
+                    checked={formData.streamingAllowed}
+                    onChange={handleInputChange}
+                    label="Allow streaming/recording"
+                    className="text-white mb-2"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Review & Create */}
+            {currentStep === 3 && (
+              <div className="step-content">
+                <h5 className="text-energy-green mb-3">Review & Confirm</h5>
+
+                <div className="tournament-review cyber-card p-3 mb-3">
+                  <h6 className="text-neon mb-3">Tournament Summary</h6>
+
+                  <Row>
+                    <Col md={6}>
+                      <div className="review-section mb-3">
+                        <strong className="text-white">Basic Info:</strong>
+                        <div className="text-muted">
+                          <div>Title: {formData.title}</div>
+                          <div>Game: {selectedGame?.name}</div>
+                          <div>Difficulty: {formData.difficulty}</div>
+                          <div>Privacy: {formData.privacy}</div>
+                        </div>
+                      </div>
+                    </Col>
+                    <Col md={6}>
+                      <div className="review-section mb-3">
+                        <strong className="text-white">Schedule:</strong>
+                        <div className="text-muted">
+                          <div>Start: {formData.startDate} at {formData.startTime}</div>
+                          <div>End: {formData.endDate} at {formData.endTime}</div>
+                        </div>
+                      </div>
+                    </Col>
+                  </Row>
+
+                  <Row>
+                    <Col md={6}>
+                      <div className="review-section mb-3">
+                        <strong className="text-white">Players & Fees:</strong>
+                        <div className="text-muted">
+                          <div>Max Players: {formData.maxPlayers}</div>
+                          <div>Entry Fee: ${formData.entryFee || '0'}</div>
+                          <div>Additional Prize: ${formData.prizePool || '0'}</div>
+                        </div>
+                      </div>
+                    </Col>
+                    <Col md={6}>
+                      <div className="review-section mb-3">
+                        <strong className="text-white">Estimated Total Prize:</strong>
+                        <div className="text-energy-green fw-bold h5">
+                          ${calculateEstimatedPrize().toFixed(2)}
+                        </div>
+                        <small className="text-muted">
+                          Includes entry fees (minus 10% platform fee) + additional prize pool
+                        </small>
+                      </div>
+                    </Col>
+                  </Row>
+                </div>
+
+                {Object.keys(errors).length > 0 && (
+                  <Alert variant="danger">
+                    <AlertTriangle size={16} className="me-2" />
+                    Please fix the following errors before creating:
+                    <ul className="mb-0 mt-2">
+                      {Object.values(errors).map((error, index) => (
+                        <li key={index}>{error}</li>
+                      ))}
+                    </ul>
+                  </Alert>
+                )}
+              </div>
+            )}
+          </Form>
+        </Modal.Body>
+
+        <Modal.Footer>
+          <div className="d-flex justify-content-between w-100">
+            <Button
+              variant="outline-secondary"
+              onClick={() => {
+                if (currentStep === 1) {
+                  setShowCreateModal(false)
+                  resetForm()
+                } else {
+                  prevStep()
+                }
+              }}
+            >
+              {currentStep === 1 ? 'Cancel' : 'Previous'}
+            </Button>
+
+            {currentStep < 3 ? (
+              <Button
+                className="btn-cyber"
+                onClick={nextStep}
+              >
+                Next Step
+              </Button>
+            ) : (
+              <Button
+                className="btn-cyber"
+                onClick={handleCreateCompetition}
+                disabled={isCreating || Object.keys(errors).length > 0}
+              >
+                {isCreating ? (
+                  <>
+                    <div className="loading-spinner me-2" style={{ width: '16px', height: '16px' }} />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Trophy size={18} className="me-2" />
+                    Create Tournament
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </Modal.Footer>
+
+        <Modal.Body>
+          <Form>
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-white">Tournament Title</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    placeholder="Enter tournament name"
+                    required
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-white">Difficulty Level</Form.Label>
+                  <Form.Select
+                    name="difficulty"
+                    value={formData.difficulty}
+                    onChange={handleInputChange}
+                  >
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                    <option value="expert">Expert</option>
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-white">Start Date & Time</Form.Label>
+                  <Row>
+                    <Col xs={6}>
+                      <Form.Control
+                        type="date"
+                        name="startDate"
+                        value={formData.startDate}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </Col>
+                    <Col xs={6}>
+                      <Form.Control
+                        type="time"
+                        name="startTime"
+                        value={formData.startTime}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </Col>
+                  </Row>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-white">End Date & Time</Form.Label>
+                  <Row>
+                    <Col xs={6}>
+                      <Form.Control
+                        type="date"
+                        name="endDate"
+                        value={formData.endDate}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </Col>
+                    <Col xs={6}>
+                      <Form.Control
+                        type="time"
+                        name="endTime"
+                        value={formData.endTime}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </Col>
+                  </Row>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row>
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-white">Entry Fee ($)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="entryFee"
+                    value={formData.entryFee}
+                    onChange={handleInputChange}
+                    placeholder="0"
+                    min="0"
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-white">Max Players</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="maxPlayers"
+                    value={formData.maxPlayers}
+                    onChange={handleInputChange}
+                    placeholder="100"
+                    min="2"
+                    required
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-white">Prize Pool ($)</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="prizePool"
+                    value={formData.prizePool}
+                    onChange={handleInputChange}
+                    placeholder="1000"
+                    min="0"
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Form.Group className="mb-3">
+              <Form.Label className="text-white">Privacy Setting</Form.Label>
+              <div className="d-flex gap-3">
+                <Form.Check
+                  type="radio"
+                  id="public"
+                  name="privacy"
+                  value="public"
+                  checked={formData.privacy === 'public'}
+                  onChange={handleInputChange}
+                  label={
+                    <span className="text-white">
+                      <Globe size={16} className="me-2" />
+                      Public
+                    </span>
+                  }
+                />
+                <Form.Check
+                  type="radio"
+                  id="private"
+                  name="privacy"
+                  value="private"
+                  checked={formData.privacy === 'private'}
+                  onChange={handleInputChange}
+                  label={
+                    <span className="text-white">
+                      <Lock size={16} className="me-2" />
+                      Private (Invite Only)
+                    </span>
+                  }
+                />
+              </div>
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label className="text-white">Description</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                placeholder="Describe your tournament rules and objectives..."
+              />
+            </Form.Group>
+
+            {/* Tournament Preview */}
+            <div className="tournament-preview cyber-card p-3 mb-3">
+              <h6 className="text-neon mb-2">Tournament Preview</h6>
+              <div className="preview-content">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <span className="text-white fw-bold">
+                    {formData.title || 'Tournament Title'}
+                  </span>
+                  <Badge style={{ background: getDifficultyColor(formData.difficulty) }}>
+                    {formData.difficulty.toUpperCase()}
+                  </Badge>
+                </div>
+                <div className="preview-stats">
+                  <small className="text-muted">
+                    Game: {selectedGame?.name} |
+                    Players: {formData.maxPlayers || 'N/A'} |
+                    Entry: ${formData.entryFee || '0'} |
+                    Prize: ${formData.prizePool || '0'}
+                  </small>
+                </div>
+              </div>
+            </div>
+          </Form>
+        </Modal.Body>
+
+        <Modal.Footer>
+          <Button
+            variant="outline-secondary"
+            onClick={() => setShowCreateModal(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="btn-cyber"
+            onClick={handleCreateCompetition}
+          >
+            <Trophy size={18} className="me-2" />
+            Create Tournament
+          </Button>
+        </Modal.Footer>
+      </Modal >
+
       <style jsx>{`
-        .training-card {
+        .game-card {
           transition: all 0.3s ease;
         }
 
-        .training-card:hover {
-          transform: translateY(-5px);
+        .game-card:hover {
+          transform: translateY(-10px);
+          box-shadow: 0 15px 40px rgba(0, 240, 255, 0.2);
         }
 
         .stat-item {
-          text-align: left;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
         }
 
-        .stat-value {
-          font-size: 0.9rem;
-        }
-
-        .cyber-tabs .nav-link {
-          background: transparent !important;
+        .cyber-modal .modal-content {
+          background: rgba(31, 31, 35, 0.95) !important;
           border: 1px solid rgba(0, 240, 255, 0.3) !important;
-          color: #B0B0B0 !important;
-          margin-right: 10px;
-          border-radius: 20px !important;
-          padding: 10px 20px !important;
+          backdrop-filter: blur(10px);
+        }
+
+        .cyber-modal .modal-header {
+          border-bottom: 1px solid rgba(0, 240, 255, 0.3) !important;
+        }
+
+        .cyber-modal .modal-footer {
+          border-top: 1px solid rgba(0, 240, 255, 0.3) !important;
+        }
+
+        .tournament-preview {
+          background: rgba(0, 240, 255, 0.05) !important;
+          border: 1px solid rgba(0, 240, 255, 0.2) !important;
+        }
+
+        .stat-card {
           transition: all 0.3s ease;
         }
 
-        .cyber-tabs .nav-link.active {
-          background: rgba(0, 240, 255, 0.1) !important;
-          color: #00F0FF !important;
-          border-color: #00F0FF !important;
+        .stat-card:hover {
+          transform: translateY(-3px);
         }
 
-        .cyber-tabs .nav-link:hover {
-          color: #00F0FF !important;
-          border-color: #00F0FF !important;
-        }
-
-        .pulse {
-          animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-          0% { opacity: 1; }
-          50% { opacity: 0.5; }
-          100% { opacity: 1; }
-        }
-
-        .session-item {
-          transition: all 0.3s ease;
-        }
-
-        .session-item:hover {
-          background: rgba(0, 240, 255, 0.05);
-        }
-
-        .skill-progress .progress-bar {
+        .creation-progress-bar .progress-bar {
           background: linear-gradient(90deg, #00F0FF, #9B00FF) !important;
         }
 
-        .achievement-card.locked {
-          position: relative;
+        .step-content {
+          min-height: 400px;
         }
 
-        .achievement-card.locked::after {
-          content: '🔒';
-          position: absolute;
-          top: 15px;
-          right: 15px;
-          font-size: 1.2rem;
-          opacity: 0.7;
+        .tournament-review {
+          background: rgba(0, 240, 255, 0.05) !important;
+          border: 1px solid rgba(0, 240, 255, 0.2) !important;
         }
 
-        .day-indicator {
-          transition: all 0.3s ease;
+        .review-section {
+          border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+          padding-bottom: 10px;
         }
 
-        .day-indicator:hover {
-          transform: scale(1.2);
-        }
-
-        .streak-calendar {
-          flex-wrap: wrap;
+        .review-section:last-child {
+          border-bottom: none;
         }
       `}</style>
-    </div>
+    </div >
   )
 }
 
-export default TrainPage
+export default MakeGame
