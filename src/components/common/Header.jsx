@@ -159,7 +159,7 @@ const Header = () => {
                   >
                     <User size={20} color="#0E0E10" />
                   </div>
-                  <span className="d-none d-md-inline">ProGamer_2024</span>
+                  <span className="d-none d-md-inline text-color">ProGamer_2024</span>
                 </div>
               }
               id="profile-dropdown"
