@@ -86,20 +86,20 @@ const PlayPage = () => {
                     <Play size={32} className="me-3" />
                     Your Gaming Arena
                   </h1>
-                  <p className="text-muted mb-0">Track your progress and dominate the leaderboards</p>
+                  <p className="text-white mb-0">Track your progress and dominate the leaderboards</p>
                 </div>
                 <div className="player-stats d-flex gap-3 flex-wrap">
                   <div className="stat-item text-center">
                     <div className="stat-value text-neon fw-bold h4">3</div>
-                    <div className="stat-label text-muted small">Active</div>
+                    <div className="stat-label text-white small">Active</div>
                   </div>
                   <div className="stat-item text-center">
                     <div className="stat-value text-purple fw-bold h4">12</div>
-                    <div className="stat-label text-muted small">Completed</div>
+                    <div className="stat-label text-white small">Completed</div>
                   </div>
                   <div className="stat-item text-center">
                     <div className="stat-value text-energy-green fw-bold h4">87%</div>
-                    <div className="stat-label text-muted small">Win Rate</div>
+                    <div className="stat-label text-white small">Win Rate</div>
                   </div>
                 </div>
               </div>
@@ -139,7 +139,7 @@ const PlayPage = () => {
                                 >
                                   #{comp.currentRank}
                                 </div>
-                                <small className="text-muted">of {comp.totalPlayers}</small>
+                                <small className="text-white">of {comp.totalPlayers}</small>
                               </div>
                             </div>
 
@@ -175,7 +175,7 @@ const PlayPage = () => {
                                 }}
                               />
                             </div>
-                            <small className="text-muted">Progress: {comp.progress}%</small>
+                            <small className="text-white">Progress: {comp.progress}%</small>
                           </Col>
 
                           <Col md={4} className="text-end">
@@ -224,7 +224,7 @@ const PlayPage = () => {
                                 >
                                   #{comp.currentRank}
                                 </div>
-                                <small className="text-muted">Final Rank</small>
+                                <small className="text-white">Final Rank</small>
                               </div>
                             </div>
 
@@ -325,7 +325,7 @@ const PlayPage = () => {
                           {player.player}
                           {player.isUser && <span className="text-neon ms-2">(You)</span>}
                         </div>
-                        <div className="player-score text-muted small">
+                        <div className="player-score text-grey small">
                           {player.score.toLocaleString()} points
                         </div>
                       </div>

@@ -158,7 +158,7 @@ const Homepage = () => {
                 >
                   Welcome to GameArena
                 </h1>
-                <p className="lead mb-4 text-silver-gray">
+                <p className="lead mb-4 text-white">
                   The ultimate gaming platform where legends are born. Compete, win, and claim your place in the cyber elite.
                 </p>
                 <div className="d-flex justify-content-center gap-3 flex-wrap">
@@ -225,28 +225,28 @@ const Homepage = () => {
             <div className="stat-card cyber-card p-3 text-center h-100">
               <Trophy size={30} color="#00F0FF" className="mb-2" />
               <h4 className="text-neon fw-bold">248</h4>
-              <small className="text-muted">Active Competitions</small>
+              <small className="text-white">Active Competitions</small>
             </div>
           </Col>
           <Col md={3} sm={6} className="mb-3">
             <div className="stat-card cyber-card p-3 text-center h-100">
               <Users size={30} color="#9B00FF" className="mb-2" />
               <h4 className="text-purple fw-bold">45.2K</h4>
-              <small className="text-muted">Active Players</small>
+              <small className="text-white">Active Players</small>
             </div>
           </Col>
           <Col md={3} sm={6} className="mb-3">
             <div className="stat-card cyber-card p-3 text-center h-100">
               <Zap size={30} color="#00FF85" className="mb-2" />
               <h4 className="text-energy-green fw-bold">$2.4M</h4>
-              <small className="text-muted">Total Prize Pool</small>
+              <small className="text-white">Total Prize Pool</small>
             </div>
           </Col>
           <Col md={3} sm={6} className="mb-3">
             <div className="stat-card cyber-card p-3 text-center h-100">
               <Star size={30} color="#FF003C" className="mb-2" />
               <h4 className="text-cyber-red fw-bold">15</h4>
-              <small className="text-muted">Game Categories</small>
+              <small className="text-white">Game Categories</small>
             </div>
           </Col>
         </Row>
@@ -302,7 +302,7 @@ const Homepage = () => {
                     >
                       {comp.status.toUpperCase()}
                     </Badge>
-                    <small className="text-muted">{comp.game}</small>
+                    <small className="text-white">{comp.game}</small>
                   </div>
                   <Badge 
                     style={{ 
@@ -339,7 +339,7 @@ const Homepage = () => {
                       </Col>
                       <Col xs={6}>
                         <div className="stat-item">
-                          <span className="text-muted">Entry: </span>
+                          <span className="text-white">Entry: </span>
                           <span className="text-white fw-bold">${comp.entryFee}</span>
                         </div>
                       </Col>
@@ -400,8 +400,8 @@ const Homepage = () => {
             <Col className="text-center py-5">
               <div className="no-results">
                 <Search size={64} color="#B0B0B0" className="mb-3" />
-                <h4 className="text-muted">No competitions found</h4>
-                <p className="text-muted">Try adjusting your search or filter criteria</p>
+                <h4 className="text-white">No competitions found</h4>
+                <p className="text-white">Try adjusting your search or filter criteria</p>
               </div>
             </Col>
           </Row>
@@ -452,27 +452,27 @@ const Homepage = () => {
                       </Badge>
                     </div>
                     
-                    <p className="text-muted mb-3">{selectedCompetition.description}</p>
+                    <p className="text-white mb-3">{selectedCompetition.description}</p>
                     
                     <div className="competition-meta">
                       <Row>
                         <Col sm={6} className="mb-2">
                           <strong className="text-white">Organizer:</strong>
-                          <div className="text-muted">{selectedCompetition.organizer}</div>
+                          <div className="text-white">{selectedCompetition.organizer}</div>
                         </Col>
                         <Col sm={6} className="mb-2">
                           <strong className="text-white">Category:</strong>
-                          <div className="text-muted">{selectedCompetition.category}</div>
+                          <div className="text-white">{selectedCompetition.category}</div>
                         </Col>
                         <Col sm={6} className="mb-2">
                           <strong className="text-white">Start Time:</strong>
-                          <div className="text-muted">
+                          <div className="text-white">
                             {new Date(selectedCompetition.startTime).toLocaleString()}
                           </div>
                         </Col>
                         <Col sm={6} className="mb-2">
                           <strong className="text-white">End Time:</strong>
-                          <div className="text-muted">
+                          <div className="text-white">
                             {new Date(selectedCompetition.endTime).toLocaleString()}
                           </div>
                         </Col>
@@ -485,19 +485,19 @@ const Homepage = () => {
                   <div className="competition-stats cyber-card p-3">
                     <h6 className="text-neon mb-3">Competition Stats</h6>
                     <div className="stat-row d-flex justify-content-between mb-2">
-                      <span className="text-muted">Prize Pool:</span>
+                      <span className="text-white">Prize Pool:</span>
                       <span className="text-energy-green fw-bold">${selectedCompetition.prizePool.toLocaleString()}</span>
                     </div>
                     <div className="stat-row d-flex justify-content-between mb-2">
-                      <span className="text-muted">Entry Fee:</span>
+                      <span className="text-white">Entry Fee:</span>
                       <span className="text-white fw-bold">${selectedCompetition.entryFee}</span>
                     </div>
                     <div className="stat-row d-flex justify-content-between mb-2">
-                      <span className="text-muted">Players:</span>
+                      <span className="text-white">Players:</span>
                       <span className="text-purple fw-bold">{selectedCompetition.players}/{selectedCompetition.maxPlayers}</span>
                     </div>
                     <div className="stat-row d-flex justify-content-between mb-3">
-                      <span className="text-muted">Time Left:</span>
+                      <span className="text-white">Time Left:</span>
                       <span className="text-cyber-red fw-bold">
                         {formatTimeLeft(selectedCompetition.startTime, selectedCompetition.status)}
                       </span>
@@ -512,7 +512,7 @@ const Homepage = () => {
                         }}
                       />
                     </div>
-                    <small className="text-muted">
+                    <small className="text-white">
                       {((selectedCompetition.players / selectedCompetition.maxPlayers) * 100).toFixed(1)}% Full
                     </small>
                   </div>
@@ -522,7 +522,7 @@ const Homepage = () => {
               {selectedCompetition.rules && selectedCompetition.rules.length > 0 && (
                 <div className="competition-rules">
                   <h6 className="text-white mb-3">Competition Rules</h6>
-                  <ul className="text-muted">
+                  <ul className="text-white">
                     {selectedCompetition.rules.map((rule, index) => (
                       <li key={index} className="mb-1">{rule}</li>
                     ))}

@@ -372,7 +372,7 @@ const Profile = () => {
                                     <Col md={6}>
                                         <div className="profile-info">
                                             <h2 className="text-white mb-2">{profileData.username}</h2>
-                                            <p className="text-muted mb-3">{profileData.bio}</p>
+                                            <p className="text-white mb-3">{profileData.bio}</p>
 
                                             <div className="profile-badges d-flex gap-2 flex-wrap">
                                                 <Badge
@@ -447,7 +447,7 @@ const Profile = () => {
                             <Card.Body className="text-center">
                                 <Trophy size={30} color="#00F0FF" className="mb-2" />
                                 <h4 className="text-neon fw-bold">{userStats.totalGames.toLocaleString()}</h4>
-                                <small className="text-muted">Total Games</small>
+                                <small className="text-white">Total Games</small>
                             </Card.Body>
                         </Card>
                     </Col>
@@ -456,7 +456,7 @@ const Profile = () => {
                             <Card.Body className="text-center">
                                 <Award size={30} color="#9B00FF" className="mb-2" />
                                 <h4 className="text-purple fw-bold">${userStats.totalPrize.toLocaleString()}</h4>
-                                <small className="text-muted">Total Winnings</small>
+                                <small className="text-white">Total Winnings</small>
                             </Card.Body>
                         </Card>
                     </Col>
@@ -465,7 +465,7 @@ const Profile = () => {
                             <Card.Body className="text-center">
                                 <TrendingUp size={30} color="#00FF85" className="mb-2" />
                                 <h4 className="text-energy-green fw-bold">{userStats.winStreak}</h4>
-                                <small className="text-muted">Win Streak</small>
+                                <small className="text-white">Win Streak</small>
                             </Card.Body>
                         </Card>
                     </Col>
@@ -474,7 +474,7 @@ const Profile = () => {
                             <Card.Body className="text-center">
                                 <User size={30} color="#FF003C" className="mb-2" />
                                 <h4 className="text-cyber-red fw-bold">{userStats.totalHours}h</h4>
-                                <small className="text-muted">Hours Played</small>
+                                <small className="text-white">Hours Played</small>
                             </Card.Body>
                         </Card>
                     </Col>
@@ -531,7 +531,7 @@ const Profile = () => {
                                                                     <td className="text-energy-green fw-bold">
                                                                         ${game.prize}
                                                                     </td>
-                                                                    <td className="text-muted">
+                                                                    <td className="text-white">
                                                                         {new Date(game.date).toLocaleDateString()}
                                                                     </td>
                                                                 </tr>
@@ -582,10 +582,10 @@ const Profile = () => {
                                                                             {achievement.rarity}
                                                                         </Badge>
                                                                     </div>
-                                                                    <p className="text-muted small mb-1">
+                                                                    <p className="text-white small mb-1">
                                                                         {achievement.description}
                                                                     </p>
-                                                                    <small className="text-muted">
+                                                                    <small className="text-white">
                                                                         {new Date(achievement.date).toLocaleDateString()}
                                                                     </small>
                                                                 </div>

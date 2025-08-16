@@ -112,7 +112,7 @@ const Deposit = () => {
                 <Wallet size={32} className="me-3" />
                 Wallet & Deposits
               </h1>
-              <p className="text-muted mb-0">Manage your gaming funds and make secure deposits</p>
+              <p className="text-white mb-0">Manage your gaming funds and make secure deposits</p>
             </div>
           </Col>
         </Row>
@@ -124,7 +124,7 @@ const Deposit = () => {
               <Card.Body className="text-center">
                 <DollarSign size={30} color="#00F0FF" className="mb-2" />
                 <h4 className="text-neon fw-bold">${walletData.balance.toFixed(2)}</h4>
-                <small className="text-muted">Available Balance</small>
+                <small className="text-white">Available Balance</small>
               </Card.Body>
             </Card>
           </Col>
@@ -133,7 +133,7 @@ const Deposit = () => {
               <Card.Body className="text-center">
                 <Clock size={30} color="#9B00FF" className="mb-2" />
                 <h4 className="text-purple fw-bold">${walletData.pendingDeposits.toFixed(2)}</h4>
-                <small className="text-muted">Pending Deposits</small>
+                <small className="text-white">Pending Deposits</small>
               </Card.Body>
             </Card>
           </Col>
@@ -142,7 +142,7 @@ const Deposit = () => {
               <Card.Body className="text-center">
                 <Wallet size={30} color="#00FF85" className="mb-2" />
                 <h4 className="text-energy-green fw-bold">${walletData.totalDeposited.toFixed(2)}</h4>
-                <small className="text-muted">Total Deposited</small>
+                <small className="text-white">Total Deposited</small>
               </Card.Body>
             </Card>
           </Col>
@@ -151,7 +151,7 @@ const Deposit = () => {
               <Card.Body className="text-center">
                 <CheckCircle size={30} color="#FF003C" className="mb-2" />
                 <h4 className="text-cyber-red fw-bold">${walletData.totalWithdrawn.toFixed(2)}</h4>
-                <small className="text-muted">Total Withdrawn</small>
+                <small className="text-white">Total Withdrawn</small>
               </Card.Body>
             </Card>
           </Col>
@@ -246,7 +246,7 @@ const Deposit = () => {
                               <CreditCard size={24} color="#00F0FF" className="me-3" />
                               <div>
                                 <div className="text-white fw-bold">Credit/Debit Card</div>
-                                <small className="text-muted">Instant deposit</small>
+                                <small className="text-white">Instant deposit</small>
                               </div>
                             </div>
                           </div>
@@ -264,7 +264,7 @@ const Deposit = () => {
                               <DollarSign size={24} color="#00FF85" className="me-3" />
                               <div>
                                 <div className="text-white fw-bold">Cryptocurrency</div>
-                                <small className="text-muted">Bitcoin, Ethereum</small>
+                                <small className="text-white">Bitcoin, Ethereum</small>
                               </div>
                             </div>
                           </div>
@@ -282,7 +282,7 @@ const Deposit = () => {
                               <Shield size={24} color="#FF003C" className="me-3" />
                               <div>
                                 <div className="text-white fw-bold">Bank Transfer</div>
-                                <small className="text-muted">1-3 business days</small>
+                                <small className="text-white">1-3 business days</small>
                               </div>
                             </div>
                           </div>
@@ -312,13 +312,13 @@ const Deposit = () => {
                     <div className="deposit-summary cyber-card p-3 mb-4">
                       <h6 className="text-neon mb-3">Deposit Summary</h6>
                       <div className="summary-row d-flex justify-content-between mb-2">
-                        <span className="text-muted">Deposit Amount:</span>
+                        <span className="text-white">Deposit Amount:</span>
                         <span className="text-white fw-bold">${parseFloat(depositAmount || 0).toFixed(2)}</span>
                       </div>
                       {selectedBonus && (
                         <>
                           <div className="summary-row d-flex justify-content-between mb-2">
-                            <span className="text-muted">Bonus ({selectedBonus.percentage}%):</span>
+                            <span className="text-white">Bonus ({selectedBonus.percentage}%):</span>
                             <span className="text-energy-green fw-bold">+${calculateBonus().toFixed(2)}</span>
                           </div>
                           <hr style={{ borderColor: 'rgba(0, 240, 255, 0.3)' }} />
@@ -376,9 +376,9 @@ const Deposit = () => {
                         <Badge style={{ background: '#B0B0B0' }}>Expired</Badge>
                       )}
                     </div>
-                    <p className="text-muted small mb-2">{bonus.description}</p>
+                    <p className="text-white small mb-2">{bonus.description}</p>
                     <div className="bonus-details">
-                      <small className="text-muted">
+                      <small className="text-white">
                         Min deposit: ${bonus.minDeposit} | Max bonus: ${bonus.maxBonus}
                       </small>
                     </div>
@@ -435,7 +435,7 @@ const Deposit = () => {
                           </Badge>
                         </div>
                         <div className="transaction-details">
-                          <small className="text-muted">
+                          <small className="text-white">
                             {transaction.method} • {new Date(transaction.date).toLocaleDateString()}
                           </small>
                         </div>
@@ -476,17 +476,17 @@ const Deposit = () => {
             
             <div className="deposit-details cyber-card p-3 mb-3">
               <div className="detail-row d-flex justify-content-between mb-2">
-                <span className="text-muted">Amount:</span>
+                <span className="text-white">Amount:</span>
                 <span className="text-white fw-bold">${parseFloat(depositAmount || 0).toFixed(2)}</span>
               </div>
               <div className="detail-row d-flex justify-content-between mb-2">
-                <span className="text-muted">Payment Method:</span>
+                <span className="text-white">Payment Method:</span>
                 <span className="text-white">{paymentMethod.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
               </div>
               {selectedBonus && (
                 <>
                   <div className="detail-row d-flex justify-content-between mb-2">
-                    <span className="text-muted">Bonus:</span>
+                    <span className="text-white">Bonus:</span>
                     <span className="text-energy-green fw-bold">+${calculateBonus().toFixed(2)}</span>
                   </div>
                   <hr style={{ borderColor: 'rgba(0, 240, 255, 0.3)' }} />
@@ -498,7 +498,7 @@ const Deposit = () => {
               )}
             </div>
             
-            <small className="text-muted">
+            <small className="text-white">
               By confirming this deposit, you agree to our Terms of Service and acknowledge that all transactions are final.
             </small>
           </div>

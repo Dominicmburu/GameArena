@@ -163,20 +163,20 @@ const TrainPage = () => {
                     <Target size={32} className="me-3" />
                     Training Arena
                   </h1>
-                  <p className="text-muted mb-0">Sharpen your skills and dominate the competition</p>
+                  <p className="text-white mb-0">Sharpen your skills and dominate the competition</p>
                 </div>
                 <div className="training-stats d-flex gap-3 flex-wrap">
                   <div className="stat-item text-center">
                     <div className="stat-value text-neon fw-bold h4">209</div>
-                    <div className="stat-label text-muted small">Sessions</div>
+                    <div className="stat-label text-white small">Sessions</div>
                   </div>
                   <div className="stat-item text-center">
                     <div className="stat-value text-purple fw-bold h4">47h</div>
-                    <div className="stat-label text-muted small">Training Time</div>
+                    <div className="stat-label text-white small">Training Time</div>
                   </div>
                   <div className="stat-item text-center">
                     <div className="stat-value text-energy-green fw-bold h4">+14%</div>
-                    <div className="stat-label text-muted small">Avg Improvement</div>
+                    <div className="stat-label text-white small">Avg Improvement</div>
                   </div>
                 </div>
               </div>
@@ -238,31 +238,31 @@ const TrainPage = () => {
                             </div>
                           </div>
 
-                          <p className="text-muted mb-3">{game.description}</p>
+                          <p className="text-white mb-3">{game.description}</p>
 
                           <div className="training-stats mb-3">
                             <Row className="g-2">
                               <Col xs={6}>
                                 <div className="stat-item">
-                                  <small className="text-muted">Best Score</small>
+                                  <small className="text-white">Best Score</small>
                                   <div className="stat-value text-neon fw-bold">{game.bestScore.toLocaleString()}</div>
                                 </div>
                               </Col>
                               <Col xs={6}>
                                 <div className="stat-item">
-                                  <small className="text-muted">Avg Score</small>
+                                  <small className="text-white">Avg Score</small>
                                   <div className="stat-value text-purple fw-bold">{game.avgScore.toLocaleString()}</div>
                                 </div>
                               </Col>
                               <Col xs={6}>
                                 <div className="stat-item">
-                                  <small className="text-muted">Sessions</small>
+                                  <small className="text-white">Sessions</small>
                                   <div className="stat-value text-white fw-bold">{game.sessions}</div>
                                 </div>
                               </Col>
                               <Col xs={6}>
                                 <div className="stat-item">
-                                  <small className="text-muted">Last Played</small>
+                                  <small className="text-white">Last Played</small>
                                   <div className="stat-value text-silver-gray">{game.lastPlayed}</div>
                                 </div>
                               </Col>
@@ -306,7 +306,7 @@ const TrainPage = () => {
                         >
                           <div className="session-info">
                             <h6 className="text-white mb-1">{session.game}</h6>
-                            <small className="text-muted">{session.date} • {session.duration}</small>
+                            <small className="text-white">{session.date} • {session.duration}</small>
                           </div>
                           <div className="session-stats text-end">
                             <div className="score text-neon fw-bold">{session.score.toLocaleString()}</div>
@@ -419,7 +419,7 @@ const TrainPage = () => {
                             </Badge>
                           </div>
                           
-                          <p className="text-muted mb-3">{achievement.description}</p>
+                          <p className="text-white mb-3">{achievement.description}</p>
                           
                           {achievement.unlocked ? (
                             <Badge 
@@ -444,7 +444,7 @@ const TrainPage = () => {
                                   }}
                                 />
                               </div>
-                              <small className="text-muted">{achievement.progress}% Complete</small>
+                              <small className="text-white">{achievement.progress}% Complete</small>
                             </div>
                           )}
                         </Card.Body>
@@ -475,12 +475,12 @@ const TrainPage = () => {
                     🎯
                   </div>
                   <h6 className="text-white mb-2">Precision Master</h6>
-                  <p className="text-muted mb-3">
+                  <p className="text-white mb-3">
                     Score 2500+ in Aim Trainer with 95% accuracy
                   </p>
                   <div className="challenge-reward mb-3">
                     <div className="d-flex justify-content-between align-items-center">
-                      <span className="text-muted">Reward:</span>
+                      <span className="text-white">Reward:</span>
                       <span className="text-energy-green fw-bold">500 XP + Badge</span>
                     </div>
                   </div>
@@ -512,7 +512,7 @@ const TrainPage = () => {
                   >
                     7
                   </div>
-                  <div className="streak-label text-muted mb-3">Days in a row</div>
+                  <div className="streak-label text-white mb-3">Days in a row</div>
                   
                   <div className="streak-calendar d-flex justify-content-center gap-2 mb-3">
                     {[1, 2, 3, 4, 5, 6, 7].map(day => (
@@ -530,7 +530,7 @@ const TrainPage = () => {
                     ))}
                   </div>
                   
-                  <small className="text-muted">
+                  <small className="text-white">
                     Keep it up! Next milestone at 14 days
                   </small>
                 </div>
@@ -548,23 +548,23 @@ const TrainPage = () => {
               <Card.Body>
                 <div className="quick-stats">
                   <div className="stat-row d-flex justify-content-between align-items-center mb-3">
-                    <span className="text-muted">Total Training Time</span>
+                    <span className="text-white">Total Training Time</span>
                     <span className="text-neon fw-bold">47h 23m</span>
                   </div>
                   <div className="stat-row d-flex justify-content-between align-items-center mb-3">
-                    <span className="text-muted">Games Mastered</span>
+                    <span className="text-white">Games Mastered</span>
                     <span className="text-purple fw-bold">4/6</span>
                   </div>
                   <div className="stat-row d-flex justify-content-between align-items-center mb-3">
-                    <span className="text-muted">Achievements</span>
+                    <span className="text-white">Achievements</span>
                     <span className="text-energy-green fw-bold">2/4</span>
                   </div>
                   <div className="stat-row d-flex justify-content-between align-items-center mb-3">
-                    <span className="text-muted">Rank</span>
+                    <span className="text-white">Rank</span>
                     <span className="text-cyber-red fw-bold">Expert</span>
                   </div>
                   <div className="stat-row d-flex justify-content-between align-items-center">
-                    <span className="text-muted">Next Level</span>
+                    <span className="text-white">Next Level</span>
                     <span className="text-white fw-bold">230 XP</span>
                   </div>
                 </div>

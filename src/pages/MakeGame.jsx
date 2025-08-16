@@ -302,7 +302,7 @@ const MakeGame = () => {
                 <Plus size={32} className="me-3" />
                 Create Competition
               </h1>
-              <p className="text-muted mb-0">Choose a game and set up your own tournament</p>
+              <p className="text-white mb-0">Choose a game and set up your own tournament</p>
             </div>
           </Col>
         </Row>
@@ -329,13 +329,13 @@ const MakeGame = () => {
                       >
                         {comp.status.toUpperCase()}
                       </Badge>
-                      <small className="text-muted">
+                      <small className="text-white">
                         {new Date(comp.createdAt).toLocaleDateString()}
                       </small>
                     </Card.Header>
                     <Card.Body>
                       <h5 className="text-white mb-2">{comp.title}</h5>
-                      <p className="text-muted small mb-3">{comp.game}</p>
+                      <p className="text-white small mb-3">{comp.game}</p>
 
                       <div className="competition-stats">
                         <Row className="g-2 mb-3">
@@ -409,7 +409,7 @@ const MakeGame = () => {
                   </div>
 
                   <h4 className="text-white mb-2">{game.name}</h4>
-                  <p className="text-muted mb-3">{game.description}</p>
+                  <p className="text-white mb-3">{game.description}</p>
 
                   <div className="game-details mb-3">
                     <Badge
@@ -470,28 +470,28 @@ const MakeGame = () => {
             <div className="stat-card cyber-card p-3 text-center h-100">
               <Trophy size={30} color="#00F0FF" className="mb-2" />
               <h4 className="text-neon fw-bold">156</h4>
-              <small className="text-muted">Tournaments Created</small>
+              <small className="text-white">Tournaments Created</small>
             </div>
           </Col>
           <Col md={3} sm={6} className="mb-3">
             <div className="stat-card cyber-card p-3 text-center h-100">
               <Users size={30} color="#9B00FF" className="mb-2" />
               <h4 className="text-purple fw-bold">8.4K</h4>
-              <small className="text-muted">Total Participants</small>
+              <small className="text-white">Total Participants</small>
             </div>
           </Col>
           <Col md={3} sm={6} className="mb-3">
             <div className="stat-card cyber-card p-3 text-center h-100">
               <DollarSign size={30} color="#00FF85" className="mb-2" />
               <h4 className="text-energy-green fw-bold">$45K</h4>
-              <small className="text-muted">Prize Money Awarded</small>
+              <small className="text-white">Prize Money Awarded</small>
             </div>
           </Col>
           <Col md={3} sm={6} className="mb-3">
             <div className="stat-card cyber-card p-3 text-center h-100">
               <Gamepad2 size={30} color="#FF003C" className="mb-2" />
               <h4 className="text-cyber-red fw-bold">24</h4>
-              <small className="text-muted">Active Tournaments</small>
+              <small className="text-white">Active Tournaments</small>
             </div>
           </Col>
         </Row>
@@ -514,8 +514,8 @@ const MakeGame = () => {
         <Modal.Body>
           <div className="creation-progress mb-4">
             <div className="d-flex justify-content-between align-items-center mb-2">
-              <span className="text-muted">Step {currentStep} of 3</span>
-              <span className="text-muted">{Math.round((currentStep / 3) * 100)}%</span>
+              <span className="text-white">Step {currentStep} of 3</span>
+              <span className="text-white">{Math.round((currentStep / 3) * 100)}%</span>
             </div>
             <ProgressBar
               now={(currentStep / 3) * 100}
@@ -647,7 +647,7 @@ const MakeGame = () => {
                         {errors.maxPlayers}
                       </Form.Control.Feedback>
                       {selectedGame && (
-                        <Form.Text className="text-muted">
+                        <Form.Text className="text-white">
                           Max {selectedGame.maxPlayersLimit} for {selectedGame.name}
                         </Form.Text>
                       )}
@@ -825,7 +825,7 @@ const MakeGame = () => {
                     <Col md={6}>
                       <div className="review-section mb-3">
                         <strong className="text-white">Basic Info:</strong>
-                        <div className="text-muted">
+                        <div className="text-white">
                           <div>Title: {formData.title}</div>
                           <div>Game: {selectedGame?.name}</div>
                           <div>Difficulty: {formData.difficulty}</div>
@@ -836,7 +836,7 @@ const MakeGame = () => {
                     <Col md={6}>
                       <div className="review-section mb-3">
                         <strong className="text-white">Schedule:</strong>
-                        <div className="text-muted">
+                        <div className="text-white">
                           <div>Start: {formData.startDate} at {formData.startTime}</div>
                           <div>End: {formData.endDate} at {formData.endTime}</div>
                         </div>
@@ -848,7 +848,7 @@ const MakeGame = () => {
                     <Col md={6}>
                       <div className="review-section mb-3">
                         <strong className="text-white">Players & Fees:</strong>
-                        <div className="text-muted">
+                        <div className="text-white">
                           <div>Max Players: {formData.maxPlayers}</div>
                           <div>Entry Fee: ${formData.entryFee || '0'}</div>
                           <div>Additional Prize: ${formData.prizePool || '0'}</div>
@@ -861,7 +861,7 @@ const MakeGame = () => {
                         <div className="text-energy-green fw-bold h5">
                           ${calculateEstimatedPrize().toFixed(2)}
                         </div>
-                        <small className="text-muted">
+                        <small className="text-white">
                           Includes entry fees (minus 10% platform fee) + additional prize pool
                         </small>
                       </div>
