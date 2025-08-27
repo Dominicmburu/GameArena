@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TxType {
+  DEPOSIT
+  WITHDRAWAL
+  ENTRY_FEE
+  PRIZE
+  REFUND
+  TRANSFER
+}
+
+enum Level {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum GameType {
+  ACTION
+  ADVENTURE
+  PUZZLE
+  STRATEGY
+  RACING
+  SPORTS
+  RPG
+  SIMULATION
+  ARCADE
+  TRIVIA
+  CARD
+  BOARD
+}
+
+enum CompetitionStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELED
+}
+
+enum Privacy {
+  PUBLIC
+  PRIVATE
+}
+
+enum PendingTransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  username            String               @unique
+  passwordHash        String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  profile             Profile?
+  wallet              Wallet?
+  competitionsCreated Competition[]        @relation("CreatorCompetitions")
+  competitionPlayers  CompetitionPlayer[]
+  invites             Invite[]
+  sessions            Session[]
+  training            TrainingSession[]
+  pendingTransactions PendingTransaction[]
+}
+
+model Profile {
+  id      String  @id @default(cuid())
+  userId  String  @unique
+  country String?
+  level   Level   @default(BEGINNER)
+  winRate Float   @default(0)
+  User    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenId   String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Wallet {
+  id      String        @id @default(cuid())
+  userId  String        @unique
+  balance Int           @default(0) // store in cents
+  User    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tx      Transaction[]
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  walletId  String
+  type      TxType
+  amount    Int // cents; positive values only
+  meta      Json?
+  createdAt DateTime @default(now())
+  Wallet    Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, type])
+  @@index([type, createdAt])
+}
+
+model PendingTransaction {
+  id                 String                   @id @default(cuid())
+  userId             String
+  checkoutRequestId  String                   @unique
+  merchantRequestId  String
+  phone              String
+  amount             Int // cents
+  type               TxType
+  status             PendingTransactionStatus @default(PENDING)
+  mpesaReceiptNumber String?
+  failureReason      String?
+  completedAt        DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  User               User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([checkoutRequestId])
+  @@index([userId])
+  @@index([status])
+}
+
+model Game {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  description  String?
+  gameType     GameType
+  level        Level
+  minPlayers   Int           @default(1)
+  maxPlayers   Int           @default(100)
+  minPlayTime  Int // minutes
+  maxPlayTime  Int // minutes
+  minEntryFee  Int           @default(0) // cents
+  isPopular    Boolean       @default(false)
+  imageUrl     String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  competitions Competition[]
+
+  @@index([gameType])
+  @@index([level])
+  @@index([isActive, isPopular])
+}
+
+model Competition {
+  id             String              @id @default(cuid())
+  code           String              @unique
+  title          String
+  creatorId      String
+  gameId         String
+  privacy        Privacy             @default(PRIVATE)
+  minutesToPlay  Int // This will be validated against game's min/max play time
+  maxPlayers     Int // This will be validated against game's max players
+  entryFee       Int // cents - must be >= game.minEntryFee
+  totalPrizePool Int                 @default(0)
+  status         CompetitionStatus   @default(UPCOMING)
+  startsAt       DateTime
+  endsAt         DateTime
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  creator        User                @relation("CreatorCompetitions", fields: [creatorId], references: [id])
+  game           Game                @relation(fields: [gameId], references: [id])
+  players        CompetitionPlayer[]
+  matches        Match[]
+  invites        Invite[]
+
+  @@index([gameId])
+  @@index([status])
+  @@index([creatorId])
+  @@index([privacy, status])
+  @@index([status, startsAt])
+}
+
+model CompetitionPlayer {
+  id            String   @id @default(cuid())
+  competitionId String
+  userId        String
+  joinedAt      DateTime @default(now())
+  paid          Boolean  @default(false)
+  score         Int      @default(0)
+  isReady       Boolean  @default(false)
+  rank          Int?
+
+  Competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  User        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, competitionId])
+  @@index([userId])
+  @@index([competitionId, score])
+  @@index([competitionId, rank])
+}
+
+model Match {
+  id            String      @id @default(cuid())
+  competitionId String
+  status        String      @default("PENDING")
+  startedAt     DateTime?
+  endedAt       DateTime?
+  result        Json?
+  Competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+
+  @@index([competitionId])
+  @@index([status])
+}
+
+model Invite {
+  id            String      @id @default(cuid())
+  competitionId String
+  inviterId     String
+  inviteeId     String?
+  code          String      @unique
+  accepted      Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  Competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  inviter       User        @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([competitionId])
+  @@index([inviterId])
+  @@index([inviteeId])
+  @@index([code])
+}
+
+model TrainingSession {
+  id        String   @id @default(cuid())
+  userId    String
+  gameName  String
+  score     Int      @default(0)
+  duration  Int      @default(0) // seconds
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([gameName])
+}
