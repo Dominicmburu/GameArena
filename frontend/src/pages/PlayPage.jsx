@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Badge, Button, Tab, Tabs, Modal, Alert, Toast, ToastContainer } from 'react-bootstrap';
-import { Play, Trophy, Clock, Users, Zap, TrendingUp, Medal, Target, Eye, UserPlus } from 'lucide-react';
+import { Play, Trophy, Clock, Users, Zap, TrendingUp, Medal, Target, UserPlus, Copy, Check } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
 import PaymentModal from '../components/payment/PaymentModal';
 import GamePlayground from '../components/gaming/GamePlayground';
@@ -10,7 +10,6 @@ const PlayPage = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedCompetition, setSelectedCompetition] = useState(null);
   const [showGameModal, setShowGameModal] = useState(false);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [joinCode, setJoinCode] = useState('');
   const [walletBalance, setWalletBalance] = useState(0);
@@ -18,6 +17,7 @@ const PlayPage = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVariant, setToastVariant] = useState('success');
+  const [copiedCode, setCopiedCode] = useState('');
 
   const {
     myCompetitions,
@@ -144,6 +144,16 @@ const PlayPage = () => {
     showToastMessage('Game completed successfully!', 'success');
   };
 
+  const handleCopyCode = async (code) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(''), 2000);
+    } catch (err) {
+      console.error('Failed to copy code:', err);
+    }
+  };
+
   const getRankColor = (rank) => {
     if (rank <= 5) return '#00FF85';
     if (rank <= 20) return '#00F0FF';
@@ -241,7 +251,7 @@ const PlayPage = () => {
                     onClick={() => setShowJoinModal(true)}
                   >
                     <UserPlus size={20} className="me-2" />
-                    Join Competition
+                    <span className="d-none d-sm-inline">Join Competition</span>
                   </Button>
                 </div>
               </div>
@@ -294,12 +304,36 @@ const PlayPage = () => {
                               <div className="d-flex justify-content-between align-items-start mb-3">
                                 <div>
                                   <h5 className="text-white mb-1">{comp.title}</h5>
-                                  <Badge className="me-2" style={{ background: '#9B00FF' }}>
-                                    {comp.Game?.name || comp.gameName}
-                                  </Badge>
-                                  <Badge style={{ background: getStatusColor(comp.status) }}>
-                                    {getStatusText(comp.status)}
-                                  </Badge>
+                                  <div className="d-flex gap-2 flex-wrap mb-2">
+                                    <Badge className="me-2" style={{ background: '#9B00FF' }}>
+                                      {comp.Game?.name || comp.gameName}
+                                    </Badge>
+                                    <Badge style={{ background: getStatusColor(comp.status) }}>
+                                      {getStatusText(comp.status)}
+                                    </Badge>
+                                  </div>
+                                  <div className="competition-code d-flex align-items-center mb-2">
+                                    <span className="text-grey me-2">Code:</span>
+                                    <code 
+                                      className="text-neon bg-dark px-2 py-1 rounded cursor-pointer"
+                                      onClick={() => handleCopyCode(comp.code)}
+                                      style={{ cursor: 'pointer' }}
+                                    >
+                                      {comp.code}
+                                    </code>
+                                    <Button
+                                      variant="link"
+                                      size="sm"
+                                      className="p-0 ms-2"
+                                      onClick={() => handleCopyCode(comp.code)}
+                                    >
+                                      {copiedCode === comp.code ? (
+                                        <Check size={14} color="#00FF85" />
+                                      ) : (
+                                        <Copy size={14} color="#B0B0B0" />
+                                      )}
+                                    </Button>
+                                  </div>
                                 </div>
                                 <div className="rank-display text-center">
                                   <div className="rank-number fw-bold h3 text-neon">
@@ -311,22 +345,28 @@ const PlayPage = () => {
 
                               <div className="competition-stats mb-3">
                                 <Row className="g-2">
-                                  <Col sm={4}>
+                                  <Col xs={6} sm={3}>
                                     <div className="stat-item">
                                       <Trophy size={16} color="#00F0FF" className="me-2" />
                                       <span className="text-neon">KSh {comp.totalPrizePool || (comp.entryFee * comp.maxPlayers * 0.9)}</span>
                                     </div>
                                   </Col>
-                                  <Col sm={4}>
+                                  <Col xs={6} sm={3}>
                                     <div className="stat-item">
                                       <Clock size={16} color="#FF003C" className="me-2" />
                                       <span className="text-cyber-red">{comp.minutesToPlay}min</span>
                                     </div>
                                   </Col>
-                                  <Col sm={4}>
+                                  <Col xs={6} sm={3}>
                                     <div className="stat-item">
                                       <Users size={16} color="#9B00FF" className="me-2" />
                                       <span className="text-purple">{comp.currentPlayers || comp.participants?.length || 0}/{comp.maxPlayers}</span>
+                                    </div>
+                                  </Col>
+                                  <Col xs={6} sm={3}>
+                                    <div className="stat-item">
+                                      <Zap size={16} color="#00FF85" className="me-2" />
+                                      <span className="text-energy-green">KSh {comp.entryFee}</span>
                                     </div>
                                   </Col>
                                 </Row>
@@ -334,35 +374,48 @@ const PlayPage = () => {
                             </Col>
 
                             <Col md={4} className="text-end">
-                              {comp.status === 'UPCOMING' && (
+                              <div className="d-none d-sm-block">
+                                {comp.status === 'UPCOMING' && (
+                                  <Button 
+                                    className="btn-outline-cyber w-100 mb-2"
+                                    size="sm"
+                                    onClick={() => handleMarkReady(comp.code)}
+                                  >
+                                    Mark Ready
+                                  </Button>
+                                )}
                                 <Button 
-                                  className="btn-outline-cyber w-100 mb-2"
-                                  size="sm"
-                                  onClick={() => handleMarkReady(comp.code)}
+                                  className="btn-cyber w-100"
+                                  size="lg"
+                                  onClick={() => handlePlayClick(comp)}
+                                  disabled={comp.status === 'UPCOMING'}
                                 >
-                                  Mark Ready
+                                  <Play size={20} className="me-2" />
+                                  {comp.status === 'UPCOMING' ? 'Starts Soon' : 'Play Now'}
                                 </Button>
-                              )}
-                              <Button 
-                                className="btn-cyber w-100 mb-2"
-                                size="lg"
-                                onClick={() => handlePlayClick(comp)}
-                                disabled={comp.status === 'UPCOMING'}
-                              >
-                                <Play size={20} className="me-2" />
-                                {comp.status === 'UPCOMING' ? 'Starts Soon' : 'Play Now'}
-                              </Button>
-                              <Button 
-                                className="btn-outline-cyber w-100"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedCompetition(comp);
-                                  setShowDetailsModal(true);
-                                }}
-                              >
-                                <Eye size={18} className="me-2" />
-                                View Details
-                              </Button>
+                              </div>
+                              
+                              <div className="d-sm-none">
+                                <div className="d-flex gap-2">
+                                  {comp.status === 'UPCOMING' && (
+                                    <Button 
+                                      className="btn-outline-cyber flex-fill"
+                                      size="sm"
+                                      onClick={() => handleMarkReady(comp.code)}
+                                    >
+                                      <Target size={16} />
+                                    </Button>
+                                  )}
+                                  <Button 
+                                    className={`btn-cyber ${comp.status === 'UPCOMING' ? 'flex-fill' : 'w-100'}`}
+                                    size="sm"
+                                    onClick={() => handlePlayClick(comp)}
+                                    disabled={comp.status === 'UPCOMING'}
+                                  >
+                                    <Play size={16} />
+                                  </Button>
+                                </div>
+                              </div>
                             </Col>
                           </Row>
                         </Card.Body>
@@ -391,12 +444,36 @@ const PlayPage = () => {
                               <div className="d-flex justify-content-between align-items-start mb-3">
                                 <div>
                                   <h5 className="text-white mb-1">{comp.title}</h5>
-                                  <Badge className="me-2" style={{ background: '#9B00FF' }}>
-                                    {comp.Game?.name || comp.gameName}
-                                  </Badge>
-                                  <Badge style={{ background: getStatusColor(comp.status) }}>
-                                    {getStatusText(comp.status)}
-                                  </Badge>
+                                  <div className="d-flex gap-2 flex-wrap mb-2">
+                                    <Badge className="me-2" style={{ background: '#9B00FF' }}>
+                                      {comp.Game?.name || comp.gameName}
+                                    </Badge>
+                                    <Badge style={{ background: getStatusColor(comp.status) }}>
+                                      {getStatusText(comp.status)}
+                                    </Badge>
+                                  </div>
+                                  <div className="competition-code d-flex align-items-center mb-2">
+                                    <span className="text-grey me-2">Code:</span>
+                                    <code 
+                                      className="text-neon bg-dark px-2 py-1 rounded cursor-pointer"
+                                      onClick={() => handleCopyCode(comp.code)}
+                                      style={{ cursor: 'pointer' }}
+                                    >
+                                      {comp.code}
+                                    </code>
+                                    <Button
+                                      variant="link"
+                                      size="sm"
+                                      className="p-0 ms-2"
+                                      onClick={() => handleCopyCode(comp.code)}
+                                    >
+                                      {copiedCode === comp.code ? (
+                                        <Check size={14} color="#00FF85" />
+                                      ) : (
+                                        <Copy size={14} color="#B0B0B0" />
+                                      )}
+                                    </Button>
+                                  </div>
                                 </div>
                                 <div className="rank-display text-center">
                                   <div className="rank-number fw-bold h3" style={{ color: getRankColor(comp.finalRank) }}>
@@ -408,39 +485,32 @@ const PlayPage = () => {
 
                               <div className="competition-stats">
                                 <Row className="g-2">
-                                  <Col sm={4}>
+                                  <Col xs={6} sm={3}>
                                     <div className="stat-item">
                                       <Trophy size={16} color="#00F0FF" className="me-2" />
                                       <span className="text-neon">{comp.finalScore?.toLocaleString() || 0}</span>
                                     </div>
                                   </Col>
-                                  <Col sm={4}>
+                                  <Col xs={6} sm={3}>
                                     <div className="stat-item">
                                       <Medal size={16} color="#00FF85" className="me-2" />
                                       <span className="text-energy-green">KSh {comp.earnings || 0}</span>
                                     </div>
                                   </Col>
-                                  <Col sm={4}>
+                                  <Col xs={6} sm={3}>
                                     <div className="stat-item">
                                       <Users size={16} color="#9B00FF" className="me-2" />
                                       <span className="text-purple">{comp.totalPlayers || comp.maxPlayers} players</span>
                                     </div>
                                   </Col>
+                                  <Col xs={6} sm={3}>
+                                    <div className="stat-item">
+                                      <Zap size={16} color="#00FF85" className="me-2" />
+                                      <span className="text-energy-green">KSh {comp.entryFee}</span>
+                                    </div>
+                                  </Col>
                                 </Row>
                               </div>
-                            </Col>
-
-                            <Col md={4} className="text-end">
-                              <Button 
-                                className="btn-outline-cyber w-100 mb-2"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedCompetition(comp);
-                                  setShowDetailsModal(true);
-                                }}
-                              >
-                                View Results
-                              </Button>
                             </Col>
                           </Row>
                         </Card.Body>
@@ -596,121 +666,6 @@ const PlayPage = () => {
         </Modal.Body>
       </Modal>
 
-      {/* Competition Details Modal */}
-      <Modal 
-        show={showDetailsModal} 
-        onHide={() => setShowDetailsModal(false)}
-        // size="lg"
-        className="cyber-modal"
-      >
-        <Modal.Header closeButton>
-          <Modal.Title className="d-flex align-items-center">
-            <Trophy size={24} className="me-2 text-neon" />
-            {selectedCompetition?.title}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {selectedCompetition && (
-            <div className="competition-details">
-              <Row className="mb-4">
-                <Col md={12}>
-                  <div className="competition-info">
-                    <div className="d-flex align-items-center gap-3 mb-3">
-                      <Badge style={{ background: getStatusColor(selectedCompetition.status), color: '#0E0E10', padding: '6px 12px' }}>
-                        {getStatusText(selectedCompetition.status)}
-                      </Badge>
-                      <Badge style={{ background: '#9B00FF', padding: '6px 12px' }}>
-                        {selectedCompetition.Game?.name || selectedCompetition.gameName}
-                      </Badge>
-                      <Badge style={{ background: '#00F0FF', color: '#0E0E10', padding: '6px 12px' }}>
-                        {selectedCompetition.gameLevel?.toUpperCase() || 'BEGINNER'}
-                      </Badge>
-                    </div>
-                    
-                    {/* competition code */}
-                    <p className="text-white mb-3">{selectedCompetition.code}</p>
-                    
-                    <div className="competition-meta">
-                      <Row>
-                        <Col sm={6} className="mb-2">
-                          <strong className="text-white">Duration:</strong>
-                          <div className="text-white">{selectedCompetition.minutesToPlay} minutes</div>
-                        </Col>
-                        <Col sm={6} className="mb-2">
-                          <strong className="text-white">Players:</strong>
-                          <div className="text-white">{selectedCompetition.currentPlayers || 0}/{selectedCompetition.maxPlayers}</div>
-                        </Col>
-                        <Col sm={6} className="mb-2">
-                          <strong className="text-white">Entry Fee:</strong>
-                          <div className="text-white">KSh {selectedCompetition.entryFee}</div>
-                        </Col>
-                        <Col sm={6} className="mb-2">
-                          <strong className="text-white">Total Prize:</strong>
-                          <div className="text-energy-green fw-bold">KSh {selectedCompetition.totalPrizePool || (selectedCompetition.entryFee * selectedCompetition.maxPlayers * 0.9)}</div>
-                        </Col>
-                      </Row>
-                    </div>
-                  </div>
-                </Col>
-                
-                {/* <Col md={4}>
-                  <div className="competition-stats cyber-card p-3">
-                    <h6 className="text-neon mb-3">Prize Distribution</h6>
-                    <div className="prize-breakdown">
-                      {(() => {
-                        const totalPrize = selectedCompetition.totalPrizePool || (selectedCompetition.entryFee * selectedCompetition.maxPlayers * 0.9);
-                        return (
-                          <>
-                            <div className="d-flex justify-content-between mb-2">
-                              <span className="text-white">🥇 1st Place:</span>
-                              <span className="text-energy-green fw-bold">
-                                KSh {(totalPrize * 0.6).toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="d-flex justify-content-between mb-2">
-                              <span className="text-white">🥈 2nd Place:</span>
-                              <span className="text-neon fw-bold">
-                                KSh {(totalPrize * 0.25).toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="d-flex justify-content-between mb-2">
-                              <span className="text-white">🥉 3rd Place:</span>
-                              <span className="text-purple fw-bold">
-                                KSh {(totalPrize * 0.15).toFixed(2)}
-                              </span>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </Col> */}
-              </Row>
-            </div>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button 
-            variant="outline-secondary" 
-            onClick={() => setShowDetailsModal(false)}
-          >
-            Close
-          </Button>
-          {selectedCompetition?.status === 'ONGOING' && (
-            <Button 
-              className="btn-cyber"
-              onClick={() => {
-                setShowDetailsModal(false);
-                handlePlayClick(selectedCompetition);
-              }}
-            >
-              <Play size={18} className="me-2" />
-              Join & Play
-            </Button>
-          )}
-        </Modal.Footer>
-      </Modal>
-
       {/* Toast Notifications */}
       <ToastContainer position="top-end" className="p-3">
         <Toast 
@@ -815,10 +770,6 @@ const PlayPage = () => {
           background: linear-gradient(45deg, #00F0FF, #9B00FF);
         }
 
-        .prize-breakdown {
-          font-size: 0.9rem;
-        }
-
         .cyber-toast.success .toast-header {
           background: rgba(0, 255, 133, 0.1);
           color: #00FF85;
@@ -837,6 +788,16 @@ const PlayPage = () => {
         .cyber-toast {
           background: rgba(14, 14, 16, 0.95) !important;
           border: 1px solid rgba(0, 240, 255, 0.3) !important;
+        }
+
+        .competition-code code:hover {
+          background: rgba(0, 240, 255, 0.1) !important;
+          transform: scale(1.05);
+          transition: all 0.2s ease;
+        }
+
+        .cursor-pointer {
+          cursor: pointer;
         }
       `}</style>
     </div>
