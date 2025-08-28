@@ -169,8 +169,8 @@ model Competition {
   entryFee       Int // cents - must be >= game.minEntryFee
   totalPrizePool Int                 @default(0)
   status         CompetitionStatus   @default(UPCOMING)
-  startsAt       DateTime
-  endsAt         DateTime
+  startsAt       DateTime?
+  endsAt         DateTime?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
   creator        User                @relation("CreatorCompetitions", fields: [creatorId], references: [id])

@@ -1,21 +1,54 @@
 import React, { useState } from 'react'
-import { Navbar, Nav, NavDropdown, Container, Badge, Button } from 'react-bootstrap'
-import { Link, useLocation } from 'react-router-dom'
-import { Trophy, Wallet, User, Settings, History, LogOut, Menu, Home, Gamepad2, PlusCircle, Dumbbell } from 'lucide-react'
+import { Navbar, Nav, NavDropdown, Container, Badge, Button, Modal } from 'react-bootstrap'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Trophy, Wallet, User, Settings, History, LogOut, AlertTriangle, Menu, Home, Gamepad2, PlusCircle, Dumbbell } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContext'
 
 const Header = () => {
   const location = useLocation()
+
+  const navigate = useNavigate()
+  const { user, logout } = useAuth()
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
   const [userScore] = useState(15420) // Mock user score
   const [userRank] = useState(42) // Mock user rank
 
   const isActive = (path) => location.pathname === path
 
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true)
+  }
+
+  const handleLogoutConfirm = async () => {
+    try {
+      setIsLoggingOut(true)
+      await logout()
+      setShowLogoutModal(false)
+
+      navigate('/auth')
+
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Even if there's an error, we still want to redirect
+      setShowLogoutModal(false)
+      navigate('/auth')
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
+
+  const handleLogoutCancel = () => {
+    setShowLogoutModal(false)
+  }
+
   return (
     <>
       {/* Desktop Header */}
-      <Navbar 
-        expand="lg" 
-        fixed="top" 
+      <Navbar
+        expand="lg"
+        fixed="top"
         className="cyber-navbar d-lg-flex d-none"
         style={{
           background: 'rgba(14, 14, 16, 0.95)',
@@ -28,7 +61,7 @@ const Header = () => {
           {/* Logo */}
           <Navbar.Brand as={Link} to="/" className="d-flex align-items-center">
             <div className="logo-container d-flex align-items-center">
-              <div 
+              <div
                 className="logo-icon me-2"
                 style={{
                   width: '40px',
@@ -43,7 +76,7 @@ const Header = () => {
               >
                 <Trophy size={24} color="#0E0E10" />
               </div>
-              <span 
+              <span
                 className="cyber-text fw-bold"
                 style={{
                   fontSize: '1.8rem',
@@ -60,33 +93,33 @@ const Header = () => {
 
           {/* Navigation Links - Desktop Only */}
           <Nav className="me-auto">
-            <Nav.Link 
-              as={Link} 
-              to="/" 
+            <Nav.Link
+              as={Link}
+              to="/"
               className={`cyber-nav-link ${isActive('/') ? 'active' : ''}`}
             >
               <Home size={18} className="me-2" />
               Home
             </Nav.Link>
-            <Nav.Link 
-              as={Link} 
-              to="/play" 
+            <Nav.Link
+              as={Link}
+              to="/play"
               className={`cyber-nav-link ${isActive('/play') ? 'active' : ''}`}
             >
               <Gamepad2 size={18} className="me-2" />
               Play
             </Nav.Link>
-            <Nav.Link 
-              as={Link} 
-              to="/create" 
+            <Nav.Link
+              as={Link}
+              to="/create"
               className={`cyber-nav-link ${isActive('/create') ? 'active' : ''}`}
             >
               <PlusCircle size={18} className="me-2" />
               Create
             </Nav.Link>
-            <Nav.Link 
-              as={Link} 
-              to="/train" 
+            <Nav.Link
+              as={Link}
+              to="/train"
               className={`cyber-nav-link ${isActive('/train') ? 'active' : ''}`}
             >
               <Dumbbell size={18} className="me-2" />
@@ -97,7 +130,7 @@ const Header = () => {
           {/* User Info & Actions */}
           <Nav className="align-items-center">
             {/* User Score Display */}
-            <div 
+            <div
               className="user-score-display me-3 px-3 py-2"
               style={{
                 background: 'rgba(0, 240, 255, 0.1)',
@@ -112,8 +145,8 @@ const Header = () => {
               <div className="score-info">
                 <div className="d-flex align-items-center gap-2">
                   <span className="text-neon fw-bold">{userScore.toLocaleString()}</span>
-                  <Badge 
-                    bg="" 
+                  <Badge
+                    bg=""
                     className="rank-badge"
                     style={{
                       background: 'linear-gradient(45deg, #9B00FF, #FF003C)',
@@ -128,7 +161,7 @@ const Header = () => {
             </div>
 
             {/* Deposit Button */}
-            <Button 
+            <Button
               as={Link}
               to="/deposit"
               className="btn-cyber me-3"
@@ -142,7 +175,7 @@ const Header = () => {
             <NavDropdown
               title={
                 <div className="d-flex align-items-center">
-                  <div 
+                  <div
                     className="profile-avatar me-2"
                     style={{
                       width: '35px',
@@ -172,7 +205,9 @@ const Header = () => {
                 Game History
               </NavDropdown.Item>
               <NavDropdown.Divider />
-              <NavDropdown.Item>
+              <NavDropdown.Item
+                onClick={handleLogoutClick}
+                style={{ cursor: 'pointer' }}>
                 <LogOut size={16} className="me-2" />
                 Logout
               </NavDropdown.Item>
@@ -182,8 +217,8 @@ const Header = () => {
       </Navbar>
 
       {/* Mobile Header */}
-      <Navbar 
-        fixed="top" 
+      <Navbar
+        fixed="top"
         className="mobile-navbar d-lg-none"
         style={{
           background: 'rgba(14, 14, 16, 0.95)',
@@ -196,7 +231,7 @@ const Header = () => {
         <Container fluid className="d-flex align-items-center justify-content-between">
           {/* Mobile Logo */}
           <Navbar.Brand as={Link} to="/" className="d-flex align-items-center">
-            <div 
+            <div
               className="logo-icon me-2"
               style={{
                 width: '30px',
@@ -211,7 +246,7 @@ const Header = () => {
             >
               <Trophy size={18} color="#0E0E10" />
             </div>
-            <span 
+            <span
               className="cyber-text fw-bold"
               style={{
                 fontSize: '1.2rem',
@@ -228,7 +263,7 @@ const Header = () => {
           {/* Mobile User Info */}
           <div className="d-flex align-items-center gap-2">
             {/* Mobile Score Display */}
-            <div 
+            <div
               className="mobile-score-display px-2 py-1"
               style={{
                 background: 'rgba(0, 240, 255, 0.1)',
@@ -245,7 +280,7 @@ const Header = () => {
             </div>
 
             {/* Mobile Deposit Button */}
-            <Button 
+            <Button
               as={Link}
               to="/deposit"
               className="mobile-deposit-btn"
@@ -267,7 +302,7 @@ const Header = () => {
             {/* Mobile Profile Dropdown */}
             <NavDropdown
               title={
-                <div 
+                <div
                   className="profile-avatar"
                   style={{
                     width: '35px',
@@ -296,7 +331,10 @@ const Header = () => {
                 Game History
               </NavDropdown.Item>
               <NavDropdown.Divider />
-              <NavDropdown.Item>
+              <NavDropdown.Item
+                onClick={handleLogoutClick}
+                style={{ cursor: 'pointer' }}
+              >
                 <LogOut size={16} className="me-2" />
                 Logout
               </NavDropdown.Item>
@@ -304,6 +342,115 @@ const Header = () => {
           </div>
         </Container>
       </Navbar>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        show={showLogoutModal}
+        onHide={handleLogoutCancel}
+        centered
+        className="cyber-modal"
+      >
+        <Modal.Header
+          closeButton
+          style={{
+            background: 'rgba(31, 31, 35, 0.95)',
+            border: 'none',
+            borderBottom: '1px solid rgba(0, 240, 255, 0.3)'
+          }}
+        >
+          <Modal.Title className="d-flex align-items-center text-white">
+            <AlertTriangle size={24} className="me-2 text-warning" />
+            Confirm Logout
+          </Modal.Title>
+        </Modal.Header>
+
+        <Modal.Body
+          style={{
+            background: 'rgba(31, 31, 35, 0.95)',
+            color: 'white'
+          }}
+        >
+          <div className="text-center py-3">
+            <div
+              className="mb-3"
+              style={{
+                width: '60px',
+                height: '60px',
+                background: 'linear-gradient(45deg, #00F0FF, #9B00FF)',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto'
+              }}
+            >
+              <LogOut size={28} color="#F5F5F5" />
+            </div>
+            <h5 className="mb-3 text-white">Ready to leave the arena?</h5>
+            <p className="text-secondary mb-0">
+              You'll be signed out of your GameArena account.
+              Your progress and achievements will be saved.
+            </p>
+            {user?.username && (
+              <p className="text-neon mt-2 mb-0">
+                See you later, <strong>{user.username}</strong>!
+              </p>
+            )}
+          </div>
+        </Modal.Body>
+
+        <Modal.Footer
+          style={{
+            background: 'rgba(31, 31, 35, 0.95)',
+            border: 'none',
+            borderTop: '1px solid rgba(0, 240, 255, 0.3)'
+          }}
+        >
+          <Button
+            variant="outline-secondary"
+            onClick={handleLogoutCancel}
+            disabled={isLoggingOut}
+            style={{
+              borderColor: 'rgba(255, 255, 255, 0.3)',
+              color: '#F5F5F5'
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleLogoutConfirm}
+            disabled={isLoggingOut}
+            style={{
+              background: 'linear-gradient(45deg, #FF003C, #9B00FF)',
+              border: 'none',
+              color: '#F5F5F5',
+              minWidth: '100px'
+            }}
+          >
+            {isLoggingOut ? (
+              <div className="d-flex align-items-center justify-content-center">
+                <div
+                  className="spinner-border spinner-border-sm me-2"
+                  role="status"
+                  style={{
+                    width: '16px',
+                    height: '16px',
+                    borderColor: 'rgba(245, 245, 245, 0.3)',
+                    borderTopColor: '#F5F5F5'
+                  }}
+                />
+                Signing Out...
+              </div>
+            ) : (
+              <>
+                <LogOut size={16} className="me-2" />
+                Logout
+              </>
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
 
       <style jsx>{`
         .cyber-nav-link {

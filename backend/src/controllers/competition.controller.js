@@ -232,13 +232,9 @@ const createCompetitionSchema = z.object({
   privacy: z.enum(["PUBLIC","PRIVATE"]).default("PRIVATE"),
   minutesToPlay: z.number().int().min(1, "Duration must be at least 1 minute"),
   maxPlayers: z.number().int().min(2, "Must allow at least 2 players").max(1000, "Cannot exceed 1000 players"),
-  entryFee: z.number().int().min(0, "Entry fee cannot be negative"),
-  startsAt: z.coerce.date(),
-  endsAt: z.coerce.date(),
-}).refine(data => data.endsAt > data.startsAt, {
-  message: "End time must be after start time",
-  path: ["endsAt"]
+  entryFee: z.number().int().min(0, "Entry fee cannot be negative")
 });
+
 
 export const create = async (req, res, next) => {
   try {
