@@ -99,9 +99,10 @@ export const login = async (req, res, next) => {
     
     res.cookie("ga_auth", token, { 
       httpOnly: true, 
-      sameSite: "lax", 
+      secure: env.cookieSecure,
+      sameSite: env.cookieSecure ? "none" : "lax", 
       secure: env.cookieSecure, 
-      domain: env.cookieDomain, 
+      domain: env.cookieDomain || undefined, 
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: "/" 
     });
