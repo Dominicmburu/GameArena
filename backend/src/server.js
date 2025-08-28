@@ -37,6 +37,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 
+// Helpful for secure cookies behind proxies (Heroku/Render/Nginx)
+app.set('trust proxy', 1);
+
 // Request logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
@@ -113,7 +116,7 @@ const server = http.createServer(app);
 // Socket.io setup
 const io = new Server(server, {
     cors: {
-        origin: env.clientOrigin,
+        origin: env.clientOrigins,
         credentials: true,
         methods: ["GET", "POST"]
     },
@@ -175,8 +178,9 @@ const startServer = async () => {
         server.listen(env.port, () => {
             console.log(`🚀 Server running on http://localhost:${env.port}`);
             console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);
-            console.log(`🌐 Client origin: ${env.clientOrigin}`);
+            console.log(`🌐 Client origins: ${env.clientOrigins.join(", ")}`);
             console.log(`🔒 Cookie secure: ${env.cookieSecure}`);
+            console.log(`🍪 Cookie domain: ${env.cookieDomain || "(host-only)"}`);
         });
     } catch (error) {
         console.error("Failed to start server:", error);

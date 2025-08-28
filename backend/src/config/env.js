@@ -1,28 +1,40 @@
 import "dotenv/config";
 
+const isProd = process.env.NODE_ENV === "production";
+
+const safeCookieDomain =
+  isProd &&
+    process.env.COOKIE_DOMAIN &&
+    !/localhost/i.test(process.env.COOKIE_DOMAIN) &&
+    !/:\d+/.test(process.env.COOKIE_DOMAIN) &&
+    !/^https?:\/\//i.test(process.env.COOKIE_DOMAIN)
+    ? process.env.COOKIE_DOMAIN
+    : undefined;
+
 export const env = {
   port: Number(process.env.PORT) || 4000,
   dbUrl: process.env.DATABASE_URL,
   jwtSecret: process.env.JWT_SECRET,
-  cookieDomain: process.env.COOKIE_DOMAIN || "localhost",
-  cookieSecure: process.env.COOKIE_SECURE === "true",
   
+  cookieDomain: safeCookieDomain,
+  cookieSecure: process.env.COOKIE_SECURE === "true",
+
   clientOrigins: process.env.CLIENT_ORIGINS
     ? process.env.CLIENT_ORIGINS.split(",").map(o => o.trim())
     : [process.env.CLIENT_ORIGIN || "http://localhost:5173"],
-    
+
   mpesa: {
     consumerKey: process.env.MPESA_CONSUMER_KEY || "",
     consumerSecret: process.env.MPESA_CONSUMER_SECRET || "",
     businessShortCode: process.env.MPESA_BUSINESS_SHORT_CODE || "",
     passkey: process.env.MPESA_PASSKEY || "",
-    env: process.env.MPESA_ENV || "sandbox", 
+    env: process.env.MPESA_ENV || "sandbox",
     callbackURL: process.env.MPESA_CALLBACK_URL,               // FIXED
     queueTimeoutURL: process.env.MPESA_QUEUE_TIMEOUT_URL,     // FIXED
     resultURL: process.env.MPESA_RESULT_URL,
-    initiatorName: process.env.MPESA_INITIATOR_NAME || "testapi", 
-    securityCredential: process.env.MPESA_SECURITY_CREDENTIAL || "", 
-    
+    initiatorName: process.env.MPESA_INITIATOR_NAME || "testapi",
+    securityCredential: process.env.MPESA_SECURITY_CREDENTIAL || "",
+
   },
 };
 
