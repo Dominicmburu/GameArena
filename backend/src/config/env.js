@@ -6,7 +6,11 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET,
   cookieDomain: process.env.COOKIE_DOMAIN || "localhost",
   cookieSecure: process.env.COOKIE_SECURE === "true",
-  clientOrigin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+  
+  clientOrigins: process.env.CLIENT_ORIGINS
+    ? process.env.CLIENT_ORIGINS.split(",").map(o => o.trim())
+    : [process.env.CLIENT_ORIGIN || "http://localhost:5173"],
+    
   mpesa: {
     consumerKey: process.env.MPESA_CONSUMER_KEY || "",
     consumerSecret: process.env.MPESA_CONSUMER_SECRET || "",
