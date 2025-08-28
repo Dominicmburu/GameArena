@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Form, Button, Badge, Modal, Alert, ProgressBar } from 'react-bootstrap'
-import { Plus, Gamepad2, Users, Clock, DollarSign, Lock, Globe, Calendar, Trophy, Settings, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Plus, Gamepad2, Users, Clock, DollarSign, Lock, Globe, Calendar, Trophy, Settings, CheckCircle, AlertTriangle, Play } from 'lucide-react'
 import { useGame } from '../contexts/GameContext'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -8,6 +8,7 @@ const MakeGame = () => {
   const {
     games,
     myCompetitions,
+    publicCompetitions,
     loading,
     errors,
     fetchMyCompetitions,
@@ -18,29 +19,17 @@ const MakeGame = () => {
 
   const { user } = useAuth()
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [selectedGameState, setSelectedGameState] = useState(null)
-  const [currentStep, setCurrentStep] = useState(1)
   const [formErrors, setFormErrors] = useState({})
+  const [createdCompetitionTitle, setCreatedCompetitionTitle] = useState('')
 
   const [formData, setFormData] = useState({
     title: '',
     gameId: '',
     minutesToPlay: '',
-    startDate: '',
-    startTime: '',
-    endDate: '',
-    endTime: '',
-    entryFee: '',
     maxPlayers: '',
-    privacy: 'private',
-    description: '',
-    prizePool: '',
-    difficulty: 'intermediate',
-    rules: [''],
-    eligibility: 'all',
-    autoStart: true,
-    allowSpectators: true,
-    streamingAllowed: true
+    entryFee: ''
   })
 
   // Load my competitions on mount
@@ -77,21 +66,41 @@ const MakeGame = () => {
     features: ['Competitive gameplay', 'Real-time scoring', 'Multiplayer support'],
     minPlayers: game.minPlayers,
     maxPlayersLimit: game.maxPlayers,
-    // defaultDuration: Math.round((game.minPlayTime + game.maxPlayTime) / 2),
     minEntryFee: game.minEntryFee || 0
   })
+
+  // Extract max time from duration string (e.g., "5-15 min" -> 15)
+  const extractMaxTime = (duration) => {
+    if (!duration || typeof duration !== 'string') return 10
+    
+    // Match patterns like "5-15 min", "10 min", "5-15", etc.
+    const match = duration.match(/(\d+)-(\d+)/)
+    if (match) {
+      return parseInt(match[2]) // Return the max value
+    }
+    
+    // If no range found, try to extract single number
+    const singleMatch = duration.match(/(\d+)/)
+    if (singleMatch) {
+      return parseInt(singleMatch[1])
+    }
+    
+    return 10 // Default fallback
+  }
 
   // Handle game selection
   const handleGameSelect = (game) => {
     const formattedGame = formatGameForDisplay(game)
+    const maxTime = extractMaxTime(formattedGame.avgDuration)
+    
     setSelectedGameState(formattedGame)
     setSelectedGame(formattedGame)
     setFormData(prev => ({
       ...prev,
       gameId: game.id,
-      minutesToPlay: formattedGame.avgDuration,
-      maxPlayers: formattedGame.maxPlayersLimit,
-      entryFee: formattedGame.minEntryFee
+      minutesToPlay: maxTime.toString(),
+      maxPlayers: formattedGame.maxPlayersLimit || '4',
+      entryFee: formattedGame.minEntryFee || '0'
     }))
     setShowCreateModal(true)
   }
@@ -113,29 +122,6 @@ const MakeGame = () => {
     }
   }
 
-  // Handle rule changes
-  const handleRuleChange = (index, value) => {
-    const newRules = [...formData.rules]
-    newRules[index] = value
-    setFormData(prev => ({ ...prev, rules: newRules }))
-  }
-
-  // Add new rule
-  const addRule = () => {
-    setFormData(prev => ({
-      ...prev,
-      rules: [...prev.rules, '']
-    }))
-  }
-
-  // Remove rule
-  const removeRule = (index) => {
-    if (formData.rules.length > 1) {
-      const newRules = formData.rules.filter((_, i) => i !== index)
-      setFormData(prev => ({ ...prev, rules: newRules }))
-    }
-  }
-
   // Form validation
   const validateForm = () => {
     const newErrors = {}
@@ -148,36 +134,6 @@ const MakeGame = () => {
 
     if (!formData.gameId) {
       newErrors.gameId = 'Game selection is required'
-    }
-
-    if (!formData.startDate) {
-      newErrors.startDate = 'Start date is required'
-    }
-
-    if (!formData.startTime) {
-      newErrors.startTime = 'Start time is required'
-    }
-
-    if (!formData.endDate) {
-      newErrors.endDate = 'End date is required'
-    }
-
-    if (!formData.endTime) {
-      newErrors.endTime = 'End time is required'
-    }
-
-    if (formData.startDate && formData.endDate && formData.startTime && formData.endTime) {
-      const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`)
-      const endDateTime = new Date(`${formData.endDate}T${formData.endTime}`)
-      const now = new Date()
-
-      if (startDateTime <= now) {
-        newErrors.startDate = 'Start time must be in the future'
-      }
-
-      if (endDateTime <= startDateTime) {
-        newErrors.endDate = 'End time must be after start time'
-      }
     }
 
     if (!formData.maxPlayers || formData.maxPlayers < 2) {
@@ -200,34 +156,6 @@ const MakeGame = () => {
     return Object.keys(newErrors).length === 0
   }
 
-  const nextStep = () => {
-    if (currentStep === 1 && !validateBasicInfo()) return
-    if (currentStep < 3) {
-      setCurrentStep(currentStep + 1)
-    }
-  }
-
-  const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1)
-    }
-  }
-
-  const validateBasicInfo = () => {
-    const basicErrors = {}
-
-    if (!formData.title.trim()) basicErrors.title = 'Title is required'
-    if (!formData.startDate) basicErrors.startDate = 'Start date is required'
-    if (!formData.startTime) basicErrors.startTime = 'Start time is required'
-    if (!formData.endDate) basicErrors.endDate = 'End date is required'
-    if (!formData.endTime) basicErrors.endTime = 'End time is required'
-    if (!formData.maxPlayers) basicErrors.maxPlayers = 'Max players is required'
-    if (!formData.minutesToPlay) basicErrors.minutesToPlay = 'Game duration is required'
-
-    setFormErrors(basicErrors)
-    return Object.keys(basicErrors).length === 0
-  }
-
   const handleCreateCompetition = async (e) => {
     e.preventDefault()
 
@@ -236,36 +164,23 @@ const MakeGame = () => {
     }
 
     try {
-      const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`)
-      const endDateTime = new Date(`${formData.endDate}T${formData.endTime}`)
-
       const competitionData = {
         title: formData.title,
         gameId: formData.gameId,
         minutesToPlay: parseInt(formData.minutesToPlay),
         maxPlayers: parseInt(formData.maxPlayers),
-        entryFee: parseFloat(formData.entryFee) || 0,
-        startsAt: startDateTime.toISOString(),
-        endsAt: endDateTime.toISOString(),
-        description: formData.description,
-        rules: formData.rules.filter(rule => rule.trim()),
-        privacy: formData.privacy,
-        allowSpectators: formData.allowSpectators,
-        streamingAllowed: formData.streamingAllowed
+        entryFee: parseFloat(formData.entryFee) || 0
       }
 
       await createCompetition(competitionData)
 
+      setCreatedCompetitionTitle(formData.title)
       setShowCreateModal(false)
-      setCurrentStep(1)
       resetForm()
-
-      // Success message - you can replace with a toast notification
-      alert('Competition created successfully!')
+      setShowSuccessModal(true)
 
     } catch (error) {
       console.error('Failed to create competition:', error)
-      // Error is already handled by the context
     }
   }
 
@@ -274,21 +189,8 @@ const MakeGame = () => {
       title: '',
       gameId: '',
       minutesToPlay: '',
-      startDate: '',
-      startTime: '',
-      endDate: '',
-      endTime: '',
-      entryFee: '',
       maxPlayers: '',
-      privacy: 'public',
-      description: '',
-      prizePool: '',
-      difficulty: 'intermediate',
-      rules: [''],
-      eligibility: 'all',
-      autoStart: true,
-      allowSpectators: true,
-      streamingAllowed: true
+      entryFee: ''
     })
     setSelectedGameState(null)
     setSelectedGame(null)
@@ -298,7 +200,6 @@ const MakeGame = () => {
   const calculateEstimatedPrize = () => {
     const entryFee = parseFloat(formData.entryFee) || 0
     const maxPlayers = parseInt(formData.maxPlayers) || 0
-
     return entryFee * maxPlayers * 0.9 // 10% platform fee
   }
 
@@ -390,7 +291,6 @@ const MakeGame = () => {
                           }}
                         />
                       </div>
-
 
                       <h4 className="text-white mb-2">{game.name}</h4>
                       <p className="text-white mb-3">{game.description}</p>
@@ -489,13 +389,12 @@ const MakeGame = () => {
         </Row>
       </Container>
 
-      {/* Create Competition Modal */}
+      {/* Create Competition Modal - SIMPLIFIED */}
       <Modal
         show={showCreateModal}
         onHide={() => {
           setShowCreateModal(false)
           resetForm()
-          setCurrentStep(1)
         }}
         size="lg"
         className="cyber-modal"
@@ -508,18 +407,6 @@ const MakeGame = () => {
         </Modal.Header>
 
         <Modal.Body>
-          <div className="creation-progress">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <span className="text-white">Step {currentStep} of 3</span>
-              <span className="text-white">{Math.round((currentStep / 3) * 100)}%</span>
-            </div>
-            <ProgressBar
-              now={(currentStep / 3) * 100}
-              style={{ height: '6px' }}
-              className="creation-progress-bar"
-            />
-          </div>
-
           {errors.creatingCompetition && (
             <Alert variant="danger" className="mb-3">
               <AlertTriangle size={16} className="me-2" />
@@ -528,322 +415,205 @@ const MakeGame = () => {
           )}
 
           <Form onSubmit={handleCreateCompetition}>
-            {/* Step 1: Basic Information */}
-            {currentStep === 1 && (
-              <div className="step-content">
-                <h5 className="text-neon mb-3">Basic Information</h5>
-
-                <Row>
-                  <Col md={8}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="text-white">Tournament Title *</Form.Label>
-                      <Form.Control
-                        type="text"
-                        name="title"
-                        className='text-white'
-                        value={formData.title ?? ''}
-                        onChange={handleInputChange}
-                        placeholder="Enter tournament name"
-                        isInvalid={!!formErrors.title}
-                      />
-                      <Form.Control.Feedback type="invalid">
-                        {formErrors.title}
-                      </Form.Control.Feedback>
-                    </Form.Group>
-                  </Col>
-                  <Col md={4}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="text-white">Game Duration (minutes) *</Form.Label>
-                      <Form.Control
-                        type="number"
-                        name="minutesToPlay"
-                        value={formData.minutesToPlay ?? ''}
-                        onChange={handleInputChange}
-                        placeholder="15"
-                        min="1"
-                        max="180"
-                        isInvalid={!!formErrors.minutesToPlay}
-                      />
-                      <Form.Control.Feedback type="invalid">
-                        {formErrors.minutesToPlay}
-                      </Form.Control.Feedback>
-                    </Form.Group>
-                  </Col>
-                </Row>
-
-                <Row>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="text-white">Max Players *</Form.Label>
-                      <Form.Control
-                        type="number"
-                        name="maxPlayers"
-                        value={formData.maxPlayers ?? ''}
-                        onChange={handleInputChange}
-                        placeholder="100"
-                        min="2"
-                        max={selectedGameState?.maxPlayersLimit || 1000}
-                        isInvalid={!!formErrors.maxPlayers}
-                      />
-                      <Form.Control.Feedback type="invalid">
-                        {formErrors.maxPlayers}
-                      </Form.Control.Feedback>
-                      {selectedGameState && (
-                        <Form.Text className="text-white">
-                          Max {selectedGameState.maxPlayersLimit} for {selectedGameState.name}
-                        </Form.Text>
-                      )}
-                    </Form.Group>
-                  </Col>
-                  <Col md={6}>
-                    <Form.Group className="mb-3">
-                      <Form.Label className="text-white">Entry Fee ($)</Form.Label>
-                      <Form.Control
-                        type="number"
-                        name="entryFee"
-                        value={formData.entryFee ?? ''}
-                        onChange={handleInputChange}
-                        placeholder="0"
-                        min="0"
-                        step="0.01"
-                        isInvalid={!!formErrors.entryFee}
-                      />
-                      <Form.Control.Feedback type="invalid">
-                        {formErrors.entryFee}
-                      </Form.Control.Feedback>
-                      {selectedGameState?.minEntryFee > 0 && (
-                        <Form.Text className="text-white">
-                          Minimum ${selectedGameState.minEntryFee} for this game
-                        </Form.Text>
-                      )}
-                    </Form.Group>
-                  </Col>
-                </Row>
-              </div>
-            )}
-
-            {/* Step 2: Rules & Settings */}
-            {currentStep === 2 && (
-              <div className="step-content">
-                <h5 className="text-purple mb-3">Rules & Settings</h5>
-
+            <Row>
+              <Col md={12}>
                 <Form.Group className="mb-3">
-                  <Form.Label className="text-white">Privacy Setting</Form.Label>
-                  <div className="d-flex gap-3 mb-3">
-                    <Form.Check
-                      type="radio"
-                      id="public"
-                      name="privacy"
-                      value="public"
-                      checked={formData.privacy === 'public'}
-                      onChange={handleInputChange}
-                      label={
-                        <span className="text-white">
-                          <Globe size={16} className="me-2" />
-                          Public
-                        </span>
-                      }
-                    />
-                    <Form.Check
-                      type="radio"
-                      id="private"
-                      name="privacy"
-                      value="private"
-                      checked={formData.privacy === 'private'}
-                      onChange={handleInputChange}
-                      label={
-                        <span className="text-white">
-                          <Lock size={16} className="me-2" />
-                          Private (Invite Only)
-                        </span>
-                      }
-                    />
-                  </div>
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label className="text-white">Description</Form.Label>
+                  <Form.Label className="text-white">Tournament Title *</Form.Label>
                   <Form.Control
-                    as="textarea"
-                    rows={3}
-                    name="description"
-                    value={formData.description}
+                    type="text"
+                    name="title"
+                    className='text-white'
+                    value={formData.title ?? ''}
                     onChange={handleInputChange}
-                    placeholder="Describe your tournament rules and objectives..."
+                    placeholder="Enter tournament name"
+                    isInvalid={!!formErrors.title}
                   />
+                  <Form.Control.Feedback type="invalid">
+                    {formErrors.title}
+                  </Form.Control.Feedback>
                 </Form.Group>
+              </Col>
+            </Row>
 
+            <Row>
+              <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label className="text-white">Competition Rules</Form.Label>
-                  {formData.rules.map((rule, index) => (
-                    <div key={index} className="d-flex gap-2 mb-2">
-                      <Form.Control
-                        type="text"
-                        value={rule}
-                        onChange={(e) => handleRuleChange(index, e.target.value)}
-                        placeholder={`Rule ${index + 1}`}
-                      />
-                      {formData.rules.length > 1 && (
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => removeRule(index)}
-                        >
-                          ×
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
-                    onClick={addRule}
-                    className="mt-2"
-                  >
-                    Add Rule
-                  </Button>
+                  <Form.Label className="text-white">Game Duration (minutes) *</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="minutesToPlay"
+                    value={formData.minutesToPlay ?? ''}
+                    onChange={handleInputChange}
+                    placeholder="10"
+                    min="1"
+                    max="180"
+                    isInvalid={!!formErrors.minutesToPlay}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {formErrors.minutesToPlay}
+                  </Form.Control.Feedback>
+                  {selectedGameState && selectedGameState.avgDuration && (
+                    <Form.Text className="text-white">
+                      Game time limit: {selectedGameState.avgDuration}
+                    </Form.Text>
+                  )}
                 </Form.Group>
-
-                <div className="settings-checkboxes">
-                  <Form.Check
-                    type="checkbox"
-                    id="allow-spectators"
-                    name="allowSpectators"
-                    checked={formData.allowSpectators}
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-white">Max Players *</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="maxPlayers"
+                    value={formData.maxPlayers ?? ''}
                     onChange={handleInputChange}
-                    label="Allow spectators"
-                    className="text-white mb-2"
+                    placeholder="4"
+                    min="2"
+                    max={selectedGameState?.maxPlayersLimit || 1000}
+                    isInvalid={!!formErrors.maxPlayers}
                   />
-                  <Form.Check
-                    type="checkbox"
-                    id="streaming-allowed"
-                    name="streamingAllowed"
-                    checked={formData.streamingAllowed}
+                  <Form.Control.Feedback type="invalid">
+                    {formErrors.maxPlayers}
+                  </Form.Control.Feedback>
+                  {selectedGameState && (
+                    <Form.Text className="text-white">
+                      Max {selectedGameState.maxPlayersLimit} for {selectedGameState.name}
+                    </Form.Text>
+                  )}
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-white">Entry Fee ($) *</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="entryFee"
+                    value={formData.entryFee ?? ''}
                     onChange={handleInputChange}
-                    label="Allow streaming/recording"
-                    className="text-white mb-2"
+                    placeholder="100"
+                    min="0"
+                    step="0.01"
+                    isInvalid={!!formErrors.entryFee}
                   />
+                  <Form.Control.Feedback type="invalid">
+                    {formErrors.entryFee}
+                  </Form.Control.Feedback>
+                  {selectedGameState?.minEntryFee > 0 && (
+                    <Form.Text className="text-white">
+                      Minimum ${selectedGameState.minEntryFee} for this game
+                    </Form.Text>
+                  )}
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <div className="prize-preview cyber-card p-3 h-100 d-flex flex-column justify-content-center">
+                  <div className="text-center">
+                    <Trophy size={24} color="#00FF85" className="mb-2" />
+                    <div className="text-white small">Estimated Prize Pool</div>
+                    <div className="text-energy-green fw-bold h5 mb-0">
+                      ${calculateEstimatedPrize().toFixed(2)}
+                    </div>
+                    <small className="text-muted">After platform fee</small>
+                  </div>
                 </div>
-              </div>
-            )}
+              </Col>
+            </Row>
 
-            {/* Step 3: Review & Create */}
-            {currentStep === 3 && (
-              <div className="step-content">
-                <h5 className="text-energy-green mb-3">Review & Confirm</h5>
-
-                <div className="tournament-review cyber-card p-3 mb-3">
-                  <h6 className="text-neon mb-3">Tournament Summary</h6>
-
-                  <Row>
-                    <Col md={6}>
-                      <div className="review-section mb-3">
-                        <strong className="text-white">Basic Info:</strong>
-                        <div className="text-white">
-                          <div>Title: {formData.title}</div>
-                          <div>Game: {selectedGameState?.name}</div>
-                          <div>Duration: {formData.minutesToPlay} minutes</div>
-                          <div>Privacy: {formData.privacy}</div>
-                        </div>
-                      </div>
-                    </Col>
-                    <Col md={6}>
-                      <div className="review-section mb-3">
-                        <strong className="text-white">Schedule:</strong>
-                        <div className="text-white">
-                          <div>Start: {formData.startDate} at {formData.startTime}</div>
-                          <div>End: {formData.endDate} at {formData.endTime}</div>
-                        </div>
-                      </div>
-                    </Col>
-                  </Row>
-
-                  <Row>
-                    <Col md={6}>
-                      <div className="review-section mb-3">
-                        <strong className="text-white">Players & Fees:</strong>
-                        <div className="text-white">
-                          <div>Max Players: {formData.maxPlayers}</div>
-                          <div>Entry Fee: ${formData.entryFee || '0'}</div>
-                        </div>
-                      </div>
-                    </Col>
-                    <Col md={6}>
-                      <div className="review-section mb-3">
-                        <strong className="text-white">Estimated Total Prize:</strong>
-                        <div className="text-energy-green fw-bold h5">
-                          ${calculateEstimatedPrize().toFixed(2)}
-                        </div>
-                        <small className="text-white">
-                          Entry fees minus 10% platform fee
-                        </small>
-                      </div>
-                    </Col>
-                  </Row>
-                </div>
-
-                {Object.keys(formErrors).length > 0 && (
-                  <Alert variant="danger">
-                    <AlertTriangle size={16} className="me-2" />
-                    Please fix the following errors before creating:
-                    <ul className="mb-0 mt-2">
-                      {Object.values(formErrors).map((error, index) => (
-                        <li key={index}>{error}</li>
-                      ))}
-                    </ul>
-                  </Alert>
-                )}
-              </div>
+            {Object.keys(formErrors).length > 0 && (
+              <Alert variant="danger" className="mt-3">
+                <AlertTriangle size={16} className="me-2" />
+                Please fix the errors above before creating the tournament.
+              </Alert>
             )}
           </Form>
         </Modal.Body>
 
         <Modal.Footer>
-          <div className="d-flex justify-content-between w-100">
+          <Button
+            variant="outline-secondary"
+            onClick={() => {
+              setShowCreateModal(false)
+              resetForm()
+            }}
+            disabled={loading.creatingCompetition}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            className="btn-cyber"
+            onClick={handleCreateCompetition}
+            disabled={loading.creatingCompetition || Object.keys(formErrors).length > 0}
+          >
+            {loading.creatingCompetition ? (
+              <>
+                <div className="loading-spinner me-2" style={{ width: '16px', height: '16px' }} />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Trophy size={18} className="me-2" />
+                Create Tournament
+              </>
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Success Modal - Gaming Style */}
+      <Modal
+        show={showSuccessModal}
+        onHide={() => setShowSuccessModal(false)}
+        centered
+      >
+        <Modal.Body className="text-center p-5">
+          <div className="success-animation mb-4">
+            <CheckCircle size={80} color="#00FF85" className="success-icon" />
+          </div>
+          
+          <h2 className="text-energy-green mb-3 cyber-text">
+            TOURNAMENT CREATED
+          </h2>
+          
+          <div className="success-message mb-4">
+            <h4 className="mb-2" style={{
+                  fontSize: '1.8rem',
+                  background: 'linear-gradient(45deg, #00F0FF, #9B00FF)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}>"{createdCompetitionTitle}"</h4>
+            <p className="text-white mb-3">
+              Your tournament is now <span className="text-energy-green fw-bold">LIVE</span> and ready for action!
+            </p>
+            
+            <div className="cyber-divider my-4"></div>
+          </div>
+          
+          <div className="action-buttons d-flex gap-3 justify-content-center">
+            <Button
+              className="btn"
+              onClick={() => {
+                setShowSuccessModal(false)
+                window.location.href = '/play'
+              }}
+            >
+              <Play size={20} className="me-2" />
+              LET'S PLAY!
+            </Button>
+            
             <Button
               variant="outline-secondary"
-              onClick={() => {
-                if (currentStep === 1) {
-                  setShowCreateModal(false)
-                  resetForm()
-                } else {
-                  prevStep()
-                }
-              }}
-              disabled={loading.creatingCompetition}
+              onClick={() => setShowSuccessModal(false)}
+              className="btn-outline-cyber"
             >
-              {currentStep === 1 ? 'Cancel' : 'Previous'}
+              Stay Here
             </Button>
-
-            {currentStep < 3 ? (
-              <Button
-                className="btn-cyber"
-                onClick={nextStep}
-                disabled={loading.creatingCompetition}
-              >
-                Next Step
-              </Button>
-            ) : (
-              <Button
-                className="btn-cyber"
-                onClick={handleCreateCompetition}
-                disabled={loading.creatingCompetition || Object.keys(formErrors).length > 0}
-              >
-                {loading.creatingCompetition ? (
-                  <>
-                    <div className="loading-spinner me-2" style={{ width: '16px', height: '16px' }} />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Trophy size={18} className="me-2" />
-                    Create Tournament
-                  </>
-                )}
-              </Button>
-            )}
           </div>
-        </Modal.Footer>
+        </Modal.Body>
       </Modal>
 
       <style jsx>{`
@@ -876,9 +646,81 @@ const MakeGame = () => {
           border-top: 1px solid rgba(0, 240, 255, 0.3) !important;
         }
 
-        .tournament-review {
-          background: rgba(0, 240, 255, 0.05) !important;
-          border: 1px solid rgba(0, 240, 255, 0.2) !important;
+        .cyber-modal .form-control::placeholder {
+          color: #6c757d !important;
+          opacity: 1 !important;
+        }
+
+        .cyber-modal .form-control::-webkit-input-placeholder {
+          color: #6c757d !important;
+        }
+
+        .cyber-modal .form-control::-moz-placeholder {
+          color: #6c757d !important;
+        }
+
+        .cyber-modal .form-control:-ms-input-placeholder {
+          color: #6c757d !important;
+        }
+
+        .success-modal .modal-content {
+          background: rgba(20, 30, 25, 0.95) !important;
+          border: 2px solid rgba(0, 255, 133, 0.5) !important;
+        }
+
+        .success-animation {
+          animation: successPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes successPulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+        }
+
+        .success-icon {
+          filter: drop-shadow(0 0 20px rgba(0, 255, 133, 0.5));
+        }
+
+        .cyber-divider {
+          height: 2px;
+          background: linear-gradient(90deg, transparent, #00FF85, transparent);
+          width: 100%;
+        }
+
+        .btn-cyber-success {
+          background: linear-gradient(45deg, #00FF85, #00F0FF) !important;
+          border: none !important;
+          color: #0E0E10 !important;
+          font-weight: bold !important;
+          padding: 12px 30px !important;
+          border-radius: 8px !important;
+          text-transform: uppercase !important;
+          letter-spacing: 1px !important;
+          transition: all 0.3s ease !important;
+          box-shadow: 0 0 20px rgba(0, 255, 133, 0.3) !important;
+        }
+
+        .btn-cyber-success:hover {
+          transform: translateY(-2px) !important;
+          box-shadow: 0 5px 25px rgba(0, 255, 133, 0.5) !important;
+        }
+
+        .btn-outline-cyber {
+          border: 2px solid rgba(0, 240, 255, 0.5) !important;
+          color: #00F0FF !important;
+          background: transparent !important;
+          transition: all 0.3s ease !important;
+        }
+
+        .btn-outline-cyber:hover {
+          background: rgba(0, 240, 255, 0.1) !important;
+          border-color: #00F0FF !important;
+          color: #00F0FF !important;
+        }
+
+        .prize-preview {
+          background: rgba(0, 255, 133, 0.05) !important;
+          border: 1px solid rgba(0, 255, 133, 0.2) !important;
         }
 
         .stat-card {
@@ -887,23 +729,6 @@ const MakeGame = () => {
 
         .stat-card:hover {
           transform: translateY(-3px);
-        }
-
-        .creation-progress-bar .progress-bar {
-          background: linear-gradient(90deg, #00F0FF, #9B00FF) !important;
-        }
-
-        .step-content {
-          min-height: 400px;
-        }
-
-        .review-section {
-          border-bottom: 1px solid rgba(0, 240, 255, 0.1);
-          padding-bottom: 10px;
-        }
-
-        .review-section:last-child {
-          border-bottom: none;
         }
 
         .loading-spinner {

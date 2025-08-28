@@ -8,6 +8,7 @@ const initialState = {
   popularGames: [],
   myCompetitions: [],
   participatedCompetitions: [],
+  publicCompetitions: [],
   selectedGame: null,
   loading: {
     games: false,
@@ -15,6 +16,7 @@ const initialState = {
     popularGames: false,
     myCompetitions: false,
     participatedCompetitions: false,
+    publicCompetitions: false,
     creatingCompetition: false
   },
   errors: {
@@ -23,6 +25,7 @@ const initialState = {
     popularGames: null,
     myCompetitions: null,
     participatedCompetitions: null,
+    publicCompetitions: null,
     creatingCompetition: null
   }
 };
@@ -36,6 +39,7 @@ const GAME_ACTIONS = {
   SET_POPULAR_GAMES: 'SET_POPULAR_GAMES',
   SET_MY_COMPETITIONS: 'SET_MY_COMPETITIONS',
   SET_PARTICIPATED_COMPETITIONS: 'SET_PARTICIPATED_COMPETITIONS',
+  SET_PUBLIC_COMPETITIONS: 'SET_PUBLIC_COMPETITIONS',
   SET_SELECTED_GAME: 'SET_SELECTED_GAME',
   ADD_COMPETITION: 'ADD_COMPETITION',
   UPDATE_COMPETITION: 'UPDATE_COMPETITION',
@@ -129,7 +133,10 @@ const gameReducer = (state, action) => {
         ),
         participatedCompetitions: state.participatedCompetitions.map(comp =>
           comp.id === action.payload.id ? { ...comp, ...action.payload } : comp
-        )
+        ),
+        publicCompetitions: state.publicCompetitions.map(comp =>
+          comp.id === action.payload.id ? { ...comp, ...action.payload } : comp
+        ),
       };
 
     case GAME_ACTIONS.CLEAR_ERRORS:
@@ -137,6 +144,15 @@ const gameReducer = (state, action) => {
         ...state,
         errors: action.payload ? { ...state.errors, [action.payload]: null } : initialState.errors
       };
+
+    case GAME_ACTIONS.SET_PUBLIC_COMPETITIONS:
+      return {
+        ...state,
+        publicCompetitions: action.payload,
+        loading: { ...state.loading, publicCompetitions: false },
+        errors: { ...state.errors, publicCompetitions: null }
+      };
+
 
     default:
       return state;
@@ -259,6 +275,28 @@ export const GameProvider = ({ children }) => {
     }
   }, [setLoading, clearErrors, setError]);
 
+  // Fetch public competitions
+  const fetchPublicCompetitions = useCallback(async (params = {}) => {
+    try {
+      setLoading('publicCompetitions', true);
+      clearErrors('publicCompetitions');
+
+      const publicComp = await competitionService.getPublicCompetitions(params);
+
+      console.log("public competitions fetched:", publicComp);
+
+      dispatch({
+        type: GAME_ACTIONS.SET_PUBLIC_COMPETITIONS,
+        payload: publicComp
+      });
+
+      return publicComp;
+    } catch (error) {
+      setError('publicCompetitions', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError]);
+
   // Get game by ID
   const getGameById = useCallback(async (gameId) => {
     try {
@@ -291,14 +329,14 @@ export const GameProvider = ({ children }) => {
     try {
       setLoading('creatingCompetition', true);
       clearErrors('creatingCompetition');
-      
+
       const newCompetition = await competitionService.createCompetition(competitionData);
-      
+
       dispatch({
         type: GAME_ACTIONS.ADD_COMPETITION,
         payload: newCompetition
       });
-      
+
       return newCompetition;
     } catch (error) {
       setError('creatingCompetition', error.message);
@@ -373,13 +411,14 @@ export const GameProvider = ({ children }) => {
   const value = {
     // State
     ...state,
-    
+
     // Actions
     fetchGames,
     fetchGameTypes,
     fetchPopularGames,
     fetchMyCompetitions,
     fetchParticipatedCompetitions,
+    fetchPublicCompetitions,
     getGameById,
     getGameCompetitions,
     getGameStats,
@@ -403,7 +442,10 @@ export const GameProvider = ({ children }) => {
         await Promise.all([
           fetchGames(),
           fetchGameTypes(),
-          fetchPopularGames()
+          fetchPopularGames(),
+          fetchPublicCompetitions(),
+          fetchMyCompetitions(),
+          fetchParticipatedCompetitions()
         ]);
       } catch (error) {
         console.error('Failed to load initial data:', error);

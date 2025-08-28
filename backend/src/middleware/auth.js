@@ -34,8 +34,6 @@
 // }
 
 
-
-
 import { verify } from "../utils/jwt.js";
 import { prisma } from "../prisma.js";
 
