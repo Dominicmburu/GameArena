@@ -57,10 +57,19 @@ enum PendingTransactionStatus {
   EXPIRED
 }
 
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 model User {
   id                  String               @id @default(cuid())
   email               String               @unique
   username            String               @unique
+  isActive            Boolean              @default(true)
+  isAdmin             Boolean              @default(false)
+  lastLoginAt        DateTime?
   passwordHash        String
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
@@ -72,6 +81,11 @@ model User {
   sessions            Session[]
   training            TrainingSession[]
   pendingTransactions PendingTransaction[]
+
+  // Friend system
+  sentFriendRequests     FriendRequest[] @relation("SentRequests")
+  receivedFriendRequests FriendRequest[] @relation("ReceivedRequests")
+  gameHistory            GameHistory[]
 }
 
 model Profile {
@@ -95,9 +109,11 @@ model Session {
 model Wallet {
   id      String        @id @default(cuid())
   userId  String        @unique
-  balance Int           @default(0) // store in cents
+  balance Int           @default(2000) // store in cents
   User    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   tx      Transaction[]
+
+  @@index([balance])
 }
 
 model Transaction {
@@ -111,6 +127,7 @@ model Transaction {
 
   @@index([walletId, type])
   @@index([type, createdAt])
+  @@index([createdAt])
 }
 
 model PendingTransaction {
@@ -132,6 +149,7 @@ model PendingTransaction {
   @@index([checkoutRequestId])
   @@index([userId])
   @@index([status])
+  @@index([status, createdAt])
 }
 
 model Game {
@@ -187,13 +205,14 @@ model Competition {
 }
 
 model CompetitionPlayer {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   competitionId String
   userId        String
-  joinedAt      DateTime @default(now())
-  paid          Boolean  @default(false)
-  score         Int      @default(0)
-  isReady       Boolean  @default(false)
+  joinedAt      DateTime  @default(now())
+  paid          Boolean   @default(false)
+  score         Int       @default(0)
+  hasPlayed     Boolean   @default(false) // New field to track if player has played
+  playedAt      DateTime? // When they completed their game
   rank          Int?
 
   Competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
@@ -203,6 +222,7 @@ model CompetitionPlayer {
   @@index([userId])
   @@index([competitionId, score])
   @@index([competitionId, rank])
+  @@index([competitionId, hasPlayed])
 }
 
 model Match {
@@ -219,20 +239,55 @@ model Match {
 }
 
 model Invite {
-  id            String      @id @default(cuid())
-  competitionId String
-  inviterId     String
-  inviteeId     String?
-  code          String      @unique
-  accepted      Boolean     @default(false)
-  createdAt     DateTime    @default(now())
-  Competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  inviter       User        @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  id              String   @id @default(cuid())
+  competitionId   String
+  inviterId       String
+  inviteeId       String?
+  inviteeUsername String? // For username-based invites
+  code            String   @unique
+  accepted        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  Competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  inviter     User        @relation(fields: [inviterId], references: [id], onDelete: Cascade)
 
   @@index([competitionId])
   @@index([inviterId])
   @@index([inviteeId])
+  @@index([inviteeUsername])
   @@index([code])
+}
+
+model FriendRequest {
+  id         String              @id @default(cuid())
+  senderId   String
+  receiverId String
+  status     FriendRequestStatus @default(PENDING)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  sender   User @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+}
+
+model GameHistory {
+  id            String   @id @default(cuid())
+  userId        String
+  playedWithId  String
+  competitionId String?
+  gameType      String
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([playedWithId])
+  @@index([userId, playedWithId])
 }
 
 model TrainingSession {

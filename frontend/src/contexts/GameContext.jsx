@@ -10,6 +10,12 @@ const initialState = {
   participatedCompetitions: [],
   publicCompetitions: [],
   selectedGame: null,
+  friends: [],
+  friendRequests: { received: [], sent: [] },
+  gameHistory: [],
+  globalLeaderboard: [],
+  pendingInvites: [],
+  sentInvites: [],
   loading: {
     games: false,
     gameTypes: false,
@@ -17,7 +23,21 @@ const initialState = {
     myCompetitions: false,
     participatedCompetitions: false,
     publicCompetitions: false,
-    creatingCompetition: false
+    creatingCompetition: false,
+    joiningCompetition: false,
+    submittingScore: false,
+    friends: false,
+    friendRequests: false,
+    gameHistory: false,
+    globalLeaderboard: false,
+    pendingInvites: false,
+    sentInvites: false,
+    completingCompetition: false,
+    sendingInvite: false,
+    acceptingInvite: false,
+    decliningInvite: false,
+    sendingFriendRequest: false,
+    acceptingFriendRequest: false
   },
   errors: {
     games: null,
@@ -26,7 +46,21 @@ const initialState = {
     myCompetitions: null,
     participatedCompetitions: null,
     publicCompetitions: null,
-    creatingCompetition: null
+    creatingCompetition: null,
+    joiningCompetition: null,
+    submittingScore: null,
+    friends: null,
+    friendRequests: null,
+    gameHistory: null,
+    globalLeaderboard: null,
+    pendingInvites: null,
+    sentInvites: null,
+    completingCompetition: null,
+    sendingInvite: null,
+    acceptingInvite: null,
+    decliningInvite: null,
+    sendingFriendRequest: null,
+    acceptingFriendRequest: null
   }
 };
 
@@ -41,8 +75,16 @@ const GAME_ACTIONS = {
   SET_PARTICIPATED_COMPETITIONS: 'SET_PARTICIPATED_COMPETITIONS',
   SET_PUBLIC_COMPETITIONS: 'SET_PUBLIC_COMPETITIONS',
   SET_SELECTED_GAME: 'SET_SELECTED_GAME',
+  SET_FRIENDS: 'SET_FRIENDS',
+  SET_FRIEND_REQUESTS: 'SET_FRIEND_REQUESTS',
+  SET_GAME_HISTORY: 'SET_GAME_HISTORY',
+  SET_GLOBAL_LEADERBOARD: 'SET_GLOBAL_LEADERBOARD',
+  SET_PENDING_INVITES: 'SET_PENDING_INVITES',
+  SET_SENT_INVITES: 'SET_SENT_INVITES',
   ADD_COMPETITION: 'ADD_COMPETITION',
   UPDATE_COMPETITION: 'UPDATE_COMPETITION',
+  REMOVE_INVITE: 'REMOVE_INVITE',
+  UPDATE_FRIEND_REQUESTS: 'UPDATE_FRIEND_REQUESTS',
   CLEAR_ERRORS: 'CLEAR_ERRORS'
 };
 
@@ -111,10 +153,66 @@ const gameReducer = (state, action) => {
         errors: { ...state.errors, participatedCompetitions: null }
       };
 
+    case GAME_ACTIONS.SET_PUBLIC_COMPETITIONS:
+      return {
+        ...state,
+        publicCompetitions: action.payload,
+        loading: { ...state.loading, publicCompetitions: false },
+        errors: { ...state.errors, publicCompetitions: null }
+      };
+
     case GAME_ACTIONS.SET_SELECTED_GAME:
       return {
         ...state,
         selectedGame: action.payload
+      };
+
+    case GAME_ACTIONS.SET_FRIENDS:
+      return {
+        ...state,
+        friends: action.payload,
+        loading: { ...state.loading, friends: false },
+        errors: { ...state.errors, friends: null }
+      };
+
+    case GAME_ACTIONS.SET_FRIEND_REQUESTS:
+      return {
+        ...state,
+        friendRequests: action.payload,
+        loading: { ...state.loading, friendRequests: false },
+        errors: { ...state.errors, friendRequests: null }
+      };
+
+    case GAME_ACTIONS.SET_GAME_HISTORY:
+      return {
+        ...state,
+        gameHistory: action.payload,
+        loading: { ...state.loading, gameHistory: false },
+        errors: { ...state.errors, gameHistory: null }
+      };
+
+    case GAME_ACTIONS.SET_GLOBAL_LEADERBOARD:
+      return {
+        ...state,
+        globalLeaderboard: action.payload,
+        loading: { ...state.loading, globalLeaderboard: false },
+        errors: { ...state.errors, globalLeaderboard: null }
+      };
+
+    case GAME_ACTIONS.SET_PENDING_INVITES:
+      return {
+        ...state,
+        pendingInvites: action.payload,
+        loading: { ...state.loading, pendingInvites: false },
+        errors: { ...state.errors, pendingInvites: null }
+      };
+
+    case GAME_ACTIONS.SET_SENT_INVITES:
+      return {
+        ...state,
+        sentInvites: action.payload,
+        loading: { ...state.loading, sentInvites: false },
+        errors: { ...state.errors, sentInvites: null }
       };
 
     case GAME_ACTIONS.ADD_COMPETITION:
@@ -136,7 +234,23 @@ const gameReducer = (state, action) => {
         ),
         publicCompetitions: state.publicCompetitions.map(comp =>
           comp.id === action.payload.id ? { ...comp, ...action.payload } : comp
-        ),
+        )
+      };
+
+    case GAME_ACTIONS.REMOVE_INVITE:
+      return {
+        ...state,
+        pendingInvites: state.pendingInvites.filter(invite => invite.id !== action.payload),
+        sentInvites: state.sentInvites.filter(invite => invite.id !== action.payload)
+      };
+
+    case GAME_ACTIONS.UPDATE_FRIEND_REQUESTS:
+      return {
+        ...state,
+        friendRequests: {
+          ...state.friendRequests,
+          received: state.friendRequests.received.filter(req => req.id !== action.payload)
+        }
       };
 
     case GAME_ACTIONS.CLEAR_ERRORS:
@@ -144,15 +258,6 @@ const gameReducer = (state, action) => {
         ...state,
         errors: action.payload ? { ...state.errors, [action.payload]: null } : initialState.errors
       };
-
-    case GAME_ACTIONS.SET_PUBLIC_COMPETITIONS:
-      return {
-        ...state,
-        publicCompetitions: action.payload,
-        loading: { ...state.loading, publicCompetitions: false },
-        errors: { ...state.errors, publicCompetitions: null }
-      };
-
 
     default:
       return state;
@@ -166,7 +271,7 @@ const GameContext = createContext();
 export const GameProvider = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, initialState);
 
-  // Helper function to set loading state
+  // Helper functions
   const setLoading = useCallback((key, value) => {
     dispatch({
       type: GAME_ACTIONS.SET_LOADING,
@@ -174,7 +279,6 @@ export const GameProvider = ({ children }) => {
     });
   }, []);
 
-  // Helper function to set error state
   const setError = useCallback((key, value) => {
     dispatch({
       type: GAME_ACTIONS.SET_ERROR,
@@ -182,7 +286,6 @@ export const GameProvider = ({ children }) => {
     });
   }, []);
 
-  // Clear errors
   const clearErrors = useCallback((key = null) => {
     dispatch({
       type: GAME_ACTIONS.CLEAR_ERRORS,
@@ -190,7 +293,7 @@ export const GameProvider = ({ children }) => {
     });
   }, []);
 
-  // Fetch all games
+  // Game Actions
   const fetchGames = useCallback(async (params = {}) => {
     try {
       setLoading('games', true);
@@ -207,7 +310,6 @@ export const GameProvider = ({ children }) => {
     }
   }, [setLoading, clearErrors, setError]);
 
-  // Fetch game types
   const fetchGameTypes = useCallback(async () => {
     try {
       setLoading('gameTypes', true);
@@ -224,7 +326,6 @@ export const GameProvider = ({ children }) => {
     }
   }, [setLoading, clearErrors, setError]);
 
-  // Fetch popular games
   const fetchPopularGames = useCallback(async (limit = 10) => {
     try {
       setLoading('popularGames', true);
@@ -241,7 +342,38 @@ export const GameProvider = ({ children }) => {
     }
   }, [setLoading, clearErrors, setError]);
 
-  // Fetch my competitions
+  const getGameById = useCallback(async (gameId) => {
+    try {
+      return await gameService.getGameById(gameId);
+    } catch (error) {
+      throw error;
+    }
+  }, []);
+
+  const getGameCompetitions = useCallback(async (gameId, params = {}) => {
+    try {
+      return await gameService.getGameCompetitions(gameId, params);
+    } catch (error) {
+      throw error;
+    }
+  }, []);
+
+  const getGameStats = useCallback(async (gameId) => {
+    try {
+      return await gameService.getGameStats(gameId);
+    } catch (error) {
+      throw error;
+    }
+  }, []);
+
+  const setSelectedGame = useCallback((game) => {
+    dispatch({
+      type: GAME_ACTIONS.SET_SELECTED_GAME,
+      payload: game
+    });
+  }, []);
+
+  // Competition Actions
   const fetchMyCompetitions = useCallback(async () => {
     try {
       setLoading('myCompetitions', true);
@@ -258,7 +390,6 @@ export const GameProvider = ({ children }) => {
     }
   }, [setLoading, clearErrors, setError]);
 
-  // Fetch participated competitions
   const fetchParticipatedCompetitions = useCallback(async () => {
     try {
       setLoading('participatedCompetitions', true);
@@ -275,68 +406,47 @@ export const GameProvider = ({ children }) => {
     }
   }, [setLoading, clearErrors, setError]);
 
-  // Fetch public competitions
   const fetchPublicCompetitions = useCallback(async (params = {}) => {
     try {
       setLoading('publicCompetitions', true);
       clearErrors('publicCompetitions');
-
-      const publicComp = await competitionService.getPublicCompetitions(params);
-
-      console.log("public competitions fetched:", publicComp);
-
+      const competitions = await competitionService.getPublicCompetitions(params);
       dispatch({
         type: GAME_ACTIONS.SET_PUBLIC_COMPETITIONS,
-        payload: publicComp
+        payload: competitions
       });
-
-      return publicComp;
+      return competitions;
     } catch (error) {
       setError('publicCompetitions', error.message);
       throw error;
     }
   }, [setLoading, clearErrors, setError]);
 
-  // Get game by ID
-  const getGameById = useCallback(async (gameId) => {
+  const fetchGlobalLeaderboard = useCallback(async (limit = 10) => {
     try {
-      return await gameService.getGameById(gameId);
+      setLoading('globalLeaderboard', true);
+      clearErrors('globalLeaderboard');
+      const leaderboard = await competitionService.getGlobalLeaderboard(limit);
+      dispatch({
+        type: GAME_ACTIONS.SET_GLOBAL_LEADERBOARD,
+        payload: leaderboard
+      });
+      return leaderboard;
     } catch (error) {
+      setError('globalLeaderboard', error.message);
       throw error;
     }
-  }, []);
+  }, [setLoading, clearErrors, setError]);
 
-  // Get game competitions
-  const getGameCompetitions = useCallback(async (gameId, params = {}) => {
-    try {
-      return await gameService.getGameCompetitions(gameId, params);
-    } catch (error) {
-      throw error;
-    }
-  }, []);
-
-  // Get game statistics
-  const getGameStats = useCallback(async (gameId) => {
-    try {
-      return await gameService.getGameStats(gameId);
-    } catch (error) {
-      throw error;
-    }
-  }, []);
-
-  // Create competition
   const createCompetition = useCallback(async (competitionData) => {
     try {
       setLoading('creatingCompetition', true);
       clearErrors('creatingCompetition');
-
       const newCompetition = await competitionService.createCompetition(competitionData);
-
       dispatch({
         type: GAME_ACTIONS.ADD_COMPETITION,
         payload: newCompetition
       });
-
       return newCompetition;
     } catch (error) {
       setError('creatingCompetition', error.message);
@@ -344,45 +454,19 @@ export const GameProvider = ({ children }) => {
     }
   }, [setLoading, clearErrors, setError]);
 
-  // Join competition
-  const joinCompetition = useCallback(async (code) => {
+  const joinCompetitionByCode = useCallback(async (code) => {
     try {
-      const result = await competitionService.joinCompetition(code);
-      // Optionally refresh competitions
+      setLoading('joiningCompetition', true);
+      clearErrors('joiningCompetition');
+      const result = await competitionService.joinCompetitionByCode(code);
+      setLoading('joiningCompetition', false);
       return result;
     } catch (error) {
+      setError('joiningCompetition', error.message);
       throw error;
     }
-  }, []);
+  }, [setLoading, clearErrors, setError]);
 
-  // Mark player ready
-  const markPlayerReady = useCallback(async (code) => {
-    try {
-      return await competitionService.markPlayerReady(code);
-    } catch (error) {
-      throw error;
-    }
-  }, []);
-
-  // Submit score
-  const submitScore = useCallback(async (code, score) => {
-    try {
-      return await competitionService.submitScore(code, score);
-    } catch (error) {
-      throw error;
-    }
-  }, []);
-
-  // Complete competition
-  const completeCompetition = useCallback(async (code) => {
-    try {
-      return await competitionService.completeCompetition(code);
-    } catch (error) {
-      throw error;
-    }
-  }, []);
-
-  // Get competition by code
   const getCompetitionByCode = useCallback(async (code) => {
     try {
       return await competitionService.getCompetitionByCode(code);
@@ -391,15 +475,210 @@ export const GameProvider = ({ children }) => {
     }
   }, []);
 
-  // Set selected game
-  const setSelectedGame = useCallback((game) => {
-    dispatch({
-      type: GAME_ACTIONS.SET_SELECTED_GAME,
-      payload: game
-    });
-  }, []);
+  const submitScore = useCallback(async (competitionCode, scoreData) => {
+    try {
+      setLoading('submittingScore', true);
+      clearErrors('submittingScore');
+      const result = await competitionService.submitScore(competitionCode, scoreData);
+      setLoading('submittingScore', false);
+      return result;
+    } catch (error) {
+      setError('submittingScore', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError]);
 
-  // Update competition in state
+  const completeCompetition = useCallback(async (code) => {
+    try {
+      setLoading('completingCompetition', true);
+      clearErrors('completingCompetition');
+      const result = await competitionService.completeCompetition(code);
+      setLoading('completingCompetition', false);
+      return result;
+    } catch (error) {
+      setError('completingCompetition', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError]);
+
+  // Invite Actions
+  const fetchPendingInvites = useCallback(async () => {
+    try {
+      setLoading('pendingInvites', true);
+      clearErrors('pendingInvites');
+      const invites = await competitionService.getPendingInvites();
+      dispatch({
+        type: GAME_ACTIONS.SET_PENDING_INVITES,
+        payload: invites
+      });
+      return invites;
+    } catch (error) {
+      setError('pendingInvites', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError]);
+
+  const fetchSentInvites = useCallback(async () => {
+    try {
+      setLoading('sentInvites', true);
+      clearErrors('sentInvites');
+      const invites = await competitionService.getSentInvites();
+      dispatch({
+        type: GAME_ACTIONS.SET_SENT_INVITES,
+        payload: invites
+      });
+      return invites;
+    } catch (error) {
+      setError('sentInvites', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError]);
+
+  const invitePlayerByUsername = useCallback(async (inviteData) => {
+    try {
+      setLoading('sendingInvite', true);
+      clearErrors('sendingInvite');
+      const result = await competitionService.invitePlayerByUsername(inviteData);
+      setLoading('sendingInvite', false);
+      // Refresh sent invites
+      fetchSentInvites().catch(console.warn);
+      return result;
+    } catch (error) {
+      setError('sendingInvite', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError, fetchSentInvites]);
+
+  const acceptInvite = useCallback(async (inviteId) => {
+    try {
+      setLoading('acceptingInvite', true);
+      clearErrors('acceptingInvite');
+      const result = await competitionService.acceptInvite(inviteId);
+      setLoading('acceptingInvite', false);
+      
+      // Remove from pending invites
+      dispatch({
+        type: GAME_ACTIONS.REMOVE_INVITE,
+        payload: inviteId
+      });
+      
+      // Refresh competitions
+      fetchParticipatedCompetitions().catch(console.warn);
+      return result;
+    } catch (error) {
+      setError('acceptingInvite', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError, fetchParticipatedCompetitions]);
+
+  const declineInvite = useCallback(async (inviteId) => {
+    try {
+      setLoading('decliningInvite', true);
+      clearErrors('decliningInvite');
+      const result = await competitionService.declineInvite(inviteId);
+      setLoading('decliningInvite', false);
+      
+      // Remove from pending invites
+      dispatch({
+        type: GAME_ACTIONS.REMOVE_INVITE,
+        payload: inviteId
+      });
+      
+      return result;
+    } catch (error) {
+      setError('decliningInvite', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError]);
+
+  // Friends Actions
+  const fetchFriends = useCallback(async () => {
+    try {
+      setLoading('friends', true);
+      clearErrors('friends');
+      const friends = await competitionService.getFriends();
+      dispatch({
+        type: GAME_ACTIONS.SET_FRIENDS,
+        payload: friends
+      });
+      return friends;
+    } catch (error) {
+      setError('friends', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError]);
+
+  const fetchFriendRequests = useCallback(async () => {
+    try {
+      setLoading('friendRequests', true);
+      clearErrors('friendRequests');
+      const requests = await competitionService.getFriendRequests();
+      dispatch({
+        type: GAME_ACTIONS.SET_FRIEND_REQUESTS,
+        payload: requests
+      });
+      return requests;
+    } catch (error) {
+      setError('friendRequests', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError]);
+
+  const sendFriendRequest = useCallback(async (requestData) => {
+    try {
+      setLoading('sendingFriendRequest', true);
+      clearErrors('sendingFriendRequest');
+      const result = await competitionService.sendFriendRequest(requestData);
+      setLoading('sendingFriendRequest', false);
+      // Refresh friend requests
+      fetchFriendRequests().catch(console.warn);
+      return result;
+    } catch (error) {
+      setError('sendingFriendRequest', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError, fetchFriendRequests]);
+
+  const acceptFriendRequest = useCallback(async (requestId) => {
+    try {
+      setLoading('acceptingFriendRequest', true);
+      clearErrors('acceptingFriendRequest');
+      const result = await competitionService.acceptFriendRequest(requestId);
+      setLoading('acceptingFriendRequest', false);
+      
+      // Remove from friend requests
+      dispatch({
+        type: GAME_ACTIONS.UPDATE_FRIEND_REQUESTS,
+        payload: requestId
+      });
+      
+      // Refresh friends list
+      fetchFriends().catch(console.warn);
+      return result;
+    } catch (error) {
+      setError('acceptingFriendRequest', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError, fetchFriends]);
+
+  // Game History
+  const fetchGameHistory = useCallback(async () => {
+    try {
+      setLoading('gameHistory', true);
+      clearErrors('gameHistory');
+      const history = await competitionService.getGameHistory();
+      dispatch({
+        type: GAME_ACTIONS.SET_GAME_HISTORY,
+        payload: history
+      });
+      return history;
+    } catch (error) {
+      setError('gameHistory', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError]);
+
+  // Update competition in state (for real-time updates)
   const updateCompetition = useCallback((updatedCompetition) => {
     dispatch({
       type: GAME_ACTIONS.UPDATE_COMPETITION,
@@ -407,54 +686,155 @@ export const GameProvider = ({ children }) => {
     });
   }, []);
 
+  // Socket event handlers for real-time updates
+  const handleSocketEvents = useCallback((socket) => {
+    if (!socket) return;
+
+    // Competition updates
+    socket.on('leaderboard:update', (data) => {
+      // You can dispatch an action to update specific competition leaderboard
+      console.log('Leaderboard updated:', data);
+    });
+
+    socket.on('competition_joined', (data) => {
+      console.log('Someone joined competition:', data);
+      // Refresh competitions if needed
+    });
+
+    socket.on('score_submitted', (data) => {
+      console.log('Score submitted:', data);
+      // Could trigger a leaderboard refresh or show notification
+    });
+
+    // Invite events
+    socket.on('new_invite', (data) => {
+      console.log('New invite received:', data);
+      fetchPendingInvites().catch(console.warn);
+    });
+
+    socket.on('invite_accepted', (data) => {
+      console.log('Invite accepted:', data);
+      fetchSentInvites().catch(console.warn);
+    });
+
+    socket.on('invite_declined', (data) => {
+      console.log('Invite declined:', data);
+      fetchSentInvites().catch(console.warn);
+    });
+
+    // Friend events
+    socket.on('new_friend_request', (data) => {
+      console.log('New friend request:', data);
+      fetchFriendRequests().catch(console.warn);
+    });
+
+    socket.on('friend_request_accepted', (data) => {
+      console.log('Friend request accepted:', data);
+      fetchFriends().catch(console.warn);
+    });
+
+    return () => {
+      // Cleanup listeners
+      socket.off('leaderboard:update');
+      socket.off('competition_joined');
+      socket.off('score_submitted');
+      socket.off('new_invite');
+      socket.off('invite_accepted');
+      socket.off('invite_declined');
+      socket.off('new_friend_request');
+      socket.off('friend_request_accepted');
+    };
+  }, [fetchPendingInvites, fetchSentInvites, fetchFriendRequests, fetchFriends]);
+
   // Context value
   const value = {
     // State
     ...state,
 
-    // Actions
+    // Game Actions
     fetchGames,
     fetchGameTypes,
     fetchPopularGames,
-    fetchMyCompetitions,
-    fetchParticipatedCompetitions,
-    fetchPublicCompetitions,
     getGameById,
     getGameCompetitions,
     getGameStats,
+    setSelectedGame,
+
+    // Competition Actions
+    fetchMyCompetitions,
+    fetchParticipatedCompetitions,
+    fetchPublicCompetitions,
+    fetchGlobalLeaderboard,
     createCompetition,
-    joinCompetition,
-    markPlayerReady,
+    joinCompetitionByCode,
+    getCompetitionByCode,
     submitScore,
     completeCompetition,
-    getCompetitionByCode,
-    setSelectedGame,
     updateCompetition,
-    clearErrors
+
+    // Invite Actions
+    fetchPendingInvites,
+    fetchSentInvites,
+    invitePlayerByUsername,
+    acceptInvite,
+    declineInvite,
+
+    // Friends & Social Actions
+    fetchFriends,
+    fetchFriendRequests,
+    sendFriendRequest,
+    acceptFriendRequest,
+    fetchGameHistory,
+
+    // Socket handler
+    handleSocketEvents,
+
+    // Utility Actions
+    clearErrors,
+
+    // Deprecated methods for backward compatibility
+    fetchUserCompetitions: fetchParticipatedCompetitions,
+    fetchCompetitions: fetchPublicCompetitions,
+    joinCompetition: joinCompetitionByCode
   };
 
-  // Load initial data - use a separate effect with no dependencies to run only once
+  // Load initial data
   useEffect(() => {
     let mounted = true;
 
     const loadInitialData = async () => {
+      if (!mounted) return;
+
       try {
+        // Load core data first (no auth required)
         await Promise.all([
-          fetchGames(),
-          fetchGameTypes(),
-          fetchPopularGames(),
-          fetchPublicCompetitions(),
-          fetchMyCompetitions(),
-          fetchParticipatedCompetitions()
+          fetchGames().catch(err => console.warn('Could not load games:', err)),
+          fetchGameTypes().catch(err => console.warn('Could not load game types:', err)),
+          fetchPopularGames().catch(err => console.warn('Could not load popular games:', err)),
+          fetchPublicCompetitions().catch(err => console.warn('Could not load public competitions:', err))
+        ]);
+
+        // Load user-specific data (requires auth)
+        await Promise.all([
+          fetchMyCompetitions().catch(err => console.warn('Could not load my competitions:', err)),
+          fetchParticipatedCompetitions().catch(err => console.warn('Could not load participated competitions:', err)),
+          fetchGlobalLeaderboard().catch(err => console.warn('Could not load global leaderboard:', err))
+        ]);
+
+        // Load social features (optional)
+        await Promise.all([
+          fetchFriends().catch(err => console.warn('Could not load friends:', err)),
+          fetchFriendRequests().catch(err => console.warn('Could not load friend requests:', err)),
+          fetchGameHistory().catch(err => console.warn('Could not load game history:', err)),
+          fetchPendingInvites().catch(err => console.warn('Could not load pending invites:', err)),
+          fetchSentInvites().catch(err => console.warn('Could not load sent invites:', err))
         ]);
       } catch (error) {
         console.error('Failed to load initial data:', error);
       }
     };
 
-    if (mounted) {
-      loadInitialData();
-    }
+    loadInitialData();
 
     return () => {
       mounted = false;

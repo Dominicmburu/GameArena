@@ -2,6 +2,9 @@ import { prisma } from "../prisma.js";
 import { verify } from "../utils/jwt.js";
 
 export function registerSockets(io) {
+  // Store user socket mappings
+  const userSockets = new Map();
+
   // Authentication middleware for sockets
   io.use(async (socket, next) => {
     try {
@@ -34,6 +37,13 @@ export function registerSockets(io) {
   io.on("connection", (socket) => {
     console.log(`User ${socket.user.username} connected with socket ${socket.id}`);
 
+    // Store user socket mapping for direct notifications
+    userSockets.set(socket.userId, socket.id);
+
+    // Join user to their personal room for notifications
+    socket.join(`user:${socket.userId}`);
+
+    // COMPETITION EVENTS
     socket.on("subscribe:competition", async (code) => {
       try {
         const competition = await prisma.competition.findUnique({
@@ -46,7 +56,6 @@ export function registerSockets(io) {
           return;
         }
 
-        // Check if user is a participant
         const isParticipant = competition.players.some(p => p.userId === socket.userId);
         if (!isParticipant && competition.privacy === "PRIVATE") {
           socket.emit("error", { message: "Access denied" });
@@ -68,7 +77,11 @@ export function registerSockets(io) {
         }
 
         const competition = await prisma.competition.findUnique({
-          where: { code: code.toUpperCase() }
+          where: { code: code.toUpperCase() },
+          include: {
+            creator: { select: { id: true, username: true } },
+            game: { select: { minPlayTime: true, maxPlayTime: true } }
+          }
         });
 
         if (!competition) {
@@ -86,7 +99,7 @@ export function registerSockets(io) {
             competitionId: competition.id,
             userId: socket.userId
           },
-          data: { score }
+          data: { score, hasPlayed: true, playedAt: new Date() }
         });
 
         if (updated.count === 0) {
@@ -106,7 +119,7 @@ export function registerSockets(io) {
           rank: i + 1,
           username: p.User.username,
           score: p.score,
-          isReady: p.isReady
+          hasPlayed: p.hasPlayed
         }));
 
         // Broadcast to all subscribers
@@ -116,100 +129,153 @@ export function registerSockets(io) {
           timestamp: new Date().toISOString()
         });
 
-        socket.emit("score:updated", { score, rank: formattedLeaderboard.findIndex(p => p.username === socket.user.username) + 1 });
+        // Notify competition creator
+        if (competition.creator.id !== socket.userId) {
+          io.to(`user:${competition.creator.id}`).emit("score_submitted", {
+            competitionId: competition.id,
+            competitionTitle: competition.title,
+            competitionCode: competition.code,
+            player: socket.user.username,
+            score: score,
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        socket.emit("score:updated", {
+          score,
+          rank: formattedLeaderboard.findIndex(p => p.username === socket.user.username) + 1
+        });
       } catch (error) {
         console.error("Error updating score:", error);
         socket.emit("error", { message: "Failed to update score" });
       }
     });
 
-    socket.on("ready:toggle", async ({ code }) => {
+    // SOCIAL EVENTS
+
+    // Handle joining competitions
+    socket.on("join:competition", async ({ competitionId, playerUsername }) => {
       try {
         const competition = await prisma.competition.findUnique({
-          where: { code: code.toUpperCase() }
+          where: { id: competitionId },
+          include: { creator: { select: { id: true } } }
         });
 
-        if (!competition) {
-          socket.emit("error", { message: "Competition not found" });
-          return;
-        }
-
-        if (competition.status !== "UPCOMING") {
-          socket.emit("error", { message: "Competition has already started" });
-          return;
-        }
-
-        // Toggle ready status
-        const currentPlayer = await prisma.competitionPlayer.findFirst({
-          where: {
+        if (competition && competition.creator.id !== socket.userId) {
+          // Notify competition creator
+          io.to(`user:${competition.creator.id}`).emit("competition_joined", {
             competitionId: competition.id,
-            userId: socket.userId
+            competitionTitle: competition.title,
+            competitionCode: competition.code,
+            player: playerUsername,
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (error) {
+        console.error("Error handling competition join:", error);
+      }
+    });
+
+    // Handle invite events
+    socket.on("invite:sent", async ({ inviteId, inviteeId, competitionData, inviterUsername }) => {
+      try {
+        // Notify the invitee
+        io.to(`user:${inviteeId}`).emit("new_invite", {
+          invite: {
+            id: inviteId,
+            competition: competitionData,
+            inviter: { username: inviterUsername },
+            createdAt: new Date().toISOString()
           }
         });
-
-        if (!currentPlayer) {
-          socket.emit("error", { message: "You are not a participant in this competition" });
-          return;
-        }
-
-        const newReadyStatus = !currentPlayer.isReady;
-
-        await prisma.competitionPlayer.updateMany({
-          where: {
-            competitionId: competition.id,
-            userId: socket.userId
-          },
-          data: { isReady: newReadyStatus }
-        });
-
-        // Get updated counts
-        const totalPlayers = await prisma.competitionPlayer.count({
-          where: { competitionId: competition.id }
-        });
-
-        const readyPlayers = await prisma.competitionPlayer.count({
-          where: { competitionId: competition.id, isReady: true }
-        });
-
-        // Start competition if all players are ready and there are at least 2 players
-        if (totalPlayers >= 2 && readyPlayers === totalPlayers) {
-          await prisma.competition.update({
-            where: { id: competition.id },
-            data: { status: "ONGOING" }
-          });
-
-          io.to(`comp:${code.toUpperCase()}`).emit("competition:started", {
-            competition: code.toUpperCase(),
-            message: "Competition has started!"
-          });
-        }
-
-        // Broadcast ready status update
-        io.to(`comp:${code.toUpperCase()}`).emit("ready:update", {
-          competition: code.toUpperCase(),
-          readyCount: readyPlayers,
-          totalPlayers: totalPlayers,
-          user: socket.user.username,
-          isReady: newReadyStatus
-        });
-
       } catch (error) {
-        console.error("Error toggling ready status:", error);
-        socket.emit("error", { message: "Failed to update ready status" });
+        console.error("Error handling invite sent:", error);
+      }
+    });
+
+    socket.on("invite:accepted", async ({ inviteId, inviterId, accepterUsername }) => {
+      try {
+        // Notify the inviter
+        io.to(`user:${inviterId}`).emit("invite_accepted", {
+          inviteId,
+          acceptedBy: { username: accepterUsername },
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error("Error handling invite accepted:", error);
+      }
+    });
+
+    socket.on("invite:declined", async ({ inviteId, inviterId, declinerUsername }) => {
+      try {
+        // Notify the inviter
+        io.to(`user:${inviterId}`).emit("invite_declined", {
+          inviteId,
+          decliner: declinerUsername,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error("Error handling invite declined:", error);
+      }
+    });
+
+    // Handle friend request events
+    socket.on("friend_request:sent", async ({ requestId, receiverId, senderUsername }) => {
+      try {
+        // Notify the receiver
+        io.to(`user:${receiverId}`).emit("new_friend_request", {
+          request: {
+            id: requestId,
+            from: { username: senderUsername, id: socket.userId },
+            createdAt: new Date().toISOString()
+          }
+        });
+      } catch (error) {
+        console.error("Error handling friend request sent:", error);
+      }
+    });
+
+    socket.on("friend_request:accepted", async ({ requestId, senderId, accepterUsername }) => {
+      try {
+        // Notify the sender
+        io.to(`user:${senderId}`).emit("friend_request_accepted", {
+          acceptedBy: { username: accepterUsername },
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error("Error handling friend request accepted:", error);
       }
     });
 
     socket.on("disconnect", (reason) => {
       console.log(`User ${socket.user.username} disconnected: ${reason}`);
+      userSockets.delete(socket.userId);
+
+      socket.rooms.forEach(room => {
+        if (room !== socket.id) {
+          socket.leave(room);
+        }
+      });
     });
 
-    // Handle socket errors
     socket.on("error", (error) => {
       console.error(`Socket error for user ${socket.user.username}:`, error);
     });
   });
 
-  // Handle io errors
+  // Make userSockets available for direct access
+  io.userSockets = userSockets;
+
+  // Helper function to emit to specific user
+  io.emitToUser = (userId, event, data) => {
+    const socketId = userSockets.get(userId);
+    if (socketId) {
+      io.to(`user:${userId}`).emit(event, data);
+      return true;
+    }
+    return false;
+  };
+
   io.on("error", (error) => {
     console.error("Socket.io error:", error);
   });

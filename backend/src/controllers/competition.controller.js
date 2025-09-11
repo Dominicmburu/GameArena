@@ -6,9 +6,9 @@ import { WalletOps } from "./wallet.controller.js";
 export const listMine = async (req, res, next) => {
   try {
     const uid = req.user.uid;
-    const competitions = await prisma.competition.findMany({ 
-      where: { creatorId: uid }, 
-      include: { 
+    const competitions = await prisma.competition.findMany({
+      where: { creatorId: uid },
+      include: {
         game: {
           select: {
             name: true,
@@ -20,56 +20,64 @@ export const listMine = async (req, res, next) => {
             maxPlayTime: true,
             imageUrl: true
           }
-        }, 
+        },
         players: {
           include: {
             User: { select: { username: true } }
           },
           orderBy: { score: 'desc' }
         }
-      }, 
-      orderBy: { createdAt: "desc" } 
+      },
+      orderBy: { createdAt: "desc" }
     });
-    
+
     const formattedCompetitions = competitions.map(c => {
-      // Calculate current user's rank if they're in the competition
       const userPlayer = c.players.find(p => p.userId === uid);
-      const currentRank = userPlayer ? c.players.findIndex(p => p.userId === uid) + 1 : null;
-      
+      const playedCount = c.players.filter(p => p.hasPlayed).length;
+      const currentRank = userPlayer ? c.players.filter(p => p.hasPlayed).findIndex(p => p.userId === uid) + 1 : null;
+
       return {
         id: c.id,
         code: c.code,
         title: c.title,
-        // Remove description from listing
         privacy: c.privacy,
         status: c.status,
         minutesToPlay: c.minutesToPlay,
         maxPlayers: c.maxPlayers,
         currentPlayers: c.players.length,
+        playedCount: playedCount,
         entryFee: c.entryFee,
         totalPrizePool: c.totalPrizePool,
         startsAt: c.startsAt,
         endsAt: c.endsAt,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
-        // Add fields needed by PlayPage
         currentRank: currentRank,
         gameLevel: c.game.level.toLowerCase(),
         finalRank: userPlayer?.rank || null,
         finalScore: userPlayer?.score || null,
-        earnings: 0, // This would need to be calculated from transaction history
+        hasPlayed: userPlayer?.hasPlayed || false,
+        earnings: 0,
         totalPlayers: c.players.length,
-        Game: { 
+        Game: {
           name: c.game.name,
           gameType: c.game.gameType,
           level: c.game.level,
           playerRange: `${c.game.minPlayers}-${c.game.maxPlayers}`,
           playTimeRange: `${c.game.minPlayTime}-${c.game.maxPlayTime} min`,
           imageUrl: c.game.imageUrl
-        }
+        },
+        players: c.players.map(p => ({
+          id: p.id,
+          username: p.User.username,
+          score: p.score,
+          hasPlayed: p.hasPlayed,
+          playedAt: p.playedAt,
+          rank: p.rank
+        }))
       };
     });
-    
+
     res.json(formattedCompetitions);
   } catch (e) {
     next(e);
@@ -79,17 +87,17 @@ export const listMine = async (req, res, next) => {
 export const listPublic = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, status, gameType, gameLevel } = req.query;
-    
+
     const where = {
       privacy: "PUBLIC",
       ...(status && { status }),
       ...(gameType && { game: { gameType } }),
       ...(gameLevel && { game: { level: gameLevel } })
     };
-    
+
     const competitions = await prisma.competition.findMany({
       where,
-      include: { 
+      include: {
         game: {
           select: {
             name: true,
@@ -101,7 +109,7 @@ export const listPublic = async (req, res, next) => {
             maxPlayTime: true,
             imageUrl: true
           }
-        }, 
+        },
         players: {
           include: {
             User: { select: { username: true } }
@@ -114,48 +122,58 @@ export const listPublic = async (req, res, next) => {
       skip: (Number(page) - 1) * Number(limit),
       take: Number(limit)
     });
-    
-    const formattedCompetitions = competitions.map(c => ({
-      id: c.id,
-      code: c.code,
-      title: c.title,
-      // Remove description from listing
-      privacy: c.privacy,
-      status: c.status,
-      minutesToPlay: c.minutesToPlay,
-      maxPlayers: c.maxPlayers,
-      currentPlayers: c.players.length,
-      entryFee: c.entryFee,
-      totalPrizePool: c.totalPrizePool,
-      startsAt: c.startsAt,
-      endsAt: c.endsAt,
-      createdAt: c.createdAt,
-      updatedAt: c.updatedAt,
-      creator: c.creator.username,
-      // Add fields needed by PlayPage
-      gameLevel: c.game.level.toLowerCase(),
-      totalPlayers: c.players.length,
-      Game: { 
-        name: c.game.name,
-        gameType: c.game.gameType,
-        level: c.game.level,
-        playerRange: `${c.game.minPlayers}-${c.game.maxPlayers}`,
-        playTimeRange: `${c.game.minPlayTime}-${c.game.maxPlayTime} min`,
-        imageUrl: c.game.imageUrl
-      }
-    }));
-    
+
+    const formattedCompetitions = competitions.map(c => {
+      const playedCount = c.players.filter(p => p.hasPlayed).length;
+
+      return {
+        id: c.id,
+        code: c.code,
+        title: c.title,
+        privacy: c.privacy,
+        status: c.status,
+        minutesToPlay: c.minutesToPlay,
+        maxPlayers: c.maxPlayers,
+        currentPlayers: c.players.length,
+        playedCount: playedCount,
+        entryFee: c.entryFee,
+        totalPrizePool: c.totalPrizePool,
+        startsAt: c.startsAt,
+        endsAt: c.endsAt,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        creator: c.creator.username,
+        gameLevel: c.game.level.toLowerCase(),
+        totalPlayers: c.players.length,
+        Game: {
+          name: c.game.name,
+          gameType: c.game.gameType,
+          level: c.game.level,
+          playerRange: `${c.game.minPlayers}-${c.game.maxPlayers}`,
+          playTimeRange: `${c.game.minPlayTime}-${c.game.maxPlayTime} min`,
+          imageUrl: c.game.imageUrl
+        },
+        players: c.players.map(p => ({
+          id: p.id,
+          username: p.User.username,
+          score: p.score,
+          hasPlayed: p.hasPlayed,
+          playedAt: p.playedAt,
+          rank: p.rank
+        }))
+      };
+    });
+
     res.json(formattedCompetitions);
   } catch (e) {
     next(e);
   }
 };
 
-// Add new endpoint for user's participated competitions
 export const getUserCompetitions = async (req, res, next) => {
   try {
     const uid = req.user.uid;
-    
+
     const competitionPlayers = await prisma.competitionPlayer.findMany({
       where: { userId: uid },
       include: {
@@ -174,6 +192,9 @@ export const getUserCompetitions = async (req, res, next) => {
               }
             },
             players: {
+              include: {
+                User: { select: { username: true } }
+              },
               orderBy: { score: 'desc' }
             }
           }
@@ -184,42 +205,52 @@ export const getUserCompetitions = async (req, res, next) => {
 
     const formattedCompetitions = competitionPlayers.map(cp => {
       const c = cp.Competition;
-      const userRank = c.players.findIndex(p => p.userId === uid) + 1;
-      
+      const playedPlayers = c.players.filter(p => p.hasPlayed);
+      const userRank = playedPlayers.findIndex(p => p.userId === uid) + 1;
+      const playedCount = playedPlayers.length;
+
       return {
         id: c.id,
         code: c.code,
         title: c.title,
-        // Remove description from listing
         privacy: c.privacy,
         status: c.status,
         minutesToPlay: c.minutesToPlay,
         maxPlayers: c.maxPlayers,
         currentPlayers: c.players.length,
+        playedCount: playedCount,
         entryFee: c.entryFee,
         totalPrizePool: c.totalPrizePool,
         startsAt: c.startsAt,
         endsAt: c.endsAt,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
-        // Add fields needed by PlayPage
         currentRank: c.status === 'ONGOING' || c.status === 'UPCOMING' ? userRank : null,
         finalRank: cp.rank,
         finalScore: cp.score,
+        hasPlayed: cp.hasPlayed,
         gameLevel: c.game.level.toLowerCase(),
-        earnings: 0, // Calculate from transaction history
+        earnings: 0,
         totalPlayers: c.players.length,
-        Game: { 
+        Game: {
           name: c.game.name,
           gameType: c.game.gameType,
           level: c.game.level,
           playerRange: `${c.game.minPlayers}-${c.game.maxPlayers}`,
           playTimeRange: `${c.game.minPlayTime}-${c.game.maxPlayTime} min`,
           imageUrl: c.game.imageUrl
-        }
+        },
+        players: c.players.map(p => ({
+          id: p.id,
+          username: p.User.username,
+          score: p.score,
+          hasPlayed: p.hasPlayed,
+          playedAt: p.playedAt,
+          rank: p.rank
+        }))
       };
     });
-    
+
     res.json(formattedCompetitions);
   } catch (e) {
     next(e);
@@ -229,12 +260,11 @@ export const getUserCompetitions = async (req, res, next) => {
 const createCompetitionSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   gameId: z.string().cuid("Invalid game ID"),
-  privacy: z.enum(["PUBLIC","PRIVATE"]).default("PRIVATE"),
+  privacy: z.enum(["PUBLIC", "PRIVATE"]).default("PRIVATE"),
   minutesToPlay: z.number().int().min(1, "Duration must be at least 1 minute"),
   maxPlayers: z.number().int().min(2, "Must allow at least 2 players").max(1000, "Cannot exceed 1000 players"),
   entryFee: z.number().int().min(0, "Entry fee cannot be negative")
 });
-
 
 export const create = async (req, res, next) => {
   try {
@@ -248,39 +278,40 @@ export const create = async (req, res, next) => {
 
     // Validate against game constraints
     if (body.entryFee < game.minEntryFee) {
-      return res.status(400).json({ 
-        error: "ENTRY_FEE_BELOW_MIN", 
-        message: `Entry fee must be at least ${game.minEntryFee} cents` 
+      return res.status(400).json({
+        error: "ENTRY_FEE_BELOW_MIN",
+        message: `Entry fee must be at least ${game.minEntryFee} cents`
       });
     }
 
     if (body.maxPlayers > game.maxPlayers) {
-      return res.status(400).json({ 
-        error: "EXCEEDS_MAX_PLAYERS", 
-        message: `This game supports maximum ${game.maxPlayers} players` 
+      return res.status(400).json({
+        error: "EXCEEDS_MAX_PLAYERS",
+        message: `This game supports maximum ${game.maxPlayers} players`
       });
     }
 
     if (body.maxPlayers < game.minPlayers) {
-      return res.status(400).json({ 
-        error: "BELOW_MIN_PLAYERS", 
-        message: `This game requires minimum ${game.minPlayers} players` 
+      return res.status(400).json({
+        error: "BELOW_MIN_PLAYERS",
+        message: `This game requires minimum ${game.minPlayers} players`
       });
     }
 
     if (body.minutesToPlay < game.minPlayTime || body.minutesToPlay > game.maxPlayTime) {
-      return res.status(400).json({ 
-        error: "INVALID_PLAY_TIME", 
-        message: `Play time must be between ${game.minPlayTime}-${game.maxPlayTime} minutes for this game` 
+      return res.status(400).json({
+        error: "INVALID_PLAY_TIME",
+        message: `Play time must be between ${game.minPlayTime}-${game.maxPlayTime} minutes for this game`
       });
     }
 
-    const competition = await prisma.competition.create({ 
-      data: { 
-        ...body, 
-        creatorId: uid, 
-        code: shortCode(), 
-        totalPrizePool: 0 
+    const competition = await prisma.competition.create({
+      data: {
+        ...body,
+        creatorId: uid,
+        code: shortCode(),
+        totalPrizePool: 0,
+        status: "ONGOING"
       },
       include: {
         game: {
@@ -297,10 +328,10 @@ export const create = async (req, res, next) => {
         }
       }
     });
-    
+
     res.json(competition);
-  } catch (e) { 
-    next(e); 
+  } catch (e) {
+    next(e);
   }
 };
 
@@ -308,58 +339,42 @@ export const joinByCode = async (req, res, next) => {
   try {
     const uid = req.user.uid;
     const code = req.params.code.toUpperCase();
-    
-    const competition = await prisma.competition.findUnique({ 
-      where: { code }, 
-      include: { 
-        players: true,
+
+    const competition = await prisma.competition.findUnique({
+      where: { code },
+      include: {
+        players: {
+          include: {
+            User: { select: { id: true, username: true } }
+          }
+        },
         game: {
           select: {
+            gameType: true,
             minPlayers: true,
             maxPlayers: true
           }
+        },
+        creator: {
+          select: { id: true, username: true }
         }
-      } 
+      }
     });
-    
+
     if (!competition) {
       return res.status(404).json({ error: "NOT_FOUND", message: "Competition not found" });
     }
 
-    // Privacy check - if private, only allow if user has access
-    if (competition.privacy === "PRIVATE") {
-      // For private competitions, you might want to check if user has an invite
-      // or if they're the creator, etc. This is a business logic decision
-      const hasAccess = competition.creatorId === uid; // Creator always has access
-      
-      if (!hasAccess) {
-        // You could also check for invites here
-        const invite = await prisma.invite.findFirst({
-          where: {
-            competitionId: competition.id,
-            inviteeId: uid,
-            accepted: false
-          }
-        });
-        
-        if (!invite) {
-          return res.status(403).json({ 
-            error: "PRIVATE_COMPETITION", 
-            message: "This is a private competition. You need an invitation to join." 
-          });
-        }
-      }
+    // Check if competition is completed or canceled
+    if (competition.status === "COMPLETED" || competition.status === "CANCELED") {
+      return res.status(400).json({ error: "COMPETITION_ENDED", message: "Competition has ended" });
     }
-    
-    if (competition.status !== "UPCOMING") {
-      return res.status(400).json({ error: "COMPETITION_NOT_JOINABLE", message: "Competition is not accepting new players" });
-    }
-    
+
     const existingPlayer = competition.players.find(p => p.userId === uid);
     if (existingPlayer) {
       return res.json({ ok: true, alreadyJoined: true });
     }
-    
+
     if (competition.players.length >= competition.maxPlayers) {
       return res.status(400).json({ error: "FULL", message: "Competition is full" });
     }
@@ -371,34 +386,259 @@ export const joinByCode = async (req, res, next) => {
     }
 
     await WalletOps.debit(uid, competition.entryFee, "ENTRY_FEE", { competitionId: competition.id });
-    
-    const platformFee = Math.floor(competition.entryFee * 0.1);
+
+    // Updated prize calculation: 15% platform fee, 85% to prize pool
+    const platformFee = Math.floor(competition.entryFee * 0.15);
     const addToPool = competition.entryFee - platformFee;
 
-    await prisma.$transaction([
-      prisma.competition.update({ 
-        where: { id: competition.id }, 
-        data: { totalPrizePool: { increment: addToPool } } 
-      }),
-      prisma.competitionPlayer.create({ 
-        data: { 
-          competitionId: competition.id, 
-          userId: uid, 
-          paid: true 
-        } 
-      }),
-    ]);
+    await prisma.$transaction(async (tx) => {
+      await tx.competition.update({
+        where: { id: competition.id },
+        data: { totalPrizePool: { increment: addToPool } }
+      });
+      
+      await tx.competitionPlayer.create({
+        data: {
+          competitionId: competition.id,
+          userId: uid,
+          paid: true
+        }
+      });
+
+      // Add to game history - single entry per pair
+      const historyPromises = competition.players.map(player =>
+        tx.gameHistory.create({
+          data: {
+            userId: uid,
+            playedWithId: player.userId,
+            competitionId: competition.id,
+            gameType: competition.game?.gameType || 'ARCADE'
+          }
+        })
+      );
+
+      await Promise.all(historyPromises);
+    });
+
+    // Emit socket event to competition creator
+    const io = req.app.get('io');
+    if (io && competition.creatorId !== uid) {
+      io.emitToUser(competition.creatorId, 'competition_joined', {
+        competitionId: competition.id,
+        competitionTitle: competition.title,
+        competitionCode: competition.code,
+        player: req.user.username,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     res.json({ ok: true, poolIncrement: addToPool });
-  } catch (e) { 
-    next(e); 
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const inviteByUsername = async (req, res, next) => {
+  try {
+    const uid = req.user.uid;
+    const { competitionId, username } = z.object({
+      competitionId: z.string().cuid(),
+      username: z.string().min(1)
+    }).parse(req.body);
+
+    const competition = await prisma.competition.findUnique({
+      where: { id: competitionId },
+      include: { players: true }
+    });
+
+    if (!competition) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Competition not found" });
+    }
+
+    if (competition.creatorId !== uid) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Only creator can send invites" });
+    }
+
+    if (competition.players.length >= competition.maxPlayers) {
+      return res.status(400).json({ error: "FULL", message: "Competition is full" });
+    }
+
+    const invitee = await prisma.user.findUnique({ where: { username } });
+    if (!invitee) {
+      return res.status(404).json({ error: "USER_NOT_FOUND", message: "User not found" });
+    }
+
+    if (invitee.id === uid) {
+      return res.status(400).json({ error: "SELF_INVITE", message: "Cannot invite yourself" });
+    }
+
+    // Check if user is already in the competition
+    const existingPlayer = competition.players.find(p => p.userId === invitee.id);
+    if (existingPlayer) {
+      return res.status(400).json({ error: "ALREADY_JOINED", message: "User is already in this competition" });
+    }
+
+    // Check if invite already exists
+    const existingInvite = await prisma.invite.findFirst({
+      where: {
+        competitionId,
+        inviteeId: invitee.id,
+        accepted: false
+      }
+    });
+
+    if (existingInvite) {
+      return res.status(400).json({ error: "INVITE_EXISTS", message: "Invite already sent" });
+    }
+
+    const invite = await prisma.invite.create({
+      data: {
+        competitionId,
+        inviterId: uid,
+        inviteeId: invitee.id,
+        inviteeUsername: invitee.username,
+        code: shortCode()
+      },
+      include: {
+        Competition: {
+          include: {
+            game: { select: { name: true, imageUrl: true } }
+          }
+        },
+        inviter: { select: { username: true } }
+      }
+    });
+
+    // Emit socket event to invitee
+    const io = req.app.get('io');
+    if (io) {
+      io.emitToUser(invitee.id, 'new_invite', {
+        invite: {
+          id: invite.id,
+          competition: {
+            id: competition.id,
+            title: competition.title,
+            code: competition.code,
+            entryFee: competition.entryFee,
+            game: invite.Competition.game
+          },
+          inviter: invite.inviter,
+          createdAt: invite.createdAt
+        }
+      });
+    }
+
+    res.json({ ok: true, invite });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const acceptInvite = async (req, res, next) => {
+  try {
+    const uid = req.user.uid;
+    const { inviteId } = req.params;
+
+    const invite = await prisma.invite.findUnique({
+      where: { id: inviteId },
+      include: {
+        Competition: {
+          include: {
+            players: true,
+            game: { select: { gameType: true } }
+          }
+        },
+        inviter: { select: { id: true, username: true } }
+      }
+    });
+
+    if (!invite) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Invite not found" });
+    }
+
+    if (invite.inviteeId !== uid) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "This invite is not for you" });
+    }
+
+    if (invite.accepted) {
+      return res.status(400).json({ error: "ALREADY_ACCEPTED", message: "Invite already accepted" });
+    }
+
+    const competition = invite.Competition;
+
+    if (competition.status === "COMPLETED" || competition.status === "CANCELED") {
+      return res.status(400).json({ error: "COMPETITION_ENDED", message: "Competition has ended" });
+    }
+
+    if (competition.players.length >= competition.maxPlayers) {
+      return res.status(400).json({ error: "FULL", message: "Competition is full" });
+    }
+
+    // Check if user has sufficient balance
+    const wallet = await WalletOps.getOrCreateWallet(uid);
+    if (wallet.balance < competition.entryFee) {
+      return res.status(400).json({ error: "INSUFFICIENT_FUNDS", message: "Insufficient wallet balance" });
+    }
+
+    await WalletOps.debit(uid, competition.entryFee, "ENTRY_FEE", { competitionId: competition.id });
+
+    const platformFee = Math.floor(competition.entryFee * 0.15);
+    const addToPool = competition.entryFee - platformFee;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.invite.update({
+        where: { id: inviteId },
+        data: { accepted: true }
+      });
+      
+      await tx.competition.update({
+        where: { id: competition.id },
+        data: { totalPrizePool: { increment: addToPool } }
+      });
+      
+      await tx.competitionPlayer.create({
+        data: {
+          competitionId: competition.id,
+          userId: uid,
+          paid: true
+        }
+      });
+
+      // Add to game history
+      const historyPromises = competition.players.map(player =>
+        tx.gameHistory.create({
+          data: {
+            userId: uid,
+            playedWithId: player.userId,
+            competitionId: competition.id,
+            gameType: competition.game?.gameType || 'ARCADE'
+          }
+        })
+      );
+
+      await Promise.all(historyPromises);
+    });
+
+    // Emit socket event to inviter
+    const io = req.app.get('io');
+    if (io) {
+      io.emitToUser(invite.inviter.id, 'invite_accepted', {
+        inviteId,
+        acceptedBy: { username: req.user.username },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    res.json({ ok: true, poolIncrement: addToPool });
+  } catch (e) {
+    next(e);
   }
 };
 
 export const getCompetition = async (req, res, next) => {
   try {
     const code = req.params.code.toUpperCase();
-    
+
     const competition = await prisma.competition.findUnique({
       where: { code },
       include: {
@@ -429,8 +669,11 @@ export const getCompetition = async (req, res, next) => {
       return res.status(404).json({ error: "NOT_FOUND", message: "Competition not found" });
     }
 
+    const playedCount = competition.players.filter(p => p.hasPlayed).length;
+
     const formattedCompetition = {
       ...competition,
+      playedCount,
       gameLevel: competition.game.level.toLowerCase(),
       Game: {
         name: competition.game.name,
@@ -445,13 +688,13 @@ export const getCompetition = async (req, res, next) => {
         id: p.id,
         username: p.User.username,
         score: p.score,
-        isReady: p.isReady,
-        rank: p.rank || (index + 1),
+        hasPlayed: p.hasPlayed,
+        playedAt: p.playedAt,
+        rank: p.rank || (p.hasPlayed ? index + 1 : null),
         joinedAt: p.joinedAt
       }))
     };
 
-    // Remove the nested game object since we've formatted it
     delete formattedCompetition.game;
 
     res.json(formattedCompetition);
@@ -460,117 +703,231 @@ export const getCompetition = async (req, res, next) => {
   }
 };
 
-export const readyUp = async (req, res, next) => {
-  try {
-    const uid = req.user.uid;
-    const code = req.params.code.toUpperCase();
-    
-    const competition = await prisma.competition.findUnique({ 
-      where: { code },
-      include: {
-        game: {
-          select: { minPlayers: true }
-        }
-      }
-    });
-    if (!competition) {
-      return res.status(404).json({ error: "NOT_FOUND", message: "Competition not found" });
-    }
-
-    if (competition.status !== "UPCOMING") {
-      return res.status(400).json({ error: "COMPETITION_STARTED", message: "Competition has already started" });
-    }
-
-    const updated = await prisma.competitionPlayer.updateMany({ 
-      where: { 
-        competitionId: competition.id, 
-        userId: uid 
-      }, 
-      data: { isReady: true } 
-    });
-
-    if (updated.count === 0) {
-      return res.status(404).json({ error: "NOT_JOINED", message: "You are not a participant in this competition" });
-    }
-
-    const totalPlayers = await prisma.competitionPlayer.count({ 
-      where: { competitionId: competition.id } 
-    });
-    
-    const readyPlayers = await prisma.competitionPlayer.count({ 
-      where: { competitionId: competition.id, isReady: true } 
-    });
-
-    // Start competition if all players are ready and meets minimum requirements
-    const minPlayersRequired = competition.game.minPlayers;
-    if (totalPlayers >= minPlayersRequired && readyPlayers === totalPlayers) {
-      await prisma.competition.update({ 
-        where: { id: competition.id }, 
-        data: { status: "ONGOING" } 
-      });
-    }
-
-    res.json({ 
-      ok: true, 
-      readyCount: readyPlayers, 
-      total: totalPlayers,
-      minRequired: minPlayersRequired
-    });
-  } catch (e) { 
-    next(e); 
-  }
-};
-
 export const submitScore = async (req, res, next) => {
   try {
     const uid = req.user.uid;
-    const { score } = z.object({
-      score: z.number().int().min(0, "Score cannot be negative")
+    const { score, playTime } = z.object({
+      score: z.number().int().min(0, "Score cannot be negative"),
+      playTime: z.number().int().min(1, "Play time must be at least 1 second").optional()
     }).parse(req.body);
     const code = req.params.code.toUpperCase();
-    
-    const competition = await prisma.competition.findUnique({ where: { code } });
+
+    const competition = await prisma.competition.findUnique({
+      where: { code },
+      include: {
+        players: true,
+        game: { select: { minPlayTime: true, maxPlayTime: true } }
+      }
+    });
+
     if (!competition) {
       return res.status(404).json({ error: "NOT_FOUND", message: "Competition not found" });
     }
 
-    if (competition.status !== "ONGOING") {
-      return res.status(400).json({ error: "COMPETITION_NOT_ACTIVE", message: "Competition is not currently active" });
+    if (competition.status === "COMPLETED" || competition.status === "CANCELED") {
+      return res.status(400).json({ error: "COMPETITION_ENDED", message: "Competition has ended" });
     }
 
-    const updated = await prisma.competitionPlayer.updateMany({ 
-      where: { 
-        competitionId: competition.id, 
-        userId: uid 
-      }, 
-      data: { score } 
-    });
-
-    if (updated.count === 0) {
+    const player = competition.players.find(p => p.userId === uid);
+    if (!player) {
       return res.status(404).json({ error: "NOT_JOINED", message: "You are not a participant in this competition" });
     }
 
-    res.json({ ok: true });
-  } catch (e) { 
-    next(e); 
+    // Basic anti-cheat: validate play time if provided
+    if (playTime) {
+      const minTime = competition.game.minPlayTime * 60; // Convert to seconds
+      const maxTime = competition.game.maxPlayTime * 60 * 2; // Allow 2x max time for slower players
+
+      if (playTime < minTime) {
+        return res.status(400).json({
+          error: "INVALID_PLAY_TIME",
+          message: "Game completed too quickly"
+        });
+      }
+
+      if (playTime > maxTime) {
+        return res.status(400).json({
+          error: "INVALID_PLAY_TIME",
+          message: "Game took too long"
+        });
+      }
+    }
+
+    const updated = await prisma.competitionPlayer.update({
+      where: { id: player.id },
+      data: {
+        score,
+        hasPlayed: true,
+        playedAt: new Date()
+      }
+    });
+
+    // Check if all players have played and auto-complete if so
+    const allPlayers = await prisma.competitionPlayer.findMany({
+      where: { competitionId: competition.id }
+    });
+
+    const allPlayedCount = allPlayers.filter(p => p.hasPlayed).length;
+
+    if (allPlayedCount === allPlayers.length && allPlayers.length >= competition.game.minPlayers) {
+      // Auto-complete the competition
+      await autoCompleteCompetition(competition.id);
+    }
+
+    // Emit socket event for score update
+    const io = req.app.get('io');
+    if (io) {
+      // Get updated leaderboard
+      const leaderboard = await prisma.competitionPlayer.findMany({
+        where: { competitionId: competition.id },
+        orderBy: { score: "desc" },
+        take: 20,
+        include: { User: { select: { username: true } } }
+      });
+
+      const formattedLeaderboard = leaderboard.map((p, i) => ({
+        rank: i + 1,
+        username: p.User.username,
+        score: p.score,
+        hasPlayed: p.hasPlayed
+      }));
+
+      // Broadcast to competition subscribers
+      io.to(`comp:${code.toUpperCase()}`).emit("leaderboard:update", {
+        competition: code.toUpperCase(),
+        leaderboard: formattedLeaderboard,
+        timestamp: new Date().toISOString()
+      });
+
+      // Notify competition creator
+      if (competition.creatorId !== uid) {
+        io.emitToUser(competition.creatorId, "score_submitted", {
+          competitionId: competition.id,
+          competitionTitle: competition.title,
+          competitionCode: competition.code,
+          player: req.user.username,
+          score: score,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+
+    res.json({
+      ok: true,
+      playedCount: allPlayedCount,
+      totalPlayers: allPlayers.length,
+      allCompleted: allPlayedCount === allPlayers.length
+    });
+  } catch (e) {
+    next(e);
   }
 };
 
+async function autoCompleteCompetition(competitionId) {
+  const competition = await prisma.competition.findUnique({
+    where: { id: competitionId },
+    include: {
+      players: {
+        include: { User: true },
+        orderBy: { score: 'desc' }
+      }
+    }
+  });
+
+  if (!competition || competition.status === 'COMPLETED') return;
+
+  // FIX: Separate played and unplayed players properly
+  const playedPlayers = competition.players.filter(p => p.hasPlayed);
+  const unplayedPlayers = competition.players.filter(p => !p.hasPlayed);
+  
+  if (playedPlayers.length === 0) {
+    console.log("No players have completed the competition yet");
+    return;
+  }
+
+  const prizePool = competition.totalPrizePool;
+  const { first, second, third } = calculatePrizeBreakdown(prizePool, playedPlayers.length);
+
+  const winners = playedPlayers.slice(0, 3);
+  const prizeAmounts = [first, second, third];
+
+  await prisma.$transaction(async (tx) => {
+    // Update competition status
+    await tx.competition.update({
+      where: { id: competitionId },
+      data: { status: "COMPLETED" }
+    });
+
+    // FIX: Update rankings only for players who played
+    for (let i = 0; i < playedPlayers.length; i++) {
+      await tx.competitionPlayer.update({
+        where: { id: playedPlayers[i].id },
+        data: { rank: i + 1 }
+      });
+    }
+
+    // FIX: Set unplayed players to last ranks
+    for (let i = 0; i < unplayedPlayers.length; i++) {
+      await tx.competitionPlayer.update({
+        where: { id: unplayedPlayers[i].id },
+        data: { rank: playedPlayers.length + i + 1 }
+      });
+    }
+
+    // Distribute prizes to winners (unchanged)
+    for (let i = 0; i < winners.length && i < 3; i++) {
+      const winner = winners[i];
+      const prizeAmount = prizeAmounts[i];
+
+      if (prizeAmount > 0) {
+        const wallet = await WalletOps.getOrCreateWallet(winner.userId);
+        
+        await tx.transaction.create({
+          data: {
+            walletId: wallet.id,
+            type: "PRIZE",
+            amount: prizeAmount,
+            meta: {
+              competitionId: competitionId,
+              rank: i + 1,
+              competitionTitle: competition.title
+            }
+          }
+        });
+
+        await tx.wallet.update({
+          where: { userId: winner.userId },
+          data: { balance: { increment: prizeAmount } }
+        });
+      }
+    }
+  });
+}
+
 function calculatePrizeBreakdown(totalPrizePool, playerCount) {
-  if (totalPrizePool <= 0 || playerCount < 2) {
+  if (totalPrizePool <= 0 || playerCount < 1) {
     return { first: 0, second: 0, third: 0 };
   }
 
-  if (playerCount === 2) {
+  if (playerCount === 1) {
     return {
-      first: Math.floor(totalPrizePool * 0.7),
-      second: totalPrizePool - Math.floor(totalPrizePool * 0.7),
+      first: totalPrizePool,
+      second: 0,
       third: 0
     };
   }
 
-  const first = Math.floor(totalPrizePool * 0.6);
-  const second = Math.floor(totalPrizePool * 0.25);
+  if (playerCount === 2) {
+    return {
+      first: Math.floor(totalPrizePool * 0.75), // 75% to winner
+      second: totalPrizePool - Math.floor(totalPrizePool * 0.75),
+      third: 0
+    };
+  }
+
+  // For 3+ players: 75% first, 15% second, 10% third
+  const first = Math.floor(totalPrizePool * 0.75);
+  const second = Math.floor(totalPrizePool * 0.15);
   const third = totalPrizePool - first - second;
 
   return { first, second, third };
@@ -580,16 +937,22 @@ export const complete = async (req, res, next) => {
   try {
     const uid = req.user.uid;
     const code = req.params.code.toUpperCase();
-    
-    const competition = await prisma.competition.findUnique({ 
-      where: { code }, 
-      include: { players: { include: { User: true } } } 
+
+    const competition = await prisma.competition.findUnique({
+      where: { code },
+      include: {
+        players: {
+          include: { User: true },
+          where: { hasPlayed: true },
+          orderBy: { score: 'desc' }
+        }
+      }
     });
-    
+
     if (!competition) {
       return res.status(404).json({ error: "NOT_FOUND", message: "Competition not found" });
     }
-    
+
     if (competition.creatorId !== uid) {
       return res.status(403).json({ error: "FORBIDDEN", message: "Only the creator can complete the competition" });
     }
@@ -598,79 +961,373 @@ export const complete = async (req, res, next) => {
       return res.status(400).json({ error: "ALREADY_COMPLETED", message: "Competition is already completed" });
     }
 
-    const sortedPlayers = [...competition.players].sort((a, b) => b.score - a.score);
-    const prizePool = competition.totalPrizePool;
-    const { first, second, third } = calculatePrizeBreakdown(prizePool, sortedPlayers.length);
-    
-    const winners = sortedPlayers.slice(0, 3).filter(p => p !== undefined);
-    const prizeAmounts = [first, second, third];
-
-    const transactionPromises = [];
-
-    // Update competition status and player rankings
-    transactionPromises.push(
-      prisma.competition.update({ 
-        where: { id: competition.id }, 
-        data: { status: "COMPLETED" } 
-      })
-    );
-
-    // Update player rankings
-    for (let i = 0; i < sortedPlayers.length; i++) {
-      transactionPromises.push(
-        prisma.competitionPlayer.update({
-          where: { id: sortedPlayers[i].id },
-          data: { rank: i + 1 }
-        })
-      );
-    }
-
-    // Distribute prizes to winners
-    for (let i = 0; i < winners.length && i < 3; i++) {
-      const winner = winners[i];
-      const prizeAmount = prizeAmounts[i];
-      
-      if (prizeAmount > 0) {
-        // Create prize transaction
-        transactionPromises.push(
-          prisma.transaction.create({ 
-            data: { 
-              walletId: (await WalletOps.getOrCreateWallet(winner.userId)).id,
-              type: "PRIZE", 
-              amount: prizeAmount, 
-              meta: { 
-                competitionId: competition.id,
-                rank: i + 1,
-                competitionTitle: competition.title
-              } 
-            } 
-          })
-        );
-        
-        // Update wallet balance
-        transactionPromises.push(
-          prisma.wallet.update({ 
-            where: { userId: winner.userId }, 
-            data: { balance: { increment: prizeAmount } } 
-          })
-        );
-      }
-    }
-
-    await prisma.$transaction(transactionPromises);
+    await autoCompleteCompetition(competition.id);
 
     const results = {
-      winners: winners.map((player, index) => ({
+      winners: competition.players.slice(0, 3).map((player, index) => ({
         rank: index + 1,
         username: player.User.username,
         score: player.score,
-        prize: prizeAmounts[index] || 0
+        prize: calculatePrizeBreakdown(competition.totalPrizePool, competition.players.length)[
+          index === 0 ? 'first' : index === 1 ? 'second' : 'third'
+        ] || 0
       })),
-      totalPrizePool: prizePool
+      totalPrizePool: competition.totalPrizePool
     };
 
     res.json({ ok: true, results });
-  } catch (e) { 
-    next(e); 
+  } catch (e) {
+    next(e);
+  }
+};
+
+// Friends system endpoints
+export const getFriends = async (req, res, next) => {
+  try {
+    const uid = req.user.uid;
+
+    const friendRequests = await prisma.friendRequest.findMany({
+      where: {
+        OR: [
+          { senderId: uid, status: 'ACCEPTED' },
+          { receiverId: uid, status: 'ACCEPTED' }
+        ]
+      },
+      include: {
+        sender: { select: { id: true, username: true } },
+        receiver: { select: { id: true, username: true } }
+      }
+    });
+
+    const friends = friendRequests.map(fr => {
+      const friend = fr.senderId === uid ? fr.receiver : fr.sender;
+      return {
+        id: friend.id,
+        username: friend.username,
+        friendsSince: fr.updatedAt
+      };
+    });
+
+    res.json(friends);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const getFriendRequests = async (req, res, next) => {
+  try {
+    const uid = req.user.uid;
+
+    const [received, sent] = await Promise.all([
+      prisma.friendRequest.findMany({
+        where: { receiverId: uid, status: 'PENDING' },
+        include: { sender: { select: { id: true, username: true } } },
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.friendRequest.findMany({
+        where: { senderId: uid, status: 'PENDING' },
+        include: { receiver: { select: { id: true, username: true } } },
+        orderBy: { createdAt: 'desc' }
+      })
+    ]);
+
+    res.json({
+      received: received.map(fr => ({
+        id: fr.id,
+        from: fr.sender,
+        createdAt: fr.createdAt
+      })),
+      sent: sent.map(fr => ({
+        id: fr.id,
+        to: fr.receiver,
+        createdAt: fr.createdAt
+      }))
+    });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const sendFriendRequest = async (req, res, next) => {
+  try {
+    const uid = req.user.uid;
+    const { username } = z.object({
+      username: z.string().min(1)
+    }).parse(req.body);
+
+    const receiver = await prisma.user.findUnique({ where: { username } });
+    if (!receiver) {
+      return res.status(404).json({ error: "USER_NOT_FOUND", message: "User not found" });
+    }
+
+    if (receiver.id === uid) {
+      return res.status(400).json({ error: "SELF_REQUEST", message: "Cannot send friend request to yourself" });
+    }
+
+    // Check if already friends or request exists
+    const existing = await prisma.friendRequest.findFirst({
+      where: {
+        OR: [
+          { senderId: uid, receiverId: receiver.id },
+          { senderId: receiver.id, receiverId: uid }
+        ]
+      }
+    });
+
+    if (existing) {
+      if (existing.status === 'ACCEPTED') {
+        return res.status(400).json({ error: "ALREADY_FRIENDS", message: "Already friends" });
+      }
+      return res.status(400).json({ error: "REQUEST_EXISTS", message: "Friend request already exists" });
+    }
+
+    const friendRequest = await prisma.friendRequest.create({
+      data: {
+        senderId: uid,
+        receiverId: receiver.id
+      },
+      include: {
+        sender: { select: { id: true, username: true } },
+        receiver: { select: { username: true } }
+      }
+    });
+
+    // Emit socket event to receiver
+    const io = req.app.get('io');
+    if (io) {
+      io.emitToUser(receiver.id, 'new_friend_request', {
+        request: {
+          id: friendRequest.id,
+          from: friendRequest.sender,
+          createdAt: friendRequest.createdAt
+        }
+      });
+    }
+
+    res.json({ ok: true, friendRequest });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const acceptFriendRequest = async (req, res, next) => {
+  try {
+    const uid = req.user.uid;
+    const { requestId } = req.params;
+
+    const friendRequest = await prisma.friendRequest.findUnique({
+      where: { id: requestId },
+      include: { 
+        sender: { select: { id: true, username: true } },
+        receiver: { select: { username: true } }
+      }
+    });
+
+    if (!friendRequest) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Friend request not found" });
+    }
+
+    if (friendRequest.receiverId !== uid) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Not your friend request" });
+    }
+
+    if (friendRequest.status !== 'PENDING') {
+      return res.status(400).json({ error: "INVALID_STATUS", message: "Request already processed" });
+    }
+
+    await prisma.friendRequest.update({
+      where: { id: requestId },
+      data: { status: 'ACCEPTED' }
+    });
+
+    // Emit socket event to sender
+    const io = req.app.get('io');
+    if (io) {
+      io.emitToUser(friendRequest.senderId, 'friend_request_accepted', {
+        acceptedBy: friendRequest.receiver
+      });
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const getGameHistory = async (req, res, next) => {
+  try {
+    const uid = req.user.uid;
+
+    const history = await prisma.gameHistory.findMany({
+      where: { userId: uid },
+      include: {
+        user: { select: { username: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    });
+
+    // Group by playedWithId to get unique players and their play count
+    const playerStats = history.reduce((acc, entry) => {
+      if (!acc[entry.playedWithId]) {
+        acc[entry.playedWithId] = {
+          playedWithId: entry.playedWithId,
+          gamesPlayed: 0,
+          lastPlayed: entry.createdAt,
+          gameTypes: new Set()
+        };
+      }
+
+      acc[entry.playedWithId].gamesPlayed++;
+      acc[entry.playedWithId].gameTypes.add(entry.gameType);
+
+      if (entry.createdAt > acc[entry.playedWithId].lastPlayed) {
+        acc[entry.playedWithId].lastPlayed = entry.createdAt;
+      }
+
+      return acc;
+    }, {});
+
+    // Get usernames for the players
+    const playerIds = Object.keys(playerStats);
+    const players = await prisma.user.findMany({
+      where: { id: { in: playerIds } },
+      select: { id: true, username: true }
+    });
+
+    const formattedHistory = players.map(player => ({
+      playerId: player.id,
+      username: player.username,
+      gamesPlayed: playerStats[player.id].gamesPlayed,
+      lastPlayed: playerStats[player.id].lastPlayed,
+      gameTypes: Array.from(playerStats[player.id].gameTypes)
+    })).sort((a, b) => b.gamesPlayed - a.gamesPlayed);
+
+    res.json(formattedHistory);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const getGlobalLeaderboard = async (req, res, next) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    // Get top players by total earnings from completed competitions
+    const leaderboard = await prisma.$queryRaw`
+      SELECT 
+        u.id,
+        u.username,
+        COALESCE(SUM(t.amount), 0) as totalEarnings,
+        COUNT(DISTINCT cp.competitionId) as competitionsWon,
+        ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(t.amount), 0) DESC) as rank
+      FROM "User" u
+      LEFT JOIN "Wallet" w ON w.userId = u.id
+      LEFT JOIN "Transaction" t ON t.walletId = w.id AND t.type = 'PRIZE'
+      LEFT JOIN "CompetitionPlayer" cp ON cp.userId = u.id AND cp.rank = 1
+      GROUP BY u.id, u.username
+      ORDER BY totalEarnings DESC
+      LIMIT ${parseInt(limit)}
+    `;
+
+    const formattedLeaderboard = leaderboard.map(player => ({
+      rank: Number(player.rank),
+      username: player.username,
+      totalEarnings: Number(player.totalEarnings),
+      competitionsWon: Number(player.competitionsWon),
+      isUser: false // Will be set on frontend based on current user
+    }));
+
+    res.json(formattedLeaderboard);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const getPendingInvites = async (req, res, next) => {
+  try {
+    const uid = req.user.uid;
+
+    const invites = await prisma.invite.findMany({
+      where: {
+        inviteeId: uid,
+        accepted: false
+      },
+      include: {
+        Competition: {
+          include: {
+            game: { select: { name: true, imageUrl: true } }
+          }
+        },
+        inviter: { select: { username: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(invites);
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const getSentInvites = async (req, res, next) => {
+  try {
+    const uid = req.user.uid;
+
+    const invites = await prisma.invite.findMany({
+      where: {
+        inviterId: uid
+      },
+      include: {
+        Competition: {
+          include: {
+            game: { select: { name: true, imageUrl: true } }
+          }
+        },
+        inviter: { select: { username: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    res.json(invites);
+  } catch (e) {
+    next(e);
+  }
+};
+
+// Decline invite
+export const declineInvite = async (req, res, next) => {
+  try {
+    const uid = req.user.uid;
+    const { inviteId } = req.params;
+
+    const invite = await prisma.invite.findUnique({
+      where: { id: inviteId },
+      include: { 
+        inviter: { select: { id: true, username: true } },
+        invitee: { select: { username: true } },
+        Competition: { select: { title: true } }
+      }
+    });
+
+    if (!invite || invite.inviteeId !== uid) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Invite not found" });
+    }
+
+    await prisma.invite.delete({ where: { id: inviteId } });
+
+    // Emit socket event to inviter
+    const io = req.app.get('io');
+    if (io) {
+      io.emitToUser(invite.inviter.id, 'invite_declined', {
+        inviteId,
+        decliner: req.user.username,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
   }
 };

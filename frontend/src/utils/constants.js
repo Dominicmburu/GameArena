@@ -3,6 +3,7 @@ export const APP_VERSION = '1.0.0'
 
 // export const REACT_APP_API_URL="https://gamearena-qmir.onrender.com/api"
 export const REACT_APP_API_URL="http://localhost:5000/api"
+export const REACT_APP_SOCKET_URL="http://localhost:5000"
 // export const REACT_APP_WS_URL="http://localhost:5000"
 
 // Color Palette
