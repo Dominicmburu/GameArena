@@ -1,0 +1,72 @@
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+@keyframes rotate {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.letter-spacing-1 {
+    letter-spacing: 1px;
+}
+
+.form-control:focus {
+    background: rgba(20, 20, 25, 0.9) !important;
+    border-color: #00F0FF !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 240, 255, 0.25) !important;
+    color: white !important;
+}
+
+.form-control::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.form-control.is-invalid {
+    border-color: #FF003C !important;
+    box-shadow: 0 0 0 0.2rem rgba(255, 0, 60, 0.25) !important;
+}
+
+.animated-bg {
+    position: relative;
+    overflow: hidden;
+}
+
+.animated-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(circle at 20% 20%, rgba(155, 0, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(0, 240, 255, 0.1) 0%, transparent 50%);
+    animation: float 8s ease-in-out infinite;
+    z-index: -1;
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0px) scale(1);
+    }
+
+    50% {
+        transform: translateY(-20px) scale(1.02);
+    }
+}

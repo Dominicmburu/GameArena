@@ -101,7 +101,15 @@ export const login = async (req, res, next) => {
       httpOnly: true, 
       secure: env.cookieSecure,
       sameSite: env.cookieSecure ? "none" : "lax", 
-      secure: env.cookieSecure, 
+      domain: env.cookieDomain || undefined, 
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/" 
+    });
+
+    res.cookie("is_authenticated", "true", { 
+      httpOnly: false,  // Can be read by JavaScript
+      secure: env.cookieSecure,
+      sameSite: env.cookieSecure ? "none" : "lax", 
       domain: env.cookieDomain || undefined, 
       maxAge: 7 * 24 * 60 * 60 * 1000,
       path: "/" 
@@ -127,9 +135,11 @@ export const logout = async (req, res) => {
     }
     
     res.clearCookie("ga_auth", { path: "/", domain: env.cookieDomain });
+    res.clearCookie("is_authenticated", { path: "/", domain: env.cookieDomain });
     res.json({ ok: true });
   } catch (error) {
     res.clearCookie("ga_auth", { path: "/", domain: env.cookieDomain });
+    res.clearCookie("is_authenticated", { path: "/", domain: env.cookieDomain });
     res.json({ ok: true });
   }
 };

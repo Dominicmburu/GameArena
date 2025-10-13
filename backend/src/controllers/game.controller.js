@@ -38,8 +38,6 @@ export const listGames = async (req, res, next) => {
                 level: true,
                 minPlayers: true,
                 maxPlayers: true,
-                minPlayTime: true,
-                maxPlayTime: true,
                 minEntryFee: true,
                 isPopular: true,
                 imageUrl: true,
@@ -68,7 +66,6 @@ export const listGames = async (req, res, next) => {
             gameType: game.gameType,
             level: game.level,
             playerRange: `${game.minPlayers}-${game.maxPlayers}`,
-            playTimeRange: `${game.minPlayTime}-${game.maxPlayTime} min`,
             minEntryFee: game.minEntryFee,
             isPopular: game.isPopular,
             imageUrl: game.imageUrl,
@@ -108,9 +105,8 @@ export const getGame = async (req, res, next) => {
                         entryFee: true,
                         totalPrizePool: true,
                         code: true,
-                        startsAt: true,
-                        endsAt: true,
-                        minutesToPlay: true,
+                        expiresAt: true,
+                        createdAt: true,
                         creator: {
                             select: { username: true }
                         },
@@ -131,6 +127,8 @@ export const getGame = async (req, res, next) => {
             });
         }
 
+        const now = new Date();
+
         const formattedGame = {
             id: game.id,
             name: game.name,
@@ -138,7 +136,6 @@ export const getGame = async (req, res, next) => {
             gameType: game.gameType,
             level: game.level,
             playerRange: `${game.minPlayers}-${game.maxPlayers}`,
-            playTimeRange: `${game.minPlayTime}-${game.maxPlayTime} min`,
             minEntryFee: game.minEntryFee,
             isPopular: game.isPopular,
             imageUrl: game.imageUrl,
@@ -152,9 +149,9 @@ export const getGame = async (req, res, next) => {
                 entryFee: c.entryFee,
                 totalPrizePool: c.totalPrizePool,
                 code: c.code,
-                startsAt: c.startsAt,
-                endsAt: c.endsAt,
-                minutesToPlay: c.minutesToPlay,
+                createdAt: c.createdAt,
+                expiresAt: c.expiresAt,
+                timeRemaining: Math.max(0, Math.floor((c.expiresAt - now) / 1000)),
                 creator: c.creator.username
             }))
         };
@@ -170,16 +167,13 @@ export const getGameCompetitions = async (req, res, next) => {
         const { id } = req.params;
         const { page = 1, limit = 20, status } = req.query;
 
-        // Verify game exists
         const game = await prisma.game.findUnique({
             where: { id },
             select: {
                 id: true,
                 name: true,
                 minPlayers: true,
-                maxPlayers: true,
-                minPlayTime: true,
-                maxPlayTime: true
+                maxPlayers: true
             }
         });
 
@@ -202,13 +196,12 @@ export const getGameCompetitions = async (req, res, next) => {
                 id: true,
                 title: true,
                 status: true,
-                minutesToPlay: true,
                 maxPlayers: true,
                 entryFee: true,
                 totalPrizePool: true,
                 code: true,
-                startsAt: true,
-                endsAt: true,
+                createdAt: true,
+                expiresAt: true,
                 creator: {
                     select: { username: true }
                 },
@@ -221,18 +214,20 @@ export const getGameCompetitions = async (req, res, next) => {
             take: Number(limit)
         });
 
+        const now = new Date();
+
         const formattedCompetitions = competitions.map(c => ({
             id: c.id,
             title: c.title,
             status: c.status,
-            minutesToPlay: c.minutesToPlay,
             maxPlayers: c.maxPlayers,
             currentPlayers: c._count.players,
             entryFee: c.entryFee,
             totalPrizePool: c.totalPrizePool,
             code: c.code,
-            startsAt: c.startsAt,
-            endsAt: c.endsAt,
+            createdAt: c.createdAt,
+            expiresAt: c.expiresAt,
+            timeRemaining: Math.max(0, Math.floor((c.expiresAt - now) / 1000)),
             creator: c.creator.username,
             gameName: game.name
         }));
@@ -241,8 +236,7 @@ export const getGameCompetitions = async (req, res, next) => {
             game: {
                 id: game.id,
                 name: game.name,
-                playerRange: `${game.minPlayers}-${game.maxPlayers}`,
-                playTimeRange: `${game.minPlayTime}-${game.maxPlayTime} min`
+                playerRange: `${game.minPlayers}-${game.maxPlayers}`
             },
             competitions: formattedCompetitions,
             pagination: {
@@ -263,24 +257,18 @@ const createGameSchema = z.object({
     level: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"]),
     minPlayers: z.number().int().min(1, "Minimum players must be at least 1"),
     maxPlayers: z.number().int().min(1, "Maximum players must be at least 1"),
-    minPlayTime: z.number().int().min(1, "Minimum play time must be at least 1 minute"),
-    maxPlayTime: z.number().int().min(1, "Maximum play time must be at least 1 minute"),
     minEntryFee: z.number().int().min(0, "Minimum entry fee cannot be negative").default(0),
     isPopular: z.boolean().default(false),
     imageUrl: z.string().url("Invalid image URL").optional()
 }).refine(data => data.maxPlayers >= data.minPlayers, {
     message: "Maximum players must be greater than or equal to minimum players",
     path: ["maxPlayers"]
-}).refine(data => data.maxPlayTime >= data.minPlayTime, {
-    message: "Maximum play time must be greater than or equal to minimum play time",
-    path: ["maxPlayTime"]
 });
 
 export const createGame = async (req, res, next) => {
     try {
         const body = createGameSchema.parse(req.body);
 
-        // Check if game with same name already exists
         const existingGame = await prisma.game.findUnique({
             where: { name: body.name }
         });
@@ -302,8 +290,6 @@ export const createGame = async (req, res, next) => {
                 level: true,
                 minPlayers: true,
                 maxPlayers: true,
-                minPlayTime: true,
-                maxPlayTime: true,
                 minEntryFee: true,
                 isPopular: true,
                 imageUrl: true,
@@ -319,17 +305,15 @@ export const createGame = async (req, res, next) => {
 };
 
 const updateGameSchema = z.object({
-    name: z.string().min(2, "Game name must be at least 2 characters").max(100, "Game name cannot exceed 100 characters").optional(),
-    description: z.string().min(10, "Description must be at least 10 characters").max(500, "Description cannot exceed 500 characters").optional(),
+    name: z.string().min(2).max(100).optional(),
+    description: z.string().min(10).max(500).optional(),
     gameType: z.enum(["ACTION", "ADVENTURE", "PUZZLE", "STRATEGY", "RACING", "SPORTS", "RPG", "SIMULATION", "ARCADE", "TRIVIA", "CARD", "BOARD"]).optional(),
     level: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"]).optional(),
-    minPlayers: z.number().int().min(1, "Minimum players must be at least 1").optional(),
-    maxPlayers: z.number().int().min(1, "Maximum players must be at least 1").optional(),
-    minPlayTime: z.number().int().min(1, "Minimum play time must be at least 1 minute").optional(),
-    maxPlayTime: z.number().int().min(1, "Maximum play time must be at least 1 minute").optional(),
-    minEntryFee: z.number().int().min(0, "Minimum entry fee cannot be negative").optional(),
+    minPlayers: z.number().int().min(1).optional(),
+    maxPlayers: z.number().int().min(1).optional(),
+    minEntryFee: z.number().int().min(0).optional(),
     isPopular: z.boolean().optional(),
-    imageUrl: z.string().url("Invalid image URL").optional(),
+    imageUrl: z.string().url().optional(),
     isActive: z.boolean().optional()
 }).refine(data => {
     if (data.minPlayers !== undefined && data.maxPlayers !== undefined) {
@@ -339,14 +323,6 @@ const updateGameSchema = z.object({
 }, {
     message: "Maximum players must be greater than or equal to minimum players",
     path: ["maxPlayers"]
-}).refine(data => {
-    if (data.minPlayTime !== undefined && data.maxPlayTime !== undefined) {
-        return data.maxPlayTime >= data.minPlayTime;
-    }
-    return true;
-}, {
-    message: "Maximum play time must be greater than or equal to minimum play time",
-    path: ["maxPlayTime"]
 });
 
 export const updateGame = async (req, res, next) => {
@@ -354,7 +330,6 @@ export const updateGame = async (req, res, next) => {
         const { id } = req.params;
         const body = updateGameSchema.parse(req.body);
 
-        // Check if game exists
         const existingGame = await prisma.game.findUnique({ where: { id } });
         if (!existingGame) {
             return res.status(404).json({
@@ -363,7 +338,6 @@ export const updateGame = async (req, res, next) => {
             });
         }
 
-        // If updating name, check for duplicates
         if (body.name && body.name !== existingGame.name) {
             const nameExists = await prisma.game.findUnique({
                 where: { name: body.name }
@@ -377,23 +351,13 @@ export const updateGame = async (req, res, next) => {
             }
         }
 
-        // Validate player ranges against existing game data
         const minPlayers = body.minPlayers ?? existingGame.minPlayers;
         const maxPlayers = body.maxPlayers ?? existingGame.maxPlayers;
-        const minPlayTime = body.minPlayTime ?? existingGame.minPlayTime;
-        const maxPlayTime = body.maxPlayTime ?? existingGame.maxPlayTime;
 
         if (maxPlayers < minPlayers) {
             return res.status(400).json({
                 error: "INVALID_PLAYER_RANGE",
                 message: "Maximum players must be greater than or equal to minimum players"
-            });
-        }
-
-        if (maxPlayTime < minPlayTime) {
-            return res.status(400).json({
-                error: "INVALID_TIME_RANGE",
-                message: "Maximum play time must be greater than or equal to minimum play time"
             });
         }
 
@@ -408,8 +372,6 @@ export const updateGame = async (req, res, next) => {
                 level: true,
                 minPlayers: true,
                 maxPlayers: true,
-                minPlayTime: true,
-                maxPlayTime: true,
                 minEntryFee: true,
                 isPopular: true,
                 imageUrl: true,
@@ -428,7 +390,6 @@ export const deleteGame = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        // Check if game exists
         const game = await prisma.game.findUnique({
             where: { id },
             include: {
@@ -451,7 +412,6 @@ export const deleteGame = async (req, res, next) => {
             });
         }
 
-        // Prevent deletion if there are active competitions
         if (game._count.competitions > 0) {
             return res.status(400).json({
                 error: "GAME_HAS_ACTIVE_COMPETITIONS",
@@ -484,8 +444,6 @@ export const getGameStats = async (req, res, next) => {
                 level: true,
                 minPlayers: true,
                 maxPlayers: true,
-                minPlayTime: true,
-                maxPlayTime: true,
                 minEntryFee: true,
                 isPopular: true,
                 imageUrl: true,
@@ -504,14 +462,12 @@ export const getGameStats = async (req, res, next) => {
             });
         }
 
-        // Get competition status breakdown
         const statusCounts = await prisma.competition.groupBy({
             by: ['status'],
             where: { gameId: id },
             _count: { status: true }
         });
 
-        // Get total prize pool awarded
         const completedCompetitions = await prisma.competition.findMany({
             where: {
                 gameId: id,
@@ -525,20 +481,17 @@ export const getGameStats = async (req, res, next) => {
             0
         );
 
-        // Get total players count
         const totalPlayers = await prisma.competitionPlayer.count({
             where: {
                 Competition: { gameId: id }
             }
         });
 
-        // Get average competition details
         const avgStats = await prisma.competition.aggregate({
             where: { gameId: id },
             _avg: {
                 entryFee: true,
-                totalPrizePool: true,
-                minutesToPlay: true
+                totalPrizePool: true
             }
         });
 
@@ -550,7 +503,6 @@ export const getGameStats = async (req, res, next) => {
                 gameType: game.gameType,
                 level: game.level,
                 playerRange: `${game.minPlayers}-${game.maxPlayers}`,
-                playTimeRange: `${game.minPlayTime}-${game.maxPlayTime} min`,
                 minEntryFee: game.minEntryFee,
                 isPopular: game.isPopular,
                 imageUrl: game.imageUrl
@@ -560,7 +512,6 @@ export const getGameStats = async (req, res, next) => {
             totalPrizesAwarded,
             averageEntryFee: Math.round(avgStats._avg.entryFee || 0),
             averagePrizePool: Math.round(avgStats._avg.totalPrizePool || 0),
-            averagePlayTime: Math.round(avgStats._avg.minutesToPlay || 0),
             statusBreakdown: statusCounts.reduce((acc, item) => {
                 acc[item.status.toLowerCase()] = item._count.status;
                 return acc;
@@ -615,8 +566,6 @@ export const getPopularGames = async (req, res, next) => {
                 level: true,
                 minPlayers: true,
                 maxPlayers: true,
-                minPlayTime: true,
-                maxPlayTime: true,
                 imageUrl: true,
                 _count: {
                     select: {
@@ -646,7 +595,6 @@ export const getPopularGames = async (req, res, next) => {
             gameType: game.gameType,
             level: game.level,
             playerRange: `${game.minPlayers}-${game.maxPlayers}`,
-            playTimeRange: `${game.minPlayTime}-${game.maxPlayTime} min`,
             imageUrl: game.imageUrl,
             activeCompetitions: game._count.competitions
         }));

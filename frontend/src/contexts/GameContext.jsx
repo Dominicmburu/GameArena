@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { gameService, competitionService } from '../services/gameService';
+import { useAuth } from './AuthContext';
 
 // Initial state
 const initialState = {
@@ -270,6 +271,7 @@ const GameContext = createContext();
 // Context provider component
 export const GameProvider = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, initialState);
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
 
   // Helper functions
   const setLoading = useCallback((key, value) => {
@@ -555,13 +557,13 @@ export const GameProvider = ({ children }) => {
       clearErrors('acceptingInvite');
       const result = await competitionService.acceptInvite(inviteId);
       setLoading('acceptingInvite', false);
-      
+
       // Remove from pending invites
       dispatch({
         type: GAME_ACTIONS.REMOVE_INVITE,
         payload: inviteId
       });
-      
+
       // Refresh competitions
       fetchParticipatedCompetitions().catch(console.warn);
       return result;
@@ -577,13 +579,13 @@ export const GameProvider = ({ children }) => {
       clearErrors('decliningInvite');
       const result = await competitionService.declineInvite(inviteId);
       setLoading('decliningInvite', false);
-      
+
       // Remove from pending invites
       dispatch({
         type: GAME_ACTIONS.REMOVE_INVITE,
         payload: inviteId
       });
-      
+
       return result;
     } catch (error) {
       setError('decliningInvite', error.message);
@@ -645,13 +647,13 @@ export const GameProvider = ({ children }) => {
       clearErrors('acceptingFriendRequest');
       const result = await competitionService.acceptFriendRequest(requestId);
       setLoading('acceptingFriendRequest', false);
-      
+
       // Remove from friend requests
       dispatch({
         type: GAME_ACTIONS.UPDATE_FRIEND_REQUESTS,
         payload: requestId
       });
-      
+
       // Refresh friends list
       fetchFriends().catch(console.warn);
       return result;
@@ -660,6 +662,26 @@ export const GameProvider = ({ children }) => {
       throw error;
     }
   }, [setLoading, clearErrors, setError, fetchFriends]);
+
+  const declineFriendRequest = useCallback(async (requestId) => {
+    try {
+      setLoading('decliningFriendRequest', true);
+      clearErrors('decliningFriendRequest');
+      const result = await competitionService.declineFriendRequest(requestId);
+      setLoading('decliningFriendRequest', false);
+
+      // Remove from friend requests
+      dispatch({
+        type: GAME_ACTIONS.UPDATE_FRIEND_REQUESTS,
+        payload: requestId
+      });
+
+      return result;
+    } catch (error) {
+      setError('decliningFriendRequest', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError]);
 
   // Game History
   const fetchGameHistory = useCallback(async () => {
@@ -693,43 +715,43 @@ export const GameProvider = ({ children }) => {
     // Competition updates
     socket.on('leaderboard:update', (data) => {
       // You can dispatch an action to update specific competition leaderboard
-      console.log('Leaderboard updated:', data);
+      // console.log('Leaderboard updated:', data);
     });
 
     socket.on('competition_joined', (data) => {
-      console.log('Someone joined competition:', data);
+      // console.log('Someone joined competition:', data);
       // Refresh competitions if needed
     });
 
     socket.on('score_submitted', (data) => {
-      console.log('Score submitted:', data);
+      // console.log('Score submitted:', data);
       // Could trigger a leaderboard refresh or show notification
     });
 
     // Invite events
     socket.on('new_invite', (data) => {
-      console.log('New invite received:', data);
+      // console.log('New invite received:', data);
       fetchPendingInvites().catch(console.warn);
     });
 
     socket.on('invite_accepted', (data) => {
-      console.log('Invite accepted:', data);
+      // console.log('Invite accepted:', data);
       fetchSentInvites().catch(console.warn);
     });
 
     socket.on('invite_declined', (data) => {
-      console.log('Invite declined:', data);
+      // console.log('Invite declined:', data);
       fetchSentInvites().catch(console.warn);
     });
 
     // Friend events
     socket.on('new_friend_request', (data) => {
-      console.log('New friend request:', data);
+      // console.log('New friend request:', data);
       fetchFriendRequests().catch(console.warn);
     });
 
     socket.on('friend_request_accepted', (data) => {
-      console.log('Friend request accepted:', data);
+      // console.log('Friend request accepted:', data);
       fetchFriends().catch(console.warn);
     });
 
@@ -784,6 +806,7 @@ export const GameProvider = ({ children }) => {
     fetchFriendRequests,
     sendFriendRequest,
     acceptFriendRequest,
+    declineFriendRequest,
     fetchGameHistory,
 
     // Socket handler
@@ -814,21 +837,35 @@ export const GameProvider = ({ children }) => {
           fetchPublicCompetitions().catch(err => console.warn('Could not load public competitions:', err))
         ]);
 
-        // Load user-specific data (requires auth)
-        await Promise.all([
-          fetchMyCompetitions().catch(err => console.warn('Could not load my competitions:', err)),
-          fetchParticipatedCompetitions().catch(err => console.warn('Could not load participated competitions:', err)),
-          fetchGlobalLeaderboard().catch(err => console.warn('Could not load global leaderboard:', err))
-        ]);
+        // // Load user-specific data (requires auth)
+        // await Promise.all([
+        //   fetchMyCompetitions().catch(err => console.warn('Could not load my competitions:', err)),
+        //   fetchParticipatedCompetitions().catch(err => console.warn('Could not load participated competitions:', err)),
+        //   fetchGlobalLeaderboard().catch(err => console.warn('Could not load global leaderboard:', err))
+        // ]);
 
-        // Load social features (optional)
-        await Promise.all([
-          fetchFriends().catch(err => console.warn('Could not load friends:', err)),
-          fetchFriendRequests().catch(err => console.warn('Could not load friend requests:', err)),
-          fetchGameHistory().catch(err => console.warn('Could not load game history:', err)),
-          fetchPendingInvites().catch(err => console.warn('Could not load pending invites:', err)),
-          fetchSentInvites().catch(err => console.warn('Could not load sent invites:', err))
-        ]);
+        // // Load social features (optional)
+        // await Promise.all([
+        //   fetchFriends().catch(err => console.warn('Could not load friends:', err)),
+        //   fetchFriendRequests().catch(err => console.warn('Could not load friend requests:', err)),
+        //   fetchGameHistory().catch(err => console.warn('Could not load game history:', err)),
+        //   fetchPendingInvites().catch(err => console.warn('Could not load pending invites:', err)),
+        //   fetchSentInvites().catch(err => console.warn('Could not load sent invites:', err))
+        // ]);
+
+        if (isAuthenticated && !authLoading) {
+          await Promise.all([
+            fetchMyCompetitions().catch(err => console.warn('Could not load my competitions')),
+            fetchParticipatedCompetitions().catch(err => console.warn('Could not load participated competitions')),
+            fetchGlobalLeaderboard().catch(err => console.warn('Could not load global leaderboard')),
+            fetchFriends().catch(err => console.warn('Could not load friends')),
+            fetchFriendRequests().catch(err => console.warn('Could not load friend requests')),
+            fetchGameHistory().catch(err => console.warn('Could not load game history')),
+            fetchPendingInvites().catch(err => console.warn('Could not load pending invites')),
+            fetchSentInvites().catch(err => console.warn('Could not load sent invites'))
+          ])
+        }
+
       } catch (error) {
         console.error('Failed to load initial data:', error);
       }

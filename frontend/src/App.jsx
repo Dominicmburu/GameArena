@@ -12,31 +12,34 @@ import Auth from './pages/Auth'
 import './App.css'
 import AppLayout from './components/common/AppLayout'
 import { GameProvider } from './contexts/GameContext'
+import { SocketProvider } from './contexts/SocketContext'
 
 function App() {
   return (
     <AuthProvider>
       <Router>
         <GameProvider>
-          <div className="App">
-            <main className="main-content">
-              <Routes>
-                <Route path="/auth" element={<Auth />} />
+          <SocketProvider>
+            <div className="App">
+              <main className="main-content">
+                <Routes>
+                  <Route path="/auth" element={<Auth />} />
 
-                <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                  <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
 
-                  <Route path="/" element={<Homepage />} />
-                  <Route path="/play" element={<PlayPage />} />
-                  <Route path="/create" element={<MakeGame />} />
-                  <Route path="/train" element={<TrainPage />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/deposit" element={<Deposit />} />
+                    <Route path="/" element={<Homepage />} />
+                    <Route path="/play" element={<PlayPage />} />
+                    <Route path="/create" element={<MakeGame />} />
+                    <Route path="/train" element={<TrainPage />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/deposit" element={<Deposit />} />
 
-                </Route>
+                  </Route>
 
-              </Routes>
-            </main>
-          </div>
+                </Routes>
+              </main>
+            </div>
+          </SocketProvider>
         </GameProvider>
       </Router>
     </AuthProvider>

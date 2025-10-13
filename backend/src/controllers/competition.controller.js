@@ -16,8 +16,6 @@ export const listMine = async (req, res, next) => {
             level: true,
             minPlayers: true,
             maxPlayers: true,
-            minPlayTime: true,
-            maxPlayTime: true,
             imageUrl: true
           }
         },
@@ -42,7 +40,6 @@ export const listMine = async (req, res, next) => {
         title: c.title,
         privacy: c.privacy,
         status: c.status,
-        minutesToPlay: c.minutesToPlay,
         maxPlayers: c.maxPlayers,
         currentPlayers: c.players.length,
         playedCount: playedCount,
@@ -64,7 +61,6 @@ export const listMine = async (req, res, next) => {
           gameType: c.game.gameType,
           level: c.game.level,
           playerRange: `${c.game.minPlayers}-${c.game.maxPlayers}`,
-          playTimeRange: `${c.game.minPlayTime}-${c.game.maxPlayTime} min`,
           imageUrl: c.game.imageUrl
         },
         players: c.players.map(p => ({
@@ -105,8 +101,6 @@ export const listPublic = async (req, res, next) => {
             level: true,
             minPlayers: true,
             maxPlayers: true,
-            minPlayTime: true,
-            maxPlayTime: true,
             imageUrl: true
           }
         },
@@ -132,7 +126,6 @@ export const listPublic = async (req, res, next) => {
         title: c.title,
         privacy: c.privacy,
         status: c.status,
-        minutesToPlay: c.minutesToPlay,
         maxPlayers: c.maxPlayers,
         currentPlayers: c.players.length,
         playedCount: playedCount,
@@ -150,7 +143,6 @@ export const listPublic = async (req, res, next) => {
           gameType: c.game.gameType,
           level: c.game.level,
           playerRange: `${c.game.minPlayers}-${c.game.maxPlayers}`,
-          playTimeRange: `${c.game.minPlayTime}-${c.game.maxPlayTime} min`,
           imageUrl: c.game.imageUrl
         },
         players: c.players.map(p => ({
@@ -186,8 +178,6 @@ export const getUserCompetitions = async (req, res, next) => {
                 level: true,
                 minPlayers: true,
                 maxPlayers: true,
-                minPlayTime: true,
-                maxPlayTime: true,
                 imageUrl: true
               }
             },
@@ -215,7 +205,6 @@ export const getUserCompetitions = async (req, res, next) => {
         title: c.title,
         privacy: c.privacy,
         status: c.status,
-        minutesToPlay: c.minutesToPlay,
         maxPlayers: c.maxPlayers,
         currentPlayers: c.players.length,
         playedCount: playedCount,
@@ -237,7 +226,6 @@ export const getUserCompetitions = async (req, res, next) => {
           gameType: c.game.gameType,
           level: c.game.level,
           playerRange: `${c.game.minPlayers}-${c.game.maxPlayers}`,
-          playTimeRange: `${c.game.minPlayTime}-${c.game.maxPlayTime} min`,
           imageUrl: c.game.imageUrl
         },
         players: c.players.map(p => ({
@@ -261,7 +249,6 @@ const createCompetitionSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   gameId: z.string().cuid("Invalid game ID"),
   privacy: z.enum(["PUBLIC", "PRIVATE"]).default("PRIVATE"),
-  minutesToPlay: z.number().int().min(1, "Duration must be at least 1 minute"),
   maxPlayers: z.number().int().min(2, "Must allow at least 2 players").max(1000, "Cannot exceed 1000 players"),
   entryFee: z.number().int().min(0, "Entry fee cannot be negative")
 });
@@ -298,38 +285,182 @@ export const create = async (req, res, next) => {
       });
     }
 
-    if (body.minutesToPlay < game.minPlayTime || body.minutesToPlay > game.maxPlayTime) {
-      return res.status(400).json({
-        error: "INVALID_PLAY_TIME",
-        message: `Play time must be between ${game.minPlayTime}-${game.maxPlayTime} minutes for this game`
-      });
+    // Check if creator has sufficient balance for entry fee
+    if (body.entryFee > 0) {
+      const wallet = await WalletOps.getOrCreateWallet(uid);
+      if (wallet.balance < body.entryFee) {
+        return res.status(400).json({ 
+          error: "INSUFFICIENT_FUNDS", 
+          message: "Insufficient wallet balance to create this competition" 
+        });
+      }
     }
 
-    const competition = await prisma.competition.create({
-      data: {
-        ...body,
-        creatorId: uid,
-        code: shortCode(),
-        totalPrizePool: 0,
-        status: "ONGOING"
-      },
+    // Calculate prize pool contribution
+    const platformFee = Math.floor(body.entryFee * 0.15);
+    const addToPool = body.entryFee - platformFee;
+
+    // Set expiration to 1 hour from now
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    // Create competition and auto-join creator in a transaction
+    const competition = await prisma.$transaction(async (tx) => {
+      const newCompetition = await tx.competition.create({
+        data: {
+          ...body,
+          creatorId: uid,
+          code: shortCode(),
+          totalPrizePool: body.entryFee > 0 ? addToPool : 0,
+          status: "ONGOING",
+          expiresAt
+        },
+        include: {
+          game: {
+            select: {
+              name: true,
+              gameType: true,
+              level: true,
+              minPlayers: true,
+              maxPlayers: true,
+              imageUrl: true
+            }
+          }
+        }
+      });
+
+      // Deduct entry fee from creator's wallet if applicable
+      if (body.entryFee > 0) {
+        await WalletOps.debit(uid, body.entryFee, "ENTRY_FEE", { 
+          competitionId: newCompetition.id 
+        });
+      }
+
+      // Auto-join creator as first player
+      await tx.competitionPlayer.create({
+        data: {
+          competitionId: newCompetition.id,
+          userId: uid,
+          paid: true
+        }
+      });
+
+      return newCompetition;
+    });
+
+    res.json({
+      ...competition,
+      timeRemaining: 3600 // seconds
+    });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const leaveCompetition = async (req, res, next) => {
+  try {
+    const uid = req.user.uid;
+    const code = req.params.code.toUpperCase();
+
+    const competition = await prisma.competition.findUnique({
+      where: { code },
       include: {
-        game: {
-          select: {
-            name: true,
-            gameType: true,
-            level: true,
-            minPlayers: true,
-            maxPlayers: true,
-            minPlayTime: true,
-            maxPlayTime: true,
-            imageUrl: true
+        players: {
+          include: {
+            User: { select: { username: true } }
           }
         }
       }
     });
 
-    res.json(competition);
+    if (!competition) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Competition not found" });
+    }
+
+    // Check if user is in competition
+    const player = competition.players.find(p => p.userId === uid);
+    if (!player) {
+      return res.status(404).json({ 
+        error: "NOT_JOINED", 
+        message: "You are not in this competition" 
+      });
+    }
+
+    // Check if anyone has played
+    const hasAnyonePlayed = competition.players.some(p => p.hasPlayed);
+    if (hasAnyonePlayed) {
+      return res.status(400).json({ 
+        error: "GAME_STARTED", 
+        message: "Cannot leave after someone has started playing" 
+      });
+    }
+
+    // Cannot leave if you're the creator and there are other players
+    if (competition.creatorId === uid && competition.players.length > 1) {
+      return res.status(400).json({ 
+        error: "CREATOR_CANNOT_LEAVE", 
+        message: "Creator cannot leave while other players are in the competition" 
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Remove player
+      await tx.competitionPlayer.delete({
+        where: { id: player.id }
+      });
+
+      // Refund entry fee
+      if (competition.entryFee > 0) {
+        await WalletOps.credit(uid, competition.entryFee, "REFUND", {
+          competitionId: competition.id,
+          reason: "Left competition before game started"
+        });
+
+        // Reduce prize pool
+        const platformFee = Math.floor(competition.entryFee * 0.15);
+        const removeFromPool = competition.entryFee - platformFee;
+        
+        await tx.competition.update({
+          where: { id: competition.id },
+          data: { totalPrizePool: { decrement: removeFromPool } }
+        });
+      }
+
+      // If creator is leaving and alone, delete competition
+      if (competition.creatorId === uid && competition.players.length === 1) {
+        await tx.competition.delete({
+          where: { id: competition.id }
+        });
+      }
+    });
+
+    res.json({ ok: true, message: "Successfully left competition" });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const getTimeRemaining = async (req, res, next) => {
+  try {
+    const code = req.params.code.toUpperCase();
+
+    const competition = await prisma.competition.findUnique({
+      where: { code },
+      select: { expiresAt: true, status: true }
+    });
+
+    if (!competition) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Competition not found" });
+    }
+
+    const now = new Date();
+    const timeRemaining = Math.max(0, Math.floor((competition.expiresAt - now) / 1000));
+
+    res.json({
+      expiresAt: competition.expiresAt,
+      timeRemaining,
+      status: competition.status,
+      isExpired: timeRemaining === 0
+    });
   } catch (e) {
     next(e);
   }
@@ -339,6 +470,11 @@ export const joinByCode = async (req, res, next) => {
   try {
     const uid = req.user.uid;
     const code = req.params.code.toUpperCase();
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: uid },
+      select: { username: true }
+    });
 
     const competition = await prisma.competition.findUnique({
       where: { code },
@@ -370,13 +506,22 @@ export const joinByCode = async (req, res, next) => {
       return res.status(400).json({ error: "COMPETITION_ENDED", message: "Competition has ended" });
     }
 
+    // Check if user already exists in competition
     const existingPlayer = competition.players.find(p => p.userId === uid);
     if (existingPlayer) {
-      return res.json({ ok: true, alreadyJoined: true });
+      return res.json({ 
+        ok: true, 
+        alreadyJoined: true,
+        message: "You are already in this competition"
+      });
     }
 
+    // Check if competition is full
     if (competition.players.length >= competition.maxPlayers) {
-      return res.status(400).json({ error: "FULL", message: "Competition is full" });
+      return res.status(400).json({ 
+        error: "FULL", 
+        message: `Competition is full (${competition.maxPlayers}/${competition.maxPlayers} players)` 
+      });
     }
 
     // Check if user has sufficient balance
@@ -396,7 +541,7 @@ export const joinByCode = async (req, res, next) => {
         where: { id: competition.id },
         data: { totalPrizePool: { increment: addToPool } }
       });
-      
+
       await tx.competitionPlayer.create({
         data: {
           competitionId: competition.id,
@@ -427,12 +572,19 @@ export const joinByCode = async (req, res, next) => {
         competitionId: competition.id,
         competitionTitle: competition.title,
         competitionCode: competition.code,
-        player: req.user.username,
+        player: currentUser.username,
+        currentPlayers: competition.players.length + 1,
+        maxPlayers: competition.maxPlayers,
         timestamp: new Date().toISOString()
       });
     }
 
-    res.json({ ok: true, poolIncrement: addToPool });
+    res.json({ 
+      ok: true, 
+      poolIncrement: addToPool,
+      currentPlayers: competition.players.length + 1,
+      maxPlayers: competition.maxPlayers
+    });
   } catch (e) {
     next(e);
   }
@@ -448,34 +600,67 @@ export const inviteByUsername = async (req, res, next) => {
 
     const competition = await prisma.competition.findUnique({
       where: { id: competitionId },
-      include: { players: true }
+      include: { 
+        players: {
+          include: {
+            User: { select: { id: true, username: true } }
+          }
+        }
+      }
     });
 
     if (!competition) {
       return res.status(404).json({ error: "NOT_FOUND", message: "Competition not found" });
     }
 
-    if (competition.creatorId !== uid) {
-      return res.status(403).json({ error: "FORBIDDEN", message: "Only creator can send invites" });
+    // Check if user is either creator OR participant
+    const isCreator = competition.creatorId === uid;
+    const isParticipant = competition.players.some(p => p.userId === uid);
+
+    if (!isCreator && !isParticipant) {
+      return res.status(403).json({ 
+        error: "FORBIDDEN", 
+        message: "You must be part of this competition to send invites" 
+      });
+    }
+
+    // Check if competition is still open
+    if (competition.status === "COMPLETED" || competition.status === "CANCELED") {
+      return res.status(400).json({ 
+        error: "COMPETITION_ENDED", 
+        message: "Cannot invite to a completed competition" 
+      });
     }
 
     if (competition.players.length >= competition.maxPlayers) {
-      return res.status(400).json({ error: "FULL", message: "Competition is full" });
+      return res.status(400).json({ 
+        error: "FULL", 
+        message: "Competition is full" 
+      });
     }
 
     const invitee = await prisma.user.findUnique({ where: { username } });
     if (!invitee) {
-      return res.status(404).json({ error: "USER_NOT_FOUND", message: "User not found" });
+      return res.status(404).json({ 
+        error: "USER_NOT_FOUND", 
+        message: "User not found" 
+      });
     }
 
     if (invitee.id === uid) {
-      return res.status(400).json({ error: "SELF_INVITE", message: "Cannot invite yourself" });
+      return res.status(400).json({ 
+        error: "SELF_INVITE", 
+        message: "You cannot invite yourself" 
+      });
     }
 
     // Check if user is already in the competition
     const existingPlayer = competition.players.find(p => p.userId === invitee.id);
     if (existingPlayer) {
-      return res.status(400).json({ error: "ALREADY_JOINED", message: "User is already in this competition" });
+      return res.status(400).json({ 
+        error: "ALREADY_JOINED", 
+        message: `${username} is already in this competition` 
+      });
     }
 
     // Check if invite already exists
@@ -488,7 +673,10 @@ export const inviteByUsername = async (req, res, next) => {
     });
 
     if (existingInvite) {
-      return res.status(400).json({ error: "INVITE_EXISTS", message: "Invite already sent" });
+      return res.status(400).json({ 
+        error: "INVITE_EXISTS", 
+        message: "This user has already been invited" 
+      });
     }
 
     const invite = await prisma.invite.create({
@@ -548,7 +736,8 @@ export const acceptInvite = async (req, res, next) => {
             game: { select: { gameType: true } }
           }
         },
-        inviter: { select: { id: true, username: true } }
+        inviter: { select: { id: true, username: true } },
+        invitee: { select: { id: true, username: true } }
       }
     });
 
@@ -590,12 +779,12 @@ export const acceptInvite = async (req, res, next) => {
         where: { id: inviteId },
         data: { accepted: true }
       });
-      
+
       await tx.competition.update({
         where: { id: competition.id },
         data: { totalPrizePool: { increment: addToPool } }
       });
-      
+
       await tx.competitionPlayer.create({
         data: {
           competitionId: competition.id,
@@ -624,7 +813,11 @@ export const acceptInvite = async (req, res, next) => {
     if (io) {
       io.emitToUser(invite.inviter.id, 'invite_accepted', {
         inviteId,
-        acceptedBy: { username: req.user.username },
+        acceptedBy: {
+          id: invite.invitee.id,
+          username: invite.invitee.username
+        },
+        competitionTitle: competition.title,
         timestamp: new Date().toISOString()
       });
     }
@@ -649,8 +842,6 @@ export const getCompetition = async (req, res, next) => {
             level: true,
             minPlayers: true,
             maxPlayers: true,
-            minPlayTime: true,
-            maxPlayTime: true,
             imageUrl: true,
             description: true
           }
@@ -670,17 +861,19 @@ export const getCompetition = async (req, res, next) => {
     }
 
     const playedCount = competition.players.filter(p => p.hasPlayed).length;
+    const now = new Date();
+    const timeRemaining = Math.max(0, Math.floor((competition.expiresAt - now) / 1000));
 
     const formattedCompetition = {
       ...competition,
       playedCount,
+      timeRemaining,
       gameLevel: competition.game.level.toLowerCase(),
       Game: {
         name: competition.game.name,
         gameType: competition.game.gameType,
         level: competition.game.level,
         playerRange: `${competition.game.minPlayers}-${competition.game.maxPlayers}`,
-        playTimeRange: `${competition.game.minPlayTime}-${competition.game.maxPlayTime} min`,
         imageUrl: competition.game.imageUrl,
         description: competition.game.description
       },
@@ -706,9 +899,8 @@ export const getCompetition = async (req, res, next) => {
 export const submitScore = async (req, res, next) => {
   try {
     const uid = req.user.uid;
-    const { score, playTime } = z.object({
-      score: z.number().int().min(0, "Score cannot be negative"),
-      playTime: z.number().int().min(1, "Play time must be at least 1 second").optional()
+    const { score } = z.object({
+      score: z.number().int().min(0, "Score cannot be negative")
     }).parse(req.body);
     const code = req.params.code.toUpperCase();
 
@@ -716,7 +908,7 @@ export const submitScore = async (req, res, next) => {
       where: { code },
       include: {
         players: true,
-        game: { select: { minPlayTime: true, maxPlayTime: true } }
+        game: { select: { minPlayers: true } }
       }
     });
 
@@ -731,26 +923,6 @@ export const submitScore = async (req, res, next) => {
     const player = competition.players.find(p => p.userId === uid);
     if (!player) {
       return res.status(404).json({ error: "NOT_JOINED", message: "You are not a participant in this competition" });
-    }
-
-    // Basic anti-cheat: validate play time if provided
-    if (playTime) {
-      const minTime = competition.game.minPlayTime * 60; // Convert to seconds
-      const maxTime = competition.game.maxPlayTime * 60 * 2; // Allow 2x max time for slower players
-
-      if (playTime < minTime) {
-        return res.status(400).json({
-          error: "INVALID_PLAY_TIME",
-          message: "Game completed too quickly"
-        });
-      }
-
-      if (playTime > maxTime) {
-        return res.status(400).json({
-          error: "INVALID_PLAY_TIME",
-          message: "Game took too long"
-        });
-      }
     }
 
     const updated = await prisma.competitionPlayer.update({
@@ -836,20 +1008,20 @@ async function autoCompleteCompetition(competitionId) {
 
   if (!competition || competition.status === 'COMPLETED') return;
 
-  // FIX: Separate played and unplayed players properly
   const playedPlayers = competition.players.filter(p => p.hasPlayed);
   const unplayedPlayers = competition.players.filter(p => !p.hasPlayed);
-  
+
   if (playedPlayers.length === 0) {
     console.log("No players have completed the competition yet");
     return;
   }
 
   const prizePool = competition.totalPrizePool;
-  const { first, second, third } = calculatePrizeBreakdown(prizePool, playedPlayers.length);
-
-  const winners = playedPlayers.slice(0, 3);
-  const prizeAmounts = [first, second, third];
+  const { distributions } = calculatePrizeBreakdown(
+    prizePool, 
+    playedPlayers.length,
+    playedPlayers
+  );
 
   await prisma.$transaction(async (tx) => {
     // Update competition status
@@ -858,7 +1030,7 @@ async function autoCompleteCompetition(competitionId) {
       data: { status: "COMPLETED" }
     });
 
-    // FIX: Update rankings only for players who played
+    // Update rankings for players who played
     for (let i = 0; i < playedPlayers.length; i++) {
       await tx.competitionPlayer.update({
         where: { id: playedPlayers[i].id },
@@ -866,62 +1038,85 @@ async function autoCompleteCompetition(competitionId) {
       });
     }
 
-    // FIX: Set unplayed players to last ranks
+    // Set unplayed players to score 0 and last ranks
     for (let i = 0; i < unplayedPlayers.length; i++) {
       await tx.competitionPlayer.update({
         where: { id: unplayedPlayers[i].id },
-        data: { rank: playedPlayers.length + i + 1 }
+        data: { 
+          score: 0,
+          hasPlayed: false,
+          rank: playedPlayers.length + i + 1 
+        }
       });
     }
 
-    // Distribute prizes to winners (unchanged)
-    for (let i = 0; i < winners.length && i < 3; i++) {
-      const winner = winners[i];
-      const prizeAmount = prizeAmounts[i];
+    // Distribute prizes to winners
+    for (const distribution of distributions) {
+      if (distribution.prize > 0) {
+        const wallet = await WalletOps.getOrCreateWallet(distribution.userId);
 
-      if (prizeAmount > 0) {
-        const wallet = await WalletOps.getOrCreateWallet(winner.userId);
-        
         await tx.transaction.create({
           data: {
             walletId: wallet.id,
             type: "PRIZE",
-            amount: prizeAmount,
+            amount: distribution.prize,
             meta: {
               competitionId: competitionId,
-              rank: i + 1,
+              rank: distribution.rank,
               competitionTitle: competition.title
             }
           }
         });
 
         await tx.wallet.update({
-          where: { userId: winner.userId },
-          data: { balance: { increment: prizeAmount } }
+          where: { userId: distribution.userId },
+          data: { balance: { increment: distribution.prize } }
         });
       }
     }
   });
 }
 
-function calculatePrizeBreakdown(totalPrizePool, playerCount) {
+function calculatePrizeBreakdown(totalPrizePool, playerCount, topScores) {
   if (totalPrizePool <= 0 || playerCount < 1) {
-    return { first: 0, second: 0, third: 0 };
+    return { distributions: [] };
   }
 
+  // Check for ties at first place
+  const firstPlaceScore = topScores[0]?.score;
+  const firstPlaceTies = topScores.filter(p => p.score === firstPlaceScore);
+
+  if (firstPlaceTies.length > 1) {
+    // Split entire prize pool among tied winners
+    const prizePerWinner = Math.floor(totalPrizePool / firstPlaceTies.length);
+    return {
+      distributions: firstPlaceTies.map((player, index) => ({
+        userId: player.userId,
+        rank: 1,
+        prize: prizePerWinner
+      }))
+    };
+  }
+
+  // Regular distribution (no ties)
   if (playerCount === 1) {
     return {
-      first: totalPrizePool,
-      second: 0,
-      third: 0
+      distributions: [{
+        userId: topScores[0].userId,
+        rank: 1,
+        prize: totalPrizePool
+      }]
     };
   }
 
   if (playerCount === 2) {
+    const first = Math.floor(totalPrizePool * 0.75);
+    const second = totalPrizePool - first;
     return {
-      first: Math.floor(totalPrizePool * 0.75), // 75% to winner
-      second: totalPrizePool - Math.floor(totalPrizePool * 0.75),
-      third: 0
+      distributions: [
+        { userId: topScores[0].userId, rank: 1, prize: first },
+        { userId: topScores[1].userId, rank: 2, prize: second }
+      ]
     };
   }
 
@@ -930,8 +1125,99 @@ function calculatePrizeBreakdown(totalPrizePool, playerCount) {
   const second = Math.floor(totalPrizePool * 0.15);
   const third = totalPrizePool - first - second;
 
-  return { first, second, third };
+  return {
+    distributions: [
+      { userId: topScores[0].userId, rank: 1, prize: first },
+      { userId: topScores[1]?.userId, rank: 2, prize: second },
+      { userId: topScores[2]?.userId, rank: 3, prize: third }
+    ].filter(d => d.userId)
+  };
 }
+
+export const cleanupExpiredCompetitions = async () => {
+  try {
+    const now = new Date();
+    
+    const expiredCompetitions = await prisma.competition.findMany({
+      where: {
+        expiresAt: { lte: now },
+        status: { in: ["ONGOING", "UPCOMING"] }
+      },
+      include: {
+        players: {
+          include: { User: true }
+        }
+      }
+    });
+
+    for (const competition of expiredCompetitions) {
+      const hasAnyonePlayed = competition.players.some(p => p.hasPlayed);
+      const isCreatorOnly = competition.players.length === 1;
+
+      // SCENARIO A: Only creator joined, no one played
+      if (isCreatorOnly && !hasAnyonePlayed) {
+        await prisma.$transaction(async (tx) => {
+          const creator = competition.players[0];
+          
+          // Full refund to creator (100%)
+          if (competition.entryFee > 0) {
+            await WalletOps.credit(creator.userId, competition.entryFee, "REFUND", {
+              competitionId: competition.id,
+              reason: "Competition expired with no other players"
+            });
+          }
+
+          // DELETE the competition
+          await tx.competition.delete({
+            where: { id: competition.id }
+          });
+        });
+        
+        console.log(`Deleted expired competition ${competition.code} - creator only`);
+        continue;
+      }
+
+      // SCENARIO B: Multiple players joined but NO ONE played
+      if (!hasAnyonePlayed && !isCreatorOnly) {
+        await prisma.$transaction(async (tx) => {
+          // Refund each player MINUS commission (85% = entryFee - 15% platform fee)
+          for (const player of competition.players) {
+            if (competition.entryFee > 0) {
+              const platformFee = Math.floor(competition.entryFee * 0.15);
+              const refundAmount = competition.entryFee - platformFee; // 85%
+              
+              await WalletOps.credit(player.userId, refundAmount, "REFUND", {
+                competitionId: competition.id,
+                reason: "Competition expired with no participants",
+                originalAmount: competition.entryFee,
+                commissionDeducted: platformFee
+              });
+            }
+          }
+
+          // CANCEL the competition (keep record)
+          await tx.competition.update({
+            where: { id: competition.id },
+            data: { status: "CANCELED" }
+          });
+        });
+        
+        console.log(`Canceled expired competition ${competition.code} - no participants`);
+        continue;
+      }
+
+      // SCENARIO C: Some players played, complete competition normally
+      if (hasAnyonePlayed) {
+        await autoCompleteCompetition(competition.id);
+        console.log(`Completed expired competition ${competition.code} - had participants`);
+      }
+    }
+
+    console.log(`Cleaned up ${expiredCompetitions.length} expired competitions`);
+  } catch (error) {
+    console.error("Error cleaning up expired competitions:", error);
+  }
+};
 
 export const complete = async (req, res, next) => {
   try {
@@ -1117,7 +1403,7 @@ export const acceptFriendRequest = async (req, res, next) => {
 
     const friendRequest = await prisma.friendRequest.findUnique({
       where: { id: requestId },
-      include: { 
+      include: {
         sender: { select: { id: true, username: true } },
         receiver: { select: { username: true } }
       }
@@ -1145,6 +1431,54 @@ export const acceptFriendRequest = async (req, res, next) => {
     if (io) {
       io.emitToUser(friendRequest.senderId, 'friend_request_accepted', {
         acceptedBy: friendRequest.receiver
+      });
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const declineFriendRequest = async (req, res, next) => {
+  try {
+    const uid = req.user.uid;
+    const { requestId } = req.params;
+
+    const friendRequest = await prisma.friendRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        sender: { select: { id: true, username: true } },
+        receiver: { select: { id: true, username: true } }
+      }
+    });
+
+    if (!friendRequest) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Friend request not found" });
+    }
+
+    if (friendRequest.receiverId !== uid) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Not your friend request" });
+    }
+
+    if (friendRequest.status !== 'PENDING') {
+      return res.status(400).json({ error: "INVALID_STATUS", message: "Request already processed" });
+    }
+
+    // Delete the friend request instead of updating status
+    await prisma.friendRequest.delete({
+      where: { id: requestId }
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emitToUser(friendRequest.senderId, 'friend_request_declined', {
+        requestId: friendRequest.id,
+        declinedBy: {
+          id: friendRequest.receiver.id,
+          username: friendRequest.receiver.username
+        },
+        timestamp: new Date().toISOString()
       });
     }
 
@@ -1218,15 +1552,15 @@ export const getGlobalLeaderboard = async (req, res, next) => {
       SELECT 
         u.id,
         u.username,
-        COALESCE(SUM(t.amount), 0) as totalEarnings,
-        COUNT(DISTINCT cp.competitionId) as competitionsWon,
+        COALESCE(SUM(t.amount), 0) as "totalEarnings",
+        COUNT(DISTINCT cp."competitionId") as "competitionsWon",
         ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(t.amount), 0) DESC) as rank
       FROM "User" u
-      LEFT JOIN "Wallet" w ON w.userId = u.id
-      LEFT JOIN "Transaction" t ON t.walletId = w.id AND t.type = 'PRIZE'
-      LEFT JOIN "CompetitionPlayer" cp ON cp.userId = u.id AND cp.rank = 1
+      LEFT JOIN "Wallet" w ON w."userId" = u.id
+      LEFT JOIN "Transaction" t ON t."walletId" = w.id AND t.type = 'PRIZE'
+      LEFT JOIN "CompetitionPlayer" cp ON cp."userId" = u.id AND cp.rank = 1
       GROUP BY u.id, u.username
-      ORDER BY totalEarnings DESC
+      ORDER BY "totalEarnings" DESC
       LIMIT ${parseInt(limit)}
     `;
 
@@ -1235,7 +1569,7 @@ export const getGlobalLeaderboard = async (req, res, next) => {
       username: player.username,
       totalEarnings: Number(player.totalEarnings),
       competitionsWon: Number(player.competitionsWon),
-      isUser: false // Will be set on frontend based on current user
+      isUser: false
     }));
 
     res.json(formattedLeaderboard);
@@ -1303,9 +1637,9 @@ export const declineInvite = async (req, res, next) => {
 
     const invite = await prisma.invite.findUnique({
       where: { id: inviteId },
-      include: { 
+      include: {
         inviter: { select: { id: true, username: true } },
-        invitee: { select: { username: true } },
+        invitee: { select: { id: true, username: true } },
         Competition: { select: { title: true } }
       }
     });
@@ -1321,7 +1655,8 @@ export const declineInvite = async (req, res, next) => {
     if (io) {
       io.emitToUser(invite.inviter.id, 'invite_declined', {
         inviteId,
-        decliner: req.user.username,
+        decliner: invite.invitee.username,
+        competitionTitle: invite.Competition.title,
         timestamp: new Date().toISOString()
       });
     }

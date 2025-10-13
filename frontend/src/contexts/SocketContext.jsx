@@ -1,154 +1,306 @@
-import { useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { REACT_APP_SOCKET_URL } from '../utils/constants';
+import { useAuth } from './AuthContext';
 
-// Helper to read a cookie value (handles URI-encoded values)
-const getCookie = (name) => {
-  const match = document.cookie
-    .split('; ')
-    .find((row) => row.startsWith(`${name}=`));
-  return match ? decodeURIComponent(match.split('=')[1]) : undefined;
+const SocketContext = createContext(null);
+
+export const useSocket = () => {
+  const context = useContext(SocketContext);
+  if (!context) {
+    throw new Error('useSocket must be used within SocketProvider');
+  }
+  return context;
 };
 
-export const useSocket = (serverUrl = `${REACT_APP_SOCKET_URL}`) => {
+export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState(null);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
+  
   const socketRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  const initializingRef = useRef(false);
+  const maxReconnectAttempts = 5;
 
-  useEffect(() => {
-    // Check if we have session cookies for authentication
-    const sessionCookie = getCookie('connect.sid') || getCookie('sessionId') || getCookie('session');
-    const csrfToken = getCookie('XSRF-TOKEN') || getCookie('csrfToken') || getCookie('_csrf');
+  // Use AuthContext for authentication state
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+
+  // Cleanup function
+  const cleanup = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
     
-    if (!sessionCookie) {
-      setError('No authentication session available');
+    if (socketRef.current) {
+      console.log('Cleaning up socket connection');
+      socketRef.current.removeAllListeners();
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+    
+    setSocket(null);
+    setConnected(false);
+    initializingRef.current = false;
+  }, []);
+
+  // Initialize socket connection
+  const initializeSocket = useCallback(() => {
+    // Don't initialize if conditions aren't met
+    if (!isAuthenticated || authLoading || initializingRef.current) {
+      if (!isAuthenticated && !authLoading) {
+        console.log('User not authenticated, skipping socket connection');
+        setError('Not authenticated');
+      }
       return;
     }
 
-    // Create socket connection with cookie-based auth
-    const newSocket = io(serverUrl, {
-      withCredentials: true, // Important: send cookies with the request
-      auth: {
-        // Send CSRF token if available for additional security
-        ...(csrfToken && { csrfToken })
-      },
-      transports: ['websocket', 'polling'],
-      // Additional options for cookie-based auth
-      extraHeaders: {
-        // Include CSRF headers if available
-        ...(csrfToken && {
-          'X-XSRF-TOKEN': csrfToken,
-          'X-CSRF-Token': csrfToken
-        })
-      }
-    });
+    // Prevent duplicate initialization
+    if (socketRef.current?.connected) {
+      console.log('Socket already connected, skipping initialization');
+      return;
+    }
 
-    // Connection event handlers
-    newSocket.on('connect', () => {
-      console.log('Socket connected:', newSocket.id);
-      setConnected(true);
-      setError(null);
-    });
+    // Clean up any existing socket
+    cleanup();
 
-    newSocket.on('connect_error', (err) => {
-      console.error('Socket connection error:', err.message);
-      setError(err.message);
-      setConnected(false);
-      
-      // Handle authentication errors
-      if (err.message.includes('Authentication') || err.message.includes('Unauthorized')) {
-        // Redirect to auth page if session expired
-        if (window.location.pathname !== '/auth') {
-          window.location.href = '/auth';
+    initializingRef.current = true;
+    console.log('Initializing socket connection...');
+
+    // Add delay to ensure auth token is set
+    setTimeout(() => {
+      const newSocket = io(REACT_APP_SOCKET_URL, {
+        withCredentials: true,
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: maxReconnectAttempts,
+        timeout: 20000,
+        autoConnect: true
+      });
+
+      // Connection success
+      newSocket.on('connect', () => {
+        console.log('✓ Socket connected:', newSocket.id);
+        setConnected(true);
+        setError(null);
+        setReconnectAttempt(0);
+        initializingRef.current = false;
+      });
+
+      // Server confirmation
+      newSocket.on('connected', (data) => {
+        console.log('✓ Server confirmed connection:', data);
+      });
+
+      // Connection error
+      newSocket.on('connect_error', (err) => {
+        console.error('Socket connection error:', err.message);
+        setError(err.message);
+        setConnected(false);
+        initializingRef.current = false;
+
+        // Handle authentication errors
+        if (err.message.includes('AUTH_') || err.message.includes('authentication')) {
+          console.error('Authentication error detected:', err.message);
+          setReconnectAttempt(maxReconnectAttempts); // Stop reconnection attempts
+          
+          // Don't redirect, let AuthContext handle it
+          setError('Authentication failed');
+        } else {
+          // Increment reconnect attempts for other errors
+          setReconnectAttempt(prev => {
+            const next = prev + 1;
+            if (next >= maxReconnectAttempts) {
+              console.error('Max reconnection attempts reached');
+              setError('Failed to connect after multiple attempts');
+            }
+            return next;
+          });
         }
-      }
-    });
+      });
 
-    newSocket.on('disconnect', (reason) => {
-      console.log('Socket disconnected:', reason);
-      setConnected(false);
-      
-      // Handle server-side disconnections due to auth issues
-      if (reason === 'io server disconnect' || reason === 'transport close') {
-        console.warn('Socket disconnected by server, possibly due to authentication');
-      }
-    });
+      // Disconnection
+      newSocket.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
+        setConnected(false);
+        initializingRef.current = false;
+        
+        if (reason === 'io server disconnect') {
+          // Server disconnected us
+          console.log('Server disconnected, attempting reconnect...');
+          setReconnectAttempt(prev => prev + 1);
+          
+          // Try to reconnect if we haven't exceeded attempts
+          if (reconnectAttempt < maxReconnectAttempts && isAuthenticated) {
+            reconnectTimeoutRef.current = setTimeout(() => {
+              if (isAuthenticated && !socketRef.current?.connected) {
+                newSocket.connect();
+              }
+            }, 2000);
+          }
+        } else if (reason === 'io client disconnect') {
+          // Client disconnected intentionally
+          console.log('Client disconnected intentionally');
+        } else {
+          // Other reasons (transport close, ping timeout, etc.)
+          console.log('Disconnect reason:', reason);
+        }
+      });
 
-    // Error handling
-    newSocket.on('error', (err) => {
-      console.error('Socket error:', err);
-      setError(err.message || 'Socket error occurred');
-    });
+      // General socket errors
+      newSocket.on('error', (err) => {
+        console.error('Socket error:', err);
+        setError(err.message || 'Socket error');
+        initializingRef.current = false;
+      });
 
-    // Handle authentication errors from server
-    newSocket.on('auth_error', (err) => {
-      console.error('Socket authentication error:', err);
-      setError('Authentication failed');
-      setConnected(false);
-      
-      // Redirect to auth page
-      if (window.location.pathname !== '/auth') {
-        window.location.href = '/auth';
-      }
-    });
+      // Reconnection attempt
+      newSocket.on('reconnect_attempt', (attemptNumber) => {
+        console.log(`Reconnection attempt ${attemptNumber}...`);
+        setReconnectAttempt(attemptNumber);
+      });
 
-    setSocket(newSocket);
-    socketRef.current = newSocket;
+      // Reconnection success
+      newSocket.on('reconnect', (attemptNumber) => {
+        console.log(`✓ Reconnected after ${attemptNumber} attempts`);
+        setReconnectAttempt(0);
+        setError(null);
+      });
 
-    // Cleanup on unmount
+      // Reconnection failed
+      newSocket.on('reconnect_failed', () => {
+        console.error('Reconnection failed after all attempts');
+        setError('Failed to reconnect');
+        initializingRef.current = false;
+      });
+
+      setSocket(newSocket);
+      socketRef.current = newSocket;
+    }, 500); // 500ms delay to ensure token is set
+  }, [isAuthenticated, authLoading, reconnectAttempt, cleanup]);
+
+  // Initialize socket when authentication is ready
+  useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      initializeSocket();
+    } else if (!isAuthenticated && !authLoading) {
+      // User is not authenticated, clean up
+      cleanup();
+    }
+
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      cleanup();
     };
-  }, [serverUrl]);
+  }, [isAuthenticated, authLoading, initializeSocket, cleanup]);
 
-  // Helper method to emit events with automatic CSRF token inclusion
-  const emit = (event, data) => {
-    if (socket && connected) {
-      const csrfToken = getCookie('XSRF-TOKEN') || getCookie('csrfToken') || getCookie('_csrf');
-      
-      // Include CSRF token in the data if available
-      const eventData = csrfToken ? { ...data, _csrfToken: csrfToken } : data;
-      
-      socket.emit(event, eventData);
-    } else {
-      console.warn('Socket not connected, cannot emit:', event);
+  // Emit helper with error handling
+  const emit = useCallback((event, data) => {
+    if (!socketRef.current) {
+      console.warn(`Cannot emit ${event}: Socket not initialized`);
+      return false;
     }
-  };
 
-  // Helper method to subscribe to events
-  const subscribe = (event, callback) => {
-    if (socket) {
-      socket.on(event, callback);
-      return () => socket.off(event, callback);
+    if (!connected) {
+      console.warn(`Cannot emit ${event}: Socket not connected`);
+      return false;
     }
-    return () => {};
-  };
 
-  // Helper method to check if user is authenticated (has session cookie)
-  const isAuthenticated = () => {
-    const sessionCookie = getCookie('connect.sid') || getCookie('sessionId') || getCookie('session');
-    return !!sessionCookie;
-  };
+    try {
+      socketRef.current.emit(event, data);
+      return true;
+    } catch (err) {
+      console.error(`Error emitting ${event}:`, err);
+      return false;
+    }
+  }, [connected]);
 
-  // Helper method to manually reconnect (useful after login)
-  const reconnect = () => {
+  // Subscribe helper with automatic cleanup
+  const subscribe = useCallback((event, callback) => {
+    if (!socketRef.current) {
+      console.warn(`Cannot subscribe to ${event}: Socket not initialized`);
+      return () => {};
+    }
+
+    try {
+      socketRef.current.on(event, callback);
+      
+      // Return unsubscribe function
+      return () => {
+        if (socketRef.current) {
+          socketRef.current.off(event, callback);
+        }
+      };
+    } catch (err) {
+      console.error(`Error subscribing to ${event}:`, err);
+      return () => {};
+    }
+  }, []);
+
+  // Manual reconnect function
+  const reconnect = useCallback(() => {
+    if (!isAuthenticated) {
+      console.error('Cannot reconnect: Not authenticated');
+      setError('Not authenticated');
+      return;
+    }
+
+    if (reconnectAttempt >= maxReconnectAttempts) {
+      console.error('Cannot reconnect: Max attempts reached');
+      setError('Max reconnection attempts reached');
+      return;
+    }
+
+    console.log('Manual reconnection requested...');
+    setReconnectAttempt(0);
+    
     if (socketRef.current) {
       socketRef.current.disconnect();
       socketRef.current.connect();
+    } else {
+      initializeSocket();
     }
-  };
+  }, [isAuthenticated, reconnectAttempt, initializeSocket]);
 
-  return {
+  // Emit to specific user helper
+  const emitToUser = useCallback((userId, event, data) => {
+    if (!socketRef.current || !connected) {
+      console.warn(`Cannot emit to user: Socket not connected`);
+      return false;
+    }
+
+    try {
+      socketRef.current.emit('message_user', {
+        userId,
+        event,
+        data
+      });
+      return true;
+    } catch (err) {
+      console.error(`Error emitting to user:`, err);
+      return false;
+    }
+  }, [connected]);
+
+  const value = {
     socket,
     connected,
     error,
+    reconnectAttempt,
+    maxReconnectAttempts,
     emit,
     subscribe,
-    isAuthenticated,
-    reconnect
+    emitToUser,
+    reconnect,
+    isAuthenticated: isAuthenticated && !authLoading
   };
+
+  return (
+    <SocketContext.Provider value={value}>
+      {children}
+    </SocketContext.Provider>
+  );
 };

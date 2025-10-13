@@ -8,6 +8,7 @@ import { env } from "./config/env.js";
 import { routes } from "./routes/index.js";
 import { errorHandler } from "./middleware/error.js";
 import { registerSockets } from "./sockets/index.js";
+import { startCleanupJob } from "./jobs/cleanup.js";
 
 const app = express();
 
@@ -149,10 +150,14 @@ const io = new Server(server, {
 // Register socket handlers
 registerSockets(io);
 
+
+
 // Make socket.io and userSockets available to controllers
 app.set('io', io);
 app.set('userSockets', io.userSockets);
 
+// Start cron jobs
+startCleanupJob();
 
 // Graceful shutdown
 const shutdown = async () => {

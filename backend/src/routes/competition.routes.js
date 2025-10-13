@@ -1,3 +1,4 @@
+// src/routes/competition.routes.js
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { 
@@ -9,47 +10,38 @@ import {
   submitScore, 
   complete, 
   getUserCompetitions,
-  // getAllCompetitions,
-  getGlobalLeaderboard ,
-  // submitResults,
-  // getCompetitionByShareId,
+  getGlobalLeaderboard,
   inviteByUsername,
   acceptInvite,
   getFriends,
   getFriendRequests,
   sendFriendRequest,
   acceptFriendRequest,
+  declineFriendRequest,
   getGameHistory,
   getPendingInvites,
   getSentInvites,
   declineInvite,
-  // joinById,
-  // updateScore
+  leaveCompetition, // NEW
+  getTimeRemaining // NEW
 } from "../controllers/competition.controller.js";
 
 export const competitions = Router();
 
 competitions.get("/public", listPublic);
-
-// competitions.get("/", requireAuth, getAllCompetitions);
 competitions.get("/mine", requireAuth, listMine);
-// competitions.get("/my-competitions", requireAuth, getMyCompetitions);
 competitions.get("/participated-competitions", requireAuth, getUserCompetitions);
 
 competitions.post("/create", requireAuth, create);
 competitions.post("/:code/join", requireAuth, joinByCode);
-// competitions.post("/:competitionId/join", requireAuth, joinById);
+competitions.post("/:code/leave", requireAuth, leaveCompetition); // NEW
+competitions.get("/:code/time", getTimeRemaining); // NEW
 
 competitions.post("/:code/score", requireAuth, submitScore);
-// competitions.post("/:competitionId/score", requireAuth, updateScore);
 competitions.post("/:code/complete", requireAuth, complete);
 
 // Leaderboards & results
-// competitions.post("/:competitionId/results", requireAuth, submitResults);
 competitions.get("/leaderboard", requireAuth, getGlobalLeaderboard);
-
-// Shareable competitions
-// competitions.get("/share/:shareId", requireAuth, getCompetitionByShareId);
 
 // Invites
 competitions.get("/invites", requireAuth, getPendingInvites);
@@ -63,9 +55,9 @@ competitions.get("/friends", requireAuth, getFriends);
 competitions.get("/friend-requests", requireAuth, getFriendRequests);
 competitions.post("/friend-requests", requireAuth, sendFriendRequest);
 competitions.post("/friend-requests/:requestId/accept", requireAuth, acceptFriendRequest);
+competitions.post("/friend-requests/:requestId/decline", requireAuth, declineFriendRequest);
 
 // Game history
 competitions.get("/game-history", requireAuth, getGameHistory);
 
 competitions.get("/:code", getCompetition);
-

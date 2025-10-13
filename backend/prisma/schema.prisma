@@ -77,7 +77,8 @@ model User {
   wallet              Wallet?
   competitionsCreated Competition[]        @relation("CreatorCompetitions")
   competitionPlayers  CompetitionPlayer[]
-  invites             Invite[]
+  invites             Invite[]             @relation("InviterInvites")
+  receivedInvites     Invite[]             @relation("InviteeInvites")
   sessions            Session[]
   training            TrainingSession[]
   pendingTransactions PendingTransaction[]
@@ -160,8 +161,6 @@ model Game {
   level        Level
   minPlayers   Int           @default(1)
   maxPlayers   Int           @default(100)
-  minPlayTime  Int // minutes
-  maxPlayTime  Int // minutes
   minEntryFee  Int           @default(0) // cents
   isPopular    Boolean       @default(false)
   imageUrl     String?
@@ -182,13 +181,11 @@ model Competition {
   creatorId      String
   gameId         String
   privacy        Privacy             @default(PRIVATE)
-  minutesToPlay  Int // This will be validated against game's min/max play time
-  maxPlayers     Int // This will be validated against game's max players
-  entryFee       Int // cents - must be >= game.minEntryFee
+  maxPlayers     Int
+  entryFee       Int
   totalPrizePool Int                 @default(0)
-  status         CompetitionStatus   @default(UPCOMING)
-  startsAt       DateTime?
-  endsAt         DateTime?
+  status         CompetitionStatus   @default(ONGOING)
+  expiresAt      DateTime            @default(dbgenerated("NOW() + INTERVAL '1 hour'")) // NEW: Auto-expire after 1 hour
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
   creator        User                @relation("CreatorCompetitions", fields: [creatorId], references: [id])
@@ -201,7 +198,8 @@ model Competition {
   @@index([status])
   @@index([creatorId])
   @@index([privacy, status])
-  @@index([status, startsAt])
+  @@index([status, expiresAt]) // NEW: Index for expiration queries
+  @@index([expiresAt]) // NEW: For cleanup jobs
 }
 
 model CompetitionPlayer {
@@ -249,7 +247,8 @@ model Invite {
   createdAt       DateTime @default(now())
 
   Competition Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  inviter     User        @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  inviter     User        @relation("InviterInvites", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee     User?       @relation("InviteeInvites", fields: [inviteeId], references: [id], onDelete: Cascade)
 
   @@index([competitionId])
   @@index([inviterId])

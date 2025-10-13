@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import authService from '../services/authService'
 
 const AuthContext = createContext()
@@ -16,11 +16,8 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  useEffect(() => {
-    checkAuthStatus()
-  }, [])
-
-  const checkAuthStatus = async () => {
+  // Memoize checkAuthStatus to prevent unnecessary re-renders
+  const checkAuthStatus = useCallback(async () => {
     try {
       setIsLoading(true)
       const userData = await authService.getCurrentUser()
@@ -28,53 +25,86 @@ export const AuthProvider = ({ children }) => {
       if (userData) {
         setUser(userData)
         setIsAuthenticated(true)
+        return userData
       } else {
         setUser(null)
         setIsAuthenticated(false)
+        return null
       }
     } catch (error) {
-      console.error('Auth check failed:', error)
+      // Only log if it's not a 401 (which is expected when not logged in)
+      if (error.response?.status !== 401) {
+        console.error('Auth check failed:', error)
+      }
       setUser(null)
       setIsAuthenticated(false)
+      return null
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    checkAuthStatus()
+  }, [checkAuthStatus])
+
+  const login = async (credentials) => {
+    try {
+      setIsLoading(true)
+      const response = await authService.login(credentials)
+      
+      // Wait a brief moment for cookie/token to be set
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      // Then get user data
+      const userData = await checkAuthStatus()
+      
+      if (!userData) {
+        throw new Error('Failed to retrieve user data after login')
+      }
+      
+      return response
+    } catch (error) {
+      setUser(null)
+      setIsAuthenticated(false)
+      throw error
     } finally {
       setIsLoading(false)
     }
   }
 
-  const login = async (credentials) => {
-    try {
-      const response = await authService.login(credentials)
-      
-      // After successful login, get user data
-      await checkAuthStatus()
-      
-      return response
-    } catch (error) {
-      throw error
-    }
-  }
-
   const signup = async (userData) => {
     try {
+      setIsLoading(true)
       const response = await authService.signup(userData)
       
-      // After successful signup, get user data
-      await checkAuthStatus()
+      // Wait a brief moment for cookie/token to be set
+      // await new Promise(resolve => setTimeout(resolve, 100))
+      
+      // // Then get user data
+      // const user = await checkAuthStatus()
+      
+      // if (!user) {
+      //   throw new Error('Failed to retrieve user data after signup')
+      // }
       
       return response
     } catch (error) {
+      setUser(null)
+      setIsAuthenticated(false)
       throw error
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const logout = async () => {
     try {
       await authService.logout()
-      setUser(null)
-      setIsAuthenticated(false)
     } catch (error) {
       console.error('Logout failed:', error)
-      // Even if logout fails, clear local state
+    } finally {
+      // Always clear local state, even if logout API call fails
       setUser(null)
       setIsAuthenticated(false)
     }

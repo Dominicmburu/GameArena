@@ -211,6 +211,7 @@ class CompetitionService {
     }
   }
 
+
   // Friends system
   async getFriends() {
     try {
@@ -248,6 +249,16 @@ class CompetitionService {
       return data;
     } catch (error) {
       const msg = error?.response?.data?.message || error.message || 'Failed to accept friend request';
+      throw new Error(msg);
+    }
+  }
+
+  async declineFriendRequest(requestId) {
+    try {
+      const { data } = await api.post(`/competitions/friend-requests/${requestId}/decline`);
+      return data;
+    } catch (error) {
+      const msg = error?.response?.data?.message || error.message || 'Failed to decline friend request';
       throw new Error(msg);
     }
   }
