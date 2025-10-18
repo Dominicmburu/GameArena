@@ -11,6 +11,7 @@ const InvitesModal = ({
   onDeclineInvite,
   loadingStates
 }) => {
+
   return (
     <Modal show={show} onHide={onHide} className="cyber-modal" size="lg">
       <Modal.Header closeButton>
@@ -61,7 +62,7 @@ const InvitesModal = ({
                         <Button
                           variant="success"
                           size="sm"
-                          onClick={() => onAcceptInvite(invite.id)}
+                          onClick={() => onAcceptInvite(invite)}
                           disabled={loadingStates[`acceptingInvite_${invite.id}`]}
                         >
                           {loadingStates[`acceptingInvite_${invite.id}`] ? (

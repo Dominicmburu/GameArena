@@ -38,7 +38,8 @@ const initialState = {
     acceptingInvite: false,
     decliningInvite: false,
     sendingFriendRequest: false,
-    acceptingFriendRequest: false
+    acceptingFriendRequest: false,
+    leavingCompetition: false
   },
   errors: {
     games: null,
@@ -61,7 +62,8 @@ const initialState = {
     acceptingInvite: null,
     decliningInvite: null,
     sendingFriendRequest: null,
-    acceptingFriendRequest: null
+    acceptingFriendRequest: null,
+    leavingCompetition: null
   }
 };
 
@@ -475,6 +477,7 @@ export const GameProvider = ({ children }) => {
     } catch (error) {
       throw error;
     }
+
   }, []);
 
   const submitScore = useCallback(async (competitionCode, scoreData) => {
@@ -768,6 +771,37 @@ export const GameProvider = ({ children }) => {
     };
   }, [fetchPendingInvites, fetchSentInvites, fetchFriendRequests, fetchFriends]);
 
+  // NEW: Leave competition
+  const leaveCompetition = useCallback(async (code) => {
+    try {
+      setLoading('leavingCompetition', true);
+      clearErrors('leavingCompetition');
+      const result = await competitionService.leaveCompetition(code);
+      setLoading('leavingCompetition', false);
+
+      // Refresh competitions after leaving
+      await Promise.all([
+        fetchMyCompetitions().catch(console.warn),
+        fetchParticipatedCompetitions().catch(console.warn)
+      ]);
+
+      return result;
+    } catch (error) {
+      setError('leavingCompetition', error.message);
+      throw error;
+    }
+  }, [setLoading, clearErrors, setError, fetchMyCompetitions, fetchParticipatedCompetitions]);
+
+  // NEW: Get time remaining
+  const getTimeRemaining = useCallback(async (code) => {
+    try {
+      return await competitionService.getTimeRemaining(code);
+    } catch (error) {
+      throw error;
+    }
+  }, []);
+
+
   // Context value
   const value = {
     // State
@@ -818,7 +852,10 @@ export const GameProvider = ({ children }) => {
     // Deprecated methods for backward compatibility
     fetchUserCompetitions: fetchParticipatedCompetitions,
     fetchCompetitions: fetchPublicCompetitions,
-    joinCompetition: joinCompetitionByCode
+    joinCompetition: joinCompetitionByCode,
+
+    leaveCompetition,      // ADD THIS
+    getTimeRemaining
   };
 
   // Load initial data
@@ -836,22 +873,6 @@ export const GameProvider = ({ children }) => {
           fetchPopularGames().catch(err => console.warn('Could not load popular games:', err)),
           fetchPublicCompetitions().catch(err => console.warn('Could not load public competitions:', err))
         ]);
-
-        // // Load user-specific data (requires auth)
-        // await Promise.all([
-        //   fetchMyCompetitions().catch(err => console.warn('Could not load my competitions:', err)),
-        //   fetchParticipatedCompetitions().catch(err => console.warn('Could not load participated competitions:', err)),
-        //   fetchGlobalLeaderboard().catch(err => console.warn('Could not load global leaderboard:', err))
-        // ]);
-
-        // // Load social features (optional)
-        // await Promise.all([
-        //   fetchFriends().catch(err => console.warn('Could not load friends:', err)),
-        //   fetchFriendRequests().catch(err => console.warn('Could not load friend requests:', err)),
-        //   fetchGameHistory().catch(err => console.warn('Could not load game history:', err)),
-        //   fetchPendingInvites().catch(err => console.warn('Could not load pending invites:', err)),
-        //   fetchSentInvites().catch(err => console.warn('Could not load sent invites:', err))
-        // ]);
 
         if (isAuthenticated && !authLoading) {
           await Promise.all([

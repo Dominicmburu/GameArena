@@ -1,7 +1,16 @@
 import { useState } from 'react';
 import { useGame } from '../contexts/GameContext';
+import { useWallet } from '../contexts/WalletContext';
 
-const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites, fetchSentInvites, fetchFriends, fetchFriendRequests, walletBalance }) => {
+const useModalHandlers = ({
+  loadUserData,
+  showToastMessage,
+  fetchPendingInvites,
+  fetchSentInvites,
+  fetchFriends,
+  fetchFriendRequests,
+  walletBalance
+}) => {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showInvitesModal, setShowInvitesModal] = useState(false);
@@ -16,6 +25,14 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
   const [copiedCode, setCopiedCode] = useState('');
   const [loadingStates, setLoadingStates] = useState({});
 
+  const [showJoinConfirmModal, setShowJoinConfirmModal] = useState(false);
+  const [showAcceptConfirmModal, setShowAcceptConfirmModal] = useState(false);
+  const [pendingJoinCompetition, setPendingJoinCompetition] = useState(null);
+  const [pendingAcceptInvite, setPendingAcceptInvite] = useState(null);
+
+  const [showLeaveConfirmModal, setShowLeaveConfirmModal] = useState(false);
+  const [pendingLeaveCompetition, setPendingLeaveCompetition] = useState(null);
+
   const {
     joinCompetitionByCode,
     invitePlayerByUsername,
@@ -24,7 +41,10 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
     submitScore,
     sendFriendRequest,
     acceptFriendRequest,
-    declineFriendRequest
+    declineFriendRequest,
+    getCompetitionByCode,
+    leaveCompetition,      // ADD THIS
+    getTimeRemaining
   } = useGame();
 
   const setLoading = (key, value) => {
@@ -49,49 +69,36 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
     else if (field === 'selectedCompetition') setSelectedCompetition(value);
   };
 
-  // Enhanced error message mapper
   const getErrorMessage = (error) => {
     const errorMap = {
-      // Competition errors
       'NOT_FOUND': 'Competition not found',
       'COMPETITION_ENDED': 'This competition has ended',
       'FULL': 'Competition is full',
       'INSUFFICIENT_FUNDS': 'Insufficient wallet balance. Please top up your wallet.',
       'ALREADY_JOINED': 'You are already in this competition',
-      
-      // Invite errors
       'FORBIDDEN': 'You do not have permission to perform this action',
       'USER_NOT_FOUND': 'User not found',
       'SELF_INVITE': 'You cannot invite yourself',
       'INVITE_EXISTS': 'This user has already been invited',
       'INVITE_NOT_FOUND': 'Invitation not found or expired',
       'ALREADY_ACCEPTED': 'This invitation has already been accepted',
-      
-      // Friend request errors
       'SELF_REQUEST': 'You cannot send a friend request to yourself',
       'ALREADY_FRIENDS': 'You are already friends with this user',
       'REQUEST_EXISTS': 'Friend request already exists',
       'INVALID_STATUS': 'This request has already been processed',
-      
-      // Game errors
       'NOT_JOINED': 'You are not a participant in this competition',
       'INVALID_PLAY_TIME': 'Invalid play time detected',
-      
-      // Validation errors
       'GAME_NOT_FOUND': 'Game not found',
       'ENTRY_FEE_BELOW_MIN': 'Entry fee is below minimum requirement',
       'EXCEEDS_MAX_PLAYERS': 'Player limit exceeds game maximum',
       'BELOW_MIN_PLAYERS': 'Player count is below game minimum',
-      'INVALID_PLAY_TIME': 'Play time outside allowed range'
     };
 
-    // If error has a response with error code
     if (error.response?.data?.error) {
       const errorCode = error.response.data.error;
       return errorMap[errorCode] || error.response.data.message || 'An error occurred';
     }
 
-    // If error has a message
     if (error.message) {
       return error.message;
     }
@@ -105,7 +112,6 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
       return;
     }
 
-    // Validate code format (alphanumeric, typically 6-8 characters)
     const codePattern = /^[A-Z0-9]{4,10}$/i;
     if (!codePattern.test(joinCode.trim())) {
       showToastMessage('Invalid competition code format', 'error');
@@ -113,23 +119,48 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
     }
 
     try {
-      setLoading('joiningByCode', true);
-      const result = await joinCompetitionByCode(joinCode.trim().toUpperCase());
-      
-      if (result.alreadyJoined) {
+      setLoading('fetchingCompetition', true);
+
+      // Fetch competition details - FIXED: Use the correct method
+      const competitionDetails = await getCompetitionByCode(joinCode.trim().toUpperCase());
+
+      if (competitionDetails.alreadyJoined) {
         showToastMessage('You are already in this competition', 'info');
         setShowJoinModal(false);
         setJoinCode('');
         return;
       }
 
+      setPendingJoinCompetition(competitionDetails);
+      setShowJoinModal(false);
+      setShowJoinConfirmModal(true);
+    } catch (error) {
+      console.error('Error fetching competition:', error);
+      const errorMessage = getErrorMessage(error);
+      showToastMessage(errorMessage, 'error');
+    } finally {
+      setLoading('fetchingCompetition', false);
+    }
+  };
+
+  const confirmJoinByCode = async () => {
+    if (!pendingJoinCompetition) {
+      showToastMessage('No competition selected', 'error');
+      return;
+    }
+
+    try {
+      setLoading('joiningByCode', true);
+      const result = await joinCompetitionByCode(pendingJoinCompetition.code);
+
       showToastMessage(
         `Successfully joined! Players: ${result.currentPlayers}/${result.maxPlayers}`,
         'success'
       );
-      
+
       await loadUserData();
-      setShowJoinModal(false);
+      setShowJoinConfirmModal(false);
+      setPendingJoinCompetition(null);
       setJoinCode('');
     } catch (error) {
       console.error('Error joining competition:', error);
@@ -151,14 +182,12 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
       return;
     }
 
-    // Validate username format (basic check)
     const usernamePattern = /^[a-zA-Z0-9_]{3,20}$/;
     if (!usernamePattern.test(inviteUsername.trim())) {
       showToastMessage('Invalid username format', 'error');
       return;
     }
 
-    // Check if competition is full
     if (selectedCompetition.currentPlayers >= selectedCompetition.maxPlayers) {
       showToastMessage('Competition is full', 'error');
       return;
@@ -170,13 +199,12 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
         competitionId: selectedCompetition.id,
         username: inviteUsername.trim()
       });
-      
+
       showToastMessage(`Invitation sent to ${inviteUsername}!`, 'success');
       setShowInviteModal(false);
       setInviteUsername('');
       setSelectedCompetition(null);
-      
-      // Refresh sent invites list
+
       if (fetchSentInvites) {
         await fetchSentInvites();
       }
@@ -189,34 +217,53 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
     }
   };
 
-  const handleAcceptInvite = async (inviteId) => {
-    if (!inviteId) {
+  const handleAcceptInvite = async (invite) => {
+    if (!invite) {
       showToastMessage('Invalid invitation', 'error');
       return;
     }
 
+    setPendingAcceptInvite(invite);
+    setShowInvitesModal(false);
+    setShowAcceptConfirmModal(true);
+  };
+
+  const confirmAcceptInvite = async () => {
+    if (!pendingAcceptInvite) {
+      showToastMessage('No invitation selected', 'error');
+      return;
+    }
+
     try {
-      setLoading(`acceptingInvite_${inviteId}`, true);
-      const result = await acceptInvite(inviteId);
-      
+      setLoading(`acceptingInvite_${pendingAcceptInvite.id}`, true);
+      const result = await acceptInvite(pendingAcceptInvite.id);
+
       showToastMessage(
-        `Invitation accepted! Prize pool increased by ${result.poolIncrement} cents`,
+        `Invitation accepted! Joined ${pendingAcceptInvite.Competition.title}`,
         'success'
       );
-      
+
       await loadUserData();
-      
-      // Refresh invites list
+
       if (fetchPendingInvites) {
         await fetchPendingInvites();
       }
+
+      setShowAcceptConfirmModal(false);
+      setPendingAcceptInvite(null);
     } catch (error) {
       console.error('Error accepting invite:', error);
       const errorMessage = getErrorMessage(error);
       showToastMessage(errorMessage, 'error');
     } finally {
-      setLoading(`acceptingInvite_${inviteId}`, false);
+      setLoading(`acceptingInvite_${pendingAcceptInvite?.id}`, false);
     }
+  };
+
+  const handleTopUpFromConfirm = () => {
+    setShowJoinConfirmModal(false);
+    setShowAcceptConfirmModal(false);
+    setShowPaymentModal(true);
   };
 
   const handleDeclineInvite = async (inviteId) => {
@@ -228,10 +275,9 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
     try {
       setLoading(`decliningInvite_${inviteId}`, true);
       await declineInvite(inviteId);
-      
+
       showToastMessage('Invitation declined', 'info');
-      
-      // Refresh invites list
+
       if (fetchPendingInvites) {
         await fetchPendingInvites();
       }
@@ -250,7 +296,6 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
       return;
     }
 
-    // Validate username format
     const usernamePattern = /^[a-zA-Z0-9_]{3,20}$/;
     if (!usernamePattern.test(friendRequestUsername.trim())) {
       showToastMessage('Invalid username format', 'error');
@@ -260,10 +305,10 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
     try {
       setLoading('sendingFriendRequest', true);
       await sendFriendRequest({ username: friendRequestUsername.trim() });
-      
+
       showToastMessage(`Friend request sent to ${friendRequestUsername}!`, 'success');
       setFriendRequestUsername('');
-      
+
       if (fetchFriendRequests) {
         await fetchFriendRequests();
       }
@@ -285,10 +330,9 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
     try {
       setLoading(`acceptingRequest_${requestId}`, true);
       await acceptFriendRequest(requestId);
-      
+
       showToastMessage('Friend request accepted!', 'success');
-      
-      // Refresh both friends and friend requests
+
       await Promise.all([
         fetchFriends?.(),
         fetchFriendRequests?.()
@@ -311,9 +355,9 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
     try {
       setLoading(`decliningRequest_${requestId}`, true);
       await declineFriendRequest(requestId);
-      
+
       showToastMessage('Friend request declined', 'info');
-      
+
       if (fetchFriendRequests) {
         await fetchFriendRequests();
       }
@@ -326,36 +370,108 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
     }
   };
 
-  const handlePlayClick = (competition) => {
+  const handlePlayClick = async (competition) => {
     if (!competition) {
       showToastMessage('Invalid competition', 'error');
       return;
     }
 
-    // Check if competition is still ongoing
+    // CHECK 1: Competition status
     if (competition.status === 'COMPLETED' || competition.status === 'CANCELED') {
       showToastMessage('This competition has ended', 'error');
       return;
     }
 
-    // Check if user has already played
+    // CHECK 2: Already played
     if (competition.hasPlayed) {
       showToastMessage('You have already played this competition', 'info');
       return;
     }
 
-    // Check wallet balance
-    if (walletBalance >= competition.entryFee) {
+    // CHECK 3: Verify competition hasn't expired
+    try {
+      setLoading('checkingTime', true);
+      const timeData = await getTimeRemaining(competition.code); // Use from GameContext
+
+      if (timeData.isExpired || timeData.timeRemaining === 0) {
+        showToastMessage('This competition has expired and can no longer be played.', 'error');
+        await loadUserData(); // Refresh to update UI
+        return;
+      }
+
+      // Warn if less than 1 minute remaining
+      if (timeData.timeRemaining < 60) {
+        const proceed = window.confirm(
+          `⚠️ This competition expires in ${timeData.timeRemaining} seconds.\n\nDo you want to continue?`
+        );
+        if (!proceed) return;
+      }
+
+      // All checks passed - open game modal
       setSelectedCompetition(competition);
       setShowGameModal(true);
-    } else {
-      const shortfall = competition.entryFee - walletBalance;
+    } catch (error) {
+      console.error('Error checking competition time:', error);
+      showToastMessage('Failed to verify competition status. Please try again.', 'error');
+    } finally {
+      setLoading('checkingTime', false);
+    }
+  };
+
+  /**
+ * Handle leaving a competition
+ */
+  const handleLeaveCompetition = (competition) => {
+    if (!competition) {
+      showToastMessage('Invalid competition', 'error');
+      return;
+    }
+
+    // Validate leave conditions
+    if (competition.hasPlayed) {
+      showToastMessage('Cannot leave after playing', 'warning');
+      return;
+    }
+
+    if (competition.playedCount > 0) {
+      showToastMessage('Cannot leave after someone has started playing', 'warning');
+      return;
+    }
+
+    setPendingLeaveCompetition(competition);
+    setShowLeaveConfirmModal(true);
+  };
+
+  /**
+   * Confirm and execute leave competition
+   */
+  const confirmLeaveCompetition = async () => {
+    if (!pendingLeaveCompetition) {
+      showToastMessage('No competition selected', 'error');
+      return;
+    }
+
+    try {
+      setLoading('leaving', true);
+
+      await leaveCompetition(pendingLeaveCompetition.code); // Use from GameContext
+
       showToastMessage(
-        `Insufficient balance. You need ${shortfall} more cents.`,
-        'error'
+        `Successfully left "${pendingLeaveCompetition.title}". Refund: KSh ${pendingLeaveCompetition.entryFee}`,
+        'success'
       );
-      setSelectedCompetition(competition);
-      setShowPaymentModal(true);
+
+      // Refresh data
+      await loadUserData();
+
+      setShowLeaveConfirmModal(false);
+      setPendingLeaveCompetition(null);
+    } catch (error) {
+      console.error('Error leaving competition:', error);
+      const errorMessage = getErrorMessage(error);
+      showToastMessage(errorMessage, 'error');
+    } finally {
+      setLoading('leaving', false);
     }
   };
 
@@ -374,7 +490,7 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
 
     try {
       setLoading('submittingScore', true);
-      
+
       const result = await submitScore({
         competitionCode: selectedCompetition.code,
         score: gameResults.score,
@@ -382,7 +498,7 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
       });
 
       let message = `Game completed! Score: ${gameResults.score}`;
-      
+
       if (result.allCompleted) {
         message += ` 🎉 All players have finished!`;
       } else {
@@ -390,7 +506,7 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
       }
 
       showToastMessage(message, 'success');
-      
+
       await loadUserData();
     } catch (error) {
       console.error('Error submitting score:', error);
@@ -402,6 +518,7 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
       setSelectedCompetition(null);
     }
   };
+
 
   const handleCopyCode = async (code) => {
     if (!code) {
@@ -423,33 +540,29 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
   const handlePaymentSuccess = async () => {
     showToastMessage('Payment successful!', 'success');
     setShowPaymentModal(false);
-    
-    // Reload user data to get updated wallet balance
+
     if (loadUserData) {
       await loadUserData();
     }
 
-    // Open game modal if competition is selected
     if (selectedCompetition) {
       setShowGameModal(true);
     }
   };
 
   const openJoinModal = () => setShowJoinModal(true);
-  
+
   const openInviteModal = (competition) => {
     if (!competition) {
       showToastMessage('Invalid competition', 'error');
       return;
     }
 
-    // Check if competition is full
     if (competition.currentPlayers >= competition.maxPlayers) {
       showToastMessage('Competition is full', 'error');
       return;
     }
 
-    // Check if competition has ended
     if (competition.status === 'COMPLETED' || competition.status === 'CANCELED') {
       showToastMessage('Cannot invite to a completed competition', 'error');
       return;
@@ -461,7 +574,6 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
 
   const openInvitesModal = () => {
     setShowInvitesModal(true);
-    // Refresh invites when modal opens
     if (fetchPendingInvites) {
       fetchPendingInvites();
     }
@@ -469,7 +581,6 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
 
   const openFriendsModal = () => {
     setShowFriendsModal(true);
-    // Refresh friends and requests when modal opens
     if (fetchFriends) {
       fetchFriends();
     }
@@ -489,16 +600,20 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
       showHistoryModal,
       showPaymentModal,
       showGameModal,
-      selectedCompetition
+      selectedCompetition,
+      showJoinConfirmModal,
+      showAcceptConfirmModal,
+      pendingJoinCompetition,
+      pendingAcceptInvite,
+      showLeaveConfirmModal,      // ADD THIS
+      pendingLeaveCompetition
     },
     formStates: {
       joinCode,
       inviteUsername,
       friendRequestUsername
     },
-    loadingStates: {
-      loadingStates
-    },
+    loadingStates, // FIXED: Don't wrap in object
     copiedCode,
     handleJoinByCode,
     handleInvitePlayer,
@@ -511,13 +626,21 @@ const useModalHandlers = ({ loadUserData, showToastMessage, fetchPendingInvites,
     handleGameEnd,
     handleCopyCode,
     handlePaymentSuccess,
+    handleLeaveCompetition,
+    confirmLeaveCompetition,
     closeAllModals,
     setFormValue,
     openJoinModal,
     openInviteModal,
     openInvitesModal,
     openFriendsModal,
-    openHistoryModal
+    openHistoryModal,
+    confirmJoinByCode,
+    confirmAcceptInvite,
+    handleTopUpFromConfirm,
+    setShowJoinConfirmModal,
+    setShowAcceptConfirmModal,
+    setShowLeaveConfirmModal
   };
 };
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Container, Row, Col, Card, Form, Button, Badge, Modal, Alert, ProgressBar } from 'react-bootstrap'
-import { Plus, Gamepad2, Users, Clock, DollarSign, Lock, Globe, Calendar, Trophy, Settings, CheckCircle, AlertTriangle, Play, Info } from 'lucide-react'
+import { Container, Row, Col, Card, Form, Button, Badge, Modal, Alert, ProgressBar, Toast, ToastContainer } from 'react-bootstrap'
+import { Plus, Gamepad2, Users, Clock, DollarSign, Lock, Globe, Calendar, Trophy, Settings, CheckCircle, AlertTriangle, Play, Info, Link, AlertCircle } from 'lucide-react'
 import { useGame } from '../contexts/GameContext'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -26,6 +26,9 @@ const MakeGame = () => {
   const [selectedGameState, setSelectedGameState] = useState(null)
   const [formErrors, setFormErrors] = useState({})
   const [createdCompetitionTitle, setCreatedCompetitionTitle] = useState('')
+  const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+  const [toastVariant, setToastVariant] = useState('success')
 
   const [formData, setFormData] = useState({
     title: '',
@@ -33,6 +36,12 @@ const MakeGame = () => {
     maxPlayers: '',
     entryFee: ''
   })
+
+  const showToastMessage = (message, variant = 'success') => {
+    setToastMessage(message)
+    setToastVariant(variant)
+    setShowToast(true)
+  }
 
   // Load my competitions on mount
   useEffect(() => {
@@ -73,7 +82,7 @@ const MakeGame = () => {
   // Handle game selection
   const handleGameSelect = (game) => {
     const formattedGame = formatGameForDisplay(game)
-    
+
     setSelectedGameState(formattedGame)
     setSelectedGame(formattedGame)
     setFormData(prev => ({
@@ -159,9 +168,11 @@ const MakeGame = () => {
       setShowConfirmModal(false)
       resetForm()
       setShowSuccessModal(true)
+      showToastMessage('Tournament created successfully!', 'success')
 
     } catch (error) {
       console.error('Failed to create competition:', error)
+      showToastMessage(error.message || 'Failed to create tournament', 'error')
     }
   }
 
@@ -190,6 +201,35 @@ const MakeGame = () => {
 
   return (
     <div className="makegame-page animated-bg">
+      {/* Toast Notification */}
+      <ToastContainer position="top-end" className="p-3" style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999 }}>
+        <Toast
+          show={showToast}
+          onClose={() => setShowToast(false)}
+          delay={4000}
+          autohide
+          style={{
+            background: toastVariant === 'success' ? '#1a3a2a' : '#3a1a1a',
+            border: `2px solid ${toastVariant === 'success' ? '#00FF85' : '#FF003C'}`,
+            minWidth: '300px'
+          }}
+        >
+          <Toast.Header style={{ background: 'rgba(31, 31, 35, 0.95)', borderBottom: `1px solid ${toastVariant === 'success' ? '#00FF85' : '#FF003C'}` }}>
+            {toastVariant === 'success' ? (
+              <CheckCircle size={16} color="#00FF85" className="me-2" />
+            ) : (
+              <AlertCircle size={16} color="#FF003C" className="me-2" />
+            )}
+            <strong className="me-auto text-white">
+              {toastVariant === 'success' ? 'Success' : 'Error'}
+            </strong>
+          </Toast.Header>
+          <Toast.Body className="text-white" style={{ fontSize: '14px' }}>
+            {toastMessage}
+          </Toast.Body>
+        </Toast>
+      </ToastContainer>
+
       <Container fluid className="py-4">
         {/* Header */}
         <Row className="mb-4">
@@ -519,114 +559,70 @@ const MakeGame = () => {
 
         <Modal.Body>
           <div className="confirmation-content">
-            {/* Tournament Details */}
-            <div className="mb-4 p-3 cyber-card" style={{ background: 'rgba(0, 240, 255, 0.08)' }}>
-              <h5 className="text-neon mb-3">
-                <Trophy size={20} className="me-2 mb-1" style={{ display: 'inline' }} />
-                Tournament Details
+            {/* Financial Deduction Notice */}
+            <div className="mb-4 p-4 cyber-card" style={{ background: 'rgba(0, 255, 133, 0.08)' }}>
+              <h5 className="text-energy-green mb-3 d-flex align-items-center">
+                <DollarSign size={24} className="me-2" />
+                Financial Deduction Notice
               </h5>
-              <Row className="g-3">
-                <Col md={6}>
-                  <div className="detail-item">
-                    <small className="text-white-50">Tournament Name</small>
-                    <div className="text-white fw-bold">{formData.title}</div>
-                  </div>
-                </Col>
-                <Col md={6}>
-                  <div className="detail-item">
-                    <small className="text-white-50">Game</small>
-                    <div className="text-white fw-bold">{selectedGameState?.name}</div>
-                  </div>
-                </Col>
-                <Col md={6}>
-                  <div className="detail-item">
-                    <small className="text-white-50">Max Players</small>
-                    <div className="text-white fw-bold">{formData.maxPlayers}</div>
-                  </div>
-                </Col>
-                <Col md={6}>
-                  <div className="detail-item">
-                    <small className="text-white-50">Game Type</small>
-                    <div className="text-white fw-bold">{selectedGameState?.category}</div>
-                  </div>
-                </Col>
-              </Row>
-            </div>
+              
+              <div className="deduction-info mb-3">
+                <div className="d-flex justify-content-between align-items-center mb-2 p-3" style={{ background: 'rgba(0, 240, 255, 0.05)', borderRadius: '6px' }}>
+                  <span className="text-white">Entry Fee Amount:</span>
+                  <span className="text-neon fw-bold fs-5">${parseFloat(formData.entryFee).toFixed(2)}</span>
+                </div>
+              </div>
 
-            {/* Game Rules */}
-            <div className="mb-4 p-3 cyber-card" style={{ background: 'rgba(155, 0, 255, 0.08)' }}>
-              <h5 className="text-purple mb-3">
-                <AlertTriangle size={20} className="me-2 mb-1" style={{ display: 'inline' }} />
-                Game Rules & Information
-              </h5>
-              <div className="rules-content text-white">
-                <p className="mb-2"><strong>Game Name:</strong> {selectedGameState?.name}</p>
-                <p className="mb-2"><strong>Difficulty:</strong> {selectedGameState?.difficulty}</p>
-                <p className="mb-2"><strong>Category:</strong> {selectedGameState?.category}</p>
-                <p className="mb-2"><strong>Player Range:</strong> {selectedGameState?.players}</p>
-                <p className="mb-3"><strong>Description:</strong> {selectedGameState?.description}</p>
-                
-                <div className="alert alert-info p-2" style={{ background: 'rgba(0, 240, 255, 0.1)', border: '1px solid rgba(0, 240, 255, 0.3)' }}>
-                  <small className="text-white">
-                    <strong>Competition Format:</strong> Players will compete in this tournament with real-time scoring. 
-                    The winner is determined by the highest score. Prizes are distributed according to the placement ranking.
-                  </small>
+              <div className="alert alert-warning p-3 mb-0" style={{ background: 'rgba(255, 0, 60, 0.15)', border: '1px solid rgba(255, 0, 60, 0.4)', borderRadius: '6px' }}>
+                <div className="d-flex align-items-start">
+                  <AlertTriangle size={20} className="text-cyber-red me-2 mt-1" style={{ flexShrink: 0 }} />
+                  <div>
+                    <strong className="text-cyber-red d-block mb-2">Important Payment Notice</strong>
+                    <p className="text-white mb-0">
+                      <strong>${calculateTotalDeduction().toFixed(2)}</strong> will be deducted from your wallet immediately upon tournament creation. 
+                      This amount covers your entry fee as the tournament creator.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Financial Summary */}
-            <div className="mb-4 p-3 cyber-card" style={{ background: 'rgba(0, 255, 133, 0.08)' }}>
-              <h5 className="text-energy-green mb-3">
-                <DollarSign size={20} className="me-2 mb-1" style={{ display: 'inline' }} />
-                Financial Summary
+            {/* Game Rules Link */}
+            <div className="p-4 cyber-card" style={{ background: 'rgba(155, 0, 255, 0.08)' }}>
+              <h5 className="text-purple mb-3 d-flex align-items-center">
+                <Info size={24} className="me-2" />
+                Game Rules & Regulations
               </h5>
-              <Row className="g-3">
-                <Col md={6}>
-                  <div className="financial-item">
-                    <small className="text-white-50">Entry Fee (per player)</small>
-                    <div className="text-white fw-bold">${parseFloat(formData.entryFee).toFixed(2)}</div>
-                  </div>
-                </Col>
-                <Col md={6}>
-                  <div className="financial-item">
-                    <small className="text-white-50">Your Deduction</small>
-                    <div className="text-cyber-red fw-bold">${calculateTotalDeduction().toFixed(2)}</div>
-                  </div>
-                </Col>
-                <Col md={12}>
-                  <hr style={{ borderColor: 'rgba(0, 255, 133, 0.3)' }} className="my-2" />
-                </Col>
-                <Col md={6}>
-                  <div className="financial-item">
-                    <small className="text-white-50">Prize Pool Contribution</small>
-                    <div className="text-neon fw-bold">85% of total entry fees</div>
-                  </div>
-                </Col>
-                <Col md={6}>
-                  <div className="financial-item">
-                    <small className="text-white-50">Platform Fee</small>
-                    <div className="text-white-50 fw-bold">15% of each entry</div>
-                  </div>
-                </Col>
-              </Row>
+              
+              <p className="text-white mb-3">
+                Before creating this tournament, please review the official game rules and regulations for <strong>{selectedGameState?.name}</strong>.
+              </p>
 
-              <div className="alert alert-warning p-2 mt-3" style={{ background: 'rgba(255, 0, 60, 0.1)', border: '1px solid rgba(255, 0, 60, 0.3)' }}>
-                <small className="text-white">
-                  <strong>Important:</strong> ${calculateTotalDeduction().toFixed(2)} will be deducted from your wallet immediately upon creation. 
-                  This covers your entry as the tournament creator.
-                </small>
-              </div>
-            </div>
-
-            {/* Terms & Conditions */}
-            <div className="p-3 cyber-card" style={{ background: 'rgba(255, 255, 255, 0.02)' }}>
-              <div className="form-check">
-                <input className="form-check-input" type="checkbox" id="agreeTerms" />
-                <label className="form-check-label text-white-50 small" htmlFor="agreeTerms">
-                  I understand the rules, fees, and terms. I confirm that I have sufficient funds and wish to create this tournament.
-                </label>
-              </div>
+              <Button
+                variant="outline-light"
+                className="w-100 d-flex align-items-center justify-content-center rules-link-btn"
+                style={{
+                  border: '2px solid rgba(155, 0, 255, 0.5)',
+                  color: '#9B00FF',
+                  background: 'rgba(155, 0, 255, 0.1)',
+                  padding: '12px',
+                  borderRadius: '6px',
+                  transition: 'all 0.3s ease',
+                  textDecoration: 'none'
+                }}
+                onClick={() => window.open('/game-rules', '_blank')}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(155, 0, 255, 0.2)'
+                  e.currentTarget.style.borderColor = '#9B00FF'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(155, 0, 255, 0.1)'
+                  e.currentTarget.style.borderColor = 'rgba(155, 0, 255, 0.5)'
+                }}
+              >
+                <Gamepad2 size={20} className="me-2" />
+                Read Game Rules & Regulations
+              </Button>
             </div>
           </div>
         </Modal.Body>
@@ -673,26 +669,26 @@ const MakeGame = () => {
           <div className="success-animation mb-4">
             <CheckCircle size={80} color="#00FF85" className="success-icon" />
           </div>
-          
+
           <h2 className="text-energy-green mb-3 cyber-text">
             TOURNAMENT CREATED
           </h2>
-          
+
           <div className="success-message mb-4">
             <h4 className="mb-2" style={{
-                  fontSize: '1.8rem',
-                  background: 'linear-gradient(45deg, #00F0FF, #9B00FF)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text'
-                }}>"{createdCompetitionTitle}"</h4>
+              fontSize: '1.8rem',
+              background: 'linear-gradient(45deg, #00F0FF, #9B00FF)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text'
+            }}>"{createdCompetitionTitle}"</h4>
             <p className="text-white mb-3">
               Your tournament is now <span className="text-energy-green fw-bold">LIVE</span> and ready for action!
             </p>
-            
+
             <div className="cyber-divider my-4"></div>
           </div>
-          
+
           <div className="action-buttons d-flex gap-3 justify-content-center">
             <Button
               className="btn"
@@ -704,7 +700,7 @@ const MakeGame = () => {
               <Play size={20} className="me-2" />
               LET'S PLAY!
             </Button>
-            
+
             <Button
               variant="outline-secondary"
               onClick={() => setShowSuccessModal(false)}
@@ -792,19 +788,6 @@ const MakeGame = () => {
           height: 2px;
           background: linear-gradient(90deg, transparent, #00FF85, transparent);
           width: 100%;
-        }
-
-        .btn-cyber {
-          background: linear-gradient(45deg, #00FF85, #00F0FF) !important;
-          border: none !important;
-          color: #0E0E10 !important;
-          font-weight: bold !important;
-          padding: 12px 30px !important;
-          border-radius: 8px !important;
-          text-transform: uppercase !important;
-          letter-spacing: 1px !important;
-          transition: all 0.3s ease !important;
-          box-shadow: 0 0 20px rgba(0, 255, 133, 0.3) !important;
         }
 
         .btn-cyber:hover {

@@ -43,6 +43,30 @@ export const competitionService = {
   async getCompetitionByShareId(shareId) {
     const response = await api.get(`/competitions/share/${shareId}`)
     return response.data
+  },
+
+  // NEW: Leave competition
+  async leaveCompetition(code) {
+    try {
+      const { data } = await api.post(`/competitions/${encodeURIComponent(code)}/leave`);
+      return data;
+    } catch (error) {
+      const msg = error?.response?.data?.message || error.message || 'Failed to leave competition';
+      throw new Error(msg);
+    }
+  },
+
+  // NEW: Get time remaining
+  async getTimeRemaining(code) {
+    try {
+      const { data } = await api.get(`/competitions/${encodeURIComponent(code)}/time`);
+      return data;
+    } catch (error) {
+      const msg = error?.response?.data?.message || error.message || 'Failed to get time remaining';
+      throw new Error(msg);
+    }
   }
+
+
 }
 

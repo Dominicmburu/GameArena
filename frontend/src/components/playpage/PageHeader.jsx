@@ -1,9 +1,9 @@
 import React from 'react';
 import { Button, Badge } from 'react-bootstrap';
-import { Play, UserPlus, Mail, Users, History } from 'lucide-react';
+import { Play, UserPlus, Mail, Users, History, RefreshCw } from 'lucide-react';
+import { useWallet } from '../../contexts/WalletContext';
 
 const PageHeader = ({
-  walletBalance,
   pendingInvites,
   friendRequests,
   onJoinClick,
@@ -11,6 +11,8 @@ const PageHeader = ({
   onFriendsClick,
   onHistoryClick
 }) => {
+  const { balance, isLoading, fetchBalance } = useWallet();
+
   return (
     <div className="page-header cyber-card p-4">
       <div className="d-flex justify-content-between align-items-center flex-wrap">
@@ -22,9 +24,28 @@ const PageHeader = ({
           <p className="text-white mb-0">Compete, earn, and dominate the leaderboards</p>
         </div>
         <div className="player-stats d-flex gap-3 flex-wrap">
-          <div className="stat-item text-center">
-            <div className="stat-value text-neon fw-bold h5">KSh {walletBalance}</div>
-            <div className="stat-label text-white small">Balance</div>
+          <div className="stat-item text-center position-relative">
+            <div className="d-flex align-items-center gap-2">
+              <div className="stat-value text-neon fw-bold h5 mb-0">
+                {isLoading ? (
+                  <span className="spinner-border spinner-border-sm" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </span>
+                ) : (
+                  `KSh ${balance.toFixed(2)}`
+                )}
+              </div>
+              <button
+                onClick={fetchBalance}
+                className="btn btn-link p-0 text-neon"
+                disabled={isLoading}
+                style={{ textDecoration: 'none' }}
+                title="Refresh balance"
+              >
+                <RefreshCw size={16} className={isLoading ? 'spinning' : ''} />
+              </button>
+            </div>
+            {/* <div className="stat-label text-white small">Balance</div> */}
           </div>
           <div className="d-flex gap-2">
             <Button className="btn-cyber" onClick={onJoinClick}>
@@ -53,6 +74,21 @@ const PageHeader = ({
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        .spinning {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+      `}</style>
     </div>
   );
 };

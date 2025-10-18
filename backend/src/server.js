@@ -157,7 +157,7 @@ app.set('io', io);
 app.set('userSockets', io.userSockets);
 
 // Start cron jobs
-startCleanupJob();
+// startCleanupJob();
 
 // Graceful shutdown
 const shutdown = async () => {
@@ -167,7 +167,7 @@ const shutdown = async () => {
     server.close(() => {
         console.log("HTTP server closed");
     });
-
+    
     // Close socket connections
     io.close(() => {
         console.log("Socket.io server closed");

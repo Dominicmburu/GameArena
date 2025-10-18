@@ -11,15 +11,9 @@ const useDataLoader = ({
   fetchSentInvites,
   setWalletBalance,
   setLeaderboard,
-  showToastMessage
+  showToastMessage,
+  fetchBalance  
 }) => {
-  const loadWalletBalance = useCallback(async () => {
-    try {
-      setWalletBalance(1500);
-    } catch (error) {
-      console.error('Error loading wallet balance:', error);
-    }
-  }, [setWalletBalance]);
 
   const loadGlobalLeaderboard = useCallback(async () => {
     try {
@@ -36,7 +30,7 @@ const useDataLoader = ({
       await Promise.all([
         fetchMyCompetitions(),
         fetchParticipatedCompetitions(),
-        loadWalletBalance(),
+        fetchBalance(),
         loadGlobalLeaderboard(),
         fetchFriends(),
         fetchFriendRequests(),
@@ -51,7 +45,7 @@ const useDataLoader = ({
   }, [
     fetchMyCompetitions,
     fetchParticipatedCompetitions,
-    loadWalletBalance,
+    fetchBalance,
     loadGlobalLeaderboard,
     fetchFriends,
     fetchFriendRequests,
@@ -61,7 +55,7 @@ const useDataLoader = ({
     showToastMessage
   ]);
 
-  return { loadUserData, loadWalletBalance, loadGlobalLeaderboard };
+  return { loadUserData, loadGlobalLeaderboard };
 };
 
 export default useDataLoader;

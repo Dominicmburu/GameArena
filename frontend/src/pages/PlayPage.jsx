@@ -3,6 +3,7 @@ import { Container, Row, Col, Spinner } from 'react-bootstrap';
 import { Play } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
 import { useSocket } from '../contexts/SocketContext';
+import { useWallet } from '../contexts/WalletContext';
 import PageHeader from '../components/playpage/PageHeader';
 import CompetitionsTabs from '../components/playpage/CompetitionsTabs';
 import GlobalLeaderboard from '../components/playpage/GlobalLeaderboard';
@@ -16,7 +17,6 @@ import '../styles/PlayPage.css';
 
 const PlayPage = () => {
   const [activeTab, setActiveTab] = useState('active');
-  const [walletBalance, setWalletBalance] = useState(0);
   const [leaderboard, setLeaderboard] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [showToast, setShowToast] = useState(false);
@@ -24,6 +24,8 @@ const PlayPage = () => {
   const [toastVariant, setToastVariant] = useState('success');
 
   const { socket, connected, error: socketError, emit, subscribe } = useSocket();
+  const { balance, fetchBalance } = useWallet();
+
   const {
     myCompetitions,
     participatedCompetitions,
@@ -63,7 +65,7 @@ const PlayPage = () => {
   };
 
   // Custom hooks
-  const { loadUserData, loadWalletBalance } = useDataLoader({
+  const { loadUserData } = useDataLoader({
     fetchMyCompetitions,
     fetchParticipatedCompetitions,
     fetchGlobalLeaderboard,
@@ -72,9 +74,9 @@ const PlayPage = () => {
     fetchGameHistory,
     fetchPendingInvites,
     fetchSentInvites,
-    setWalletBalance,
     setLeaderboard,
-    showToastMessage
+    showToastMessage,
+    fetchBalance
   });
 
   useSocketEvents({
@@ -100,7 +102,7 @@ const PlayPage = () => {
     fetchSentInvites,
     fetchFriends,
     fetchFriendRequests,
-    walletBalance
+    walletBalance: balance
   });
 
   useEffect(() => {
@@ -136,7 +138,7 @@ const PlayPage = () => {
   return (
     <div className="playpage animated-bg">
       <Container fluid className="py-4">
-        <NotificationsContainer 
+        <NotificationsContainer
           notifications={notifications}
           removeNotification={removeNotification}
         />
@@ -144,7 +146,6 @@ const PlayPage = () => {
         <Row className="mb-4">
           <Col>
             <PageHeader
-              walletBalance={walletBalance}
               pendingInvites={pendingInvites}
               friendRequests={friendRequests}
               onJoinClick={modalHandlers.openJoinModal}
@@ -165,6 +166,7 @@ const PlayPage = () => {
               onPlay={modalHandlers.handlePlayClick}
               onInvite={modalHandlers.openInviteModal}
               onCopyCode={modalHandlers.handleCopyCode}
+              onLeave={modalHandlers.handleLeaveCompetition}  // ADD THIS LINE
               copiedCode={modalHandlers.copiedCode}
               onJoinClick={modalHandlers.openJoinModal}
             />
@@ -179,7 +181,7 @@ const PlayPage = () => {
       <ModalsContainer
         {...modalHandlers.modalStates}
         {...modalHandlers.formStates}
-        {...modalHandlers.loadingStates}
+        loadingStates={modalHandlers.loadingStates}
         friends={friends}
         friendRequests={friendRequests}
         pendingInvites={pendingInvites}
@@ -197,7 +199,11 @@ const PlayPage = () => {
         onPaymentSuccess={modalHandlers.handlePaymentSuccess}
         closeAllModals={modalHandlers.closeAllModals}
         setFormValue={modalHandlers.setFormValue}
-        walletBalance={walletBalance}
+        confirmJoinByCode={modalHandlers.confirmJoinByCode}
+        confirmAcceptInvite={modalHandlers.confirmAcceptInvite}
+        handleTopUpFromConfirm={modalHandlers.handleTopUpFromConfirm}
+        setShowJoinConfirmModal={modalHandlers.setShowJoinConfirmModal}
+        setShowAcceptConfirmModal={modalHandlers.setShowAcceptConfirmModal}
       />
 
       <ToastNotification

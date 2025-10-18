@@ -13,6 +13,9 @@ import './App.css'
 import AppLayout from './components/common/AppLayout'
 import { GameProvider } from './contexts/GameContext'
 import { SocketProvider } from './contexts/SocketContext'
+import GameRules from './pages/GameRules'
+import { WalletProvider } from './contexts/WalletContext'
+import { ProfileProvider } from './contexts/ProfileContext'
 
 function App() {
   return (
@@ -20,25 +23,30 @@ function App() {
       <Router>
         <GameProvider>
           <SocketProvider>
-            <div className="App">
-              <main className="main-content">
-                <Routes>
-                  <Route path="/auth" element={<Auth />} />
+            <WalletProvider>
+              <ProfileProvider>
+                <div className="App">
+                  <main className="main-content">
+                    <Routes>
+                      <Route path="/auth" element={<Auth />} />
 
-                  <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
 
-                    <Route path="/" element={<Homepage />} />
-                    <Route path="/play" element={<PlayPage />} />
-                    <Route path="/create" element={<MakeGame />} />
-                    <Route path="/train" element={<TrainPage />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/deposit" element={<Deposit />} />
+                        <Route path="/" element={<Homepage />} />
+                        <Route path="/play" element={<PlayPage />} />
+                        <Route path="/create" element={<MakeGame />} />
+                        <Route path="/train" element={<TrainPage />} />
+                        <Route path="/profile" element={<Profile />} />
+                        <Route path="/deposit" element={<Deposit />} />
+                        <Route path="/game-rules" element={<GameRules />} />
 
-                  </Route>
+                      </Route>
 
-                </Routes>
-              </main>
-            </div>
+                    </Routes>
+                  </main>
+                </div>
+              </ProfileProvider>
+            </WalletProvider>
           </SocketProvider>
         </GameProvider>
       </Router>

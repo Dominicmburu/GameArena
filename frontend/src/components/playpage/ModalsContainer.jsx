@@ -6,6 +6,8 @@ import FriendsModal from './modals/FriendsModal';
 import GameHistoryModal from './modals/GameHistoryModal';
 import PaymentModal from '../payment/PaymentModal';
 import GameModal from './modals/GameModal';
+import { useWallet } from '../../contexts/WalletContext';
+import ConfirmationModal from './modals/ConfirmationModal';
 
 const ModalsContainer = ({
   showJoinModal,
@@ -26,7 +28,6 @@ const ModalsContainer = ({
   sentInvites,
   gameHistory,
   activeCompetitions,
-  walletBalance,
   onJoinByCode,
   onInvitePlayer,
   onAcceptInvite,
@@ -37,8 +38,20 @@ const ModalsContainer = ({
   onGameEnd,
   onPaymentSuccess,
   closeAllModals,
-  setFormValue
+  setFormValue,
+  showJoinConfirmModal,
+  showAcceptConfirmModal,
+  pendingJoinCompetition,
+  pendingAcceptInvite,
+  confirmJoinByCode,
+  confirmAcceptInvite,
+  handleTopUpFromConfirm,
+  setShowJoinConfirmModal,
+  setShowAcceptConfirmModal
 }) => {
+
+  const { balance } = useWallet();
+
   return (
     <>
       <JoinCompetitionModal
@@ -112,6 +125,34 @@ const ModalsContainer = ({
         onHide={() => closeAllModals('game')}
         selectedCompetition={selectedCompetition}
         onGameEnd={onGameEnd}
+      />
+
+      {/* Join Competition Confirmation Modal */}
+      <ConfirmationModal
+        show={showJoinConfirmModal}
+        onHide={() => setShowJoinConfirmModal(false)}
+        onConfirm={confirmJoinByCode}
+        onTopUp={handleTopUpFromConfirm}
+        title="Confirm Join Competition"
+        competition={pendingJoinCompetition}
+        actionType="join"
+        loading={loadingStates?.joiningByCode}
+        walletBalance={balance}
+        hasEnoughBalance={balance >= (pendingJoinCompetition?.entryFee || 0)}
+      />
+
+      {/* Accept Invite Confirmation Modal */}
+      <ConfirmationModal
+        show={showAcceptConfirmModal}
+        onHide={() => setShowAcceptConfirmModal(false)}
+        onConfirm={confirmAcceptInvite}
+        onTopUp={handleTopUpFromConfirm}
+        title="Confirm Accept Invitation"
+        competition={pendingAcceptInvite?.Competition}
+        actionType="accept"
+        loading={loadingStates?.[`acceptingInvite_${pendingAcceptInvite?.id}`]}
+        walletBalance={balance}
+        hasEnoughBalance={balance >= (pendingAcceptInvite?.Competition?.entryFee || 0)}
       />
     </>
   );

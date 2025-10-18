@@ -66,6 +66,21 @@ const useSocketEvents = ({
       console.log('Leaderboard updated:', data);
     };
 
+    const handleCompetitionUpdate = (data) => {
+      console.log('Competition updated:', data);
+      loadUserData().catch(console.warn);
+    };
+
+    const handlePlayerLeft = (data) => {
+      addNotification(`A player left ${data.competitionTitle || 'a competition'}`, 'warning');
+      loadUserData().catch(console.warn);
+    };
+
+    const handleCompetitionExpired = (data) => {
+      addNotification('A competition has expired', 'warning');
+      loadUserData().catch(console.warn);
+    };
+
     // Set up all event listeners
     const unsubscribers = [
       subscribe('new_invite', handleNewInvite),
@@ -83,7 +98,10 @@ const useSocketEvents = ({
       subscribe('error', (error) => {
         console.error('Socket error:', error);
         addNotification(error.message || 'Socket error occurred', 'error');
-      })
+      }),
+      subscribe('competition:update', handleCompetitionUpdate),
+      subscribe('competition:player_left', handlePlayerLeft),
+      subscribe('competition:expired', handleCompetitionExpired)
     ];
 
     // Subscribe to active competitions for real-time updates

@@ -82,6 +82,7 @@ model User {
   sessions            Session[]
   training            TrainingSession[]
   pendingTransactions PendingTransaction[]
+  b2cTransactions     B2CTransaction[]
 
   // Friend system
   sentFriendRequests     FriendRequest[] @relation("SentRequests")
@@ -125,6 +126,7 @@ model Transaction {
   meta      Json?
   createdAt DateTime @default(now())
   Wallet    Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  B2CTransaction B2CTransaction?
 
   @@index([walletId, type])
   @@index([type, createdAt])
@@ -142,6 +144,8 @@ model PendingTransaction {
   status             PendingTransactionStatus @default(PENDING)
   mpesaReceiptNumber String?
   failureReason      String?
+  lastCheckedAt      DateTime?      
+  retryCount         Int            @default(0)
   completedAt        DateTime?
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
@@ -151,6 +155,49 @@ model PendingTransaction {
   @@index([userId])
   @@index([status])
   @@index([status, createdAt])
+}
+
+model B2CTransaction {
+  id                        String    @id @default(cuid())
+  userId                    String
+  phone                     String
+  amount                    Int
+  conversationId            String    @unique
+  originatorConversationId  String?
+  mpesaReceiptId           String?
+  status                    String    @default("PENDING") // PENDING, COMPLETED, FAILED
+  resultCode               Int?
+  resultDesc               String?
+  transactionId            String?   @unique
+  createdAt                DateTime  @default(now())
+  completedAt              DateTime?
+  
+  User        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Transaction Transaction? @relation(fields: [transactionId], references: [id])
+  
+  @@index([userId])
+  @@index([conversationId])
+  @@index([status])
+  @@index([status, createdAt])
+}
+
+model MpesaCallback {
+  id                String    @id @default(cuid())
+  transactionType   String    // STK, B2C, B2C_TIMEOUT
+  merchantRequestId String?
+  checkoutRequestId String?
+  resultCode        Int
+  resultDesc        String?
+  callbackMetadata  Json?
+  processed         Boolean   @default(false)
+  processedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  
+  @@index([checkoutRequestId])
+  @@index([merchantRequestId])
+  @@index([transactionType])
+  @@index([processed])
+  @@index([processed, transactionType])
 }
 
 model Game {

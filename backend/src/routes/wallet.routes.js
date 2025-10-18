@@ -1,40 +1,32 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
-import { 
-  getBalance, 
-  deposit, 
-  withdraw, 
+import {
+  getBalance,
   getTransactions,
+  deposit,
+  withdraw,
+  checkDepositStatus,
+  getPendingTransactions,
   mpesaCallback,
   mpesaB2CResult,
-  querySTKStatus
-} from "../controllers/wallet.controller.js";
+  mpesaB2CTimeout
+} from '../controllers/wallet.controller.js';
 
 export const wallet = Router();
 
 // Protected routes (require authentication)
-wallet.use("/balance", requireAuth);
-wallet.use("/transactions", requireAuth);
-wallet.use("/deposit", requireAuth);
-wallet.use("/withdraw", requireAuth);
-wallet.use("/query", requireAuth);
+wallet.get("/balance", requireAuth, getBalance);
+wallet.get("/transactions", requireAuth, getTransactions);
+wallet.get("/pending", requireAuth, getPendingTransactions);
 
-wallet.get("/balance", getBalance);
-wallet.get("/transactions", getTransactions);
-wallet.post("/deposit", deposit);
-wallet.post("/withdraw", withdraw);
-wallet.get("/query/:checkoutRequestId", querySTKStatus);
+// Deposit
+wallet.post("/deposit", requireAuth, deposit);
+wallet.get("/deposit/status/:checkoutRequestId", requireAuth, checkDepositStatus);
 
-// M-Pesa webhook endpoints (no auth required - called by Safaricom)
-export const mpesaWebhooks = Router();
+// Withdrawal
+wallet.post("/withdraw", requireAuth, withdraw);
 
-mpesaWebhooks.post("/callback", mpesaCallback);
-mpesaWebhooks.post("/b2c-result", mpesaB2CResult);
-mpesaWebhooks.post("/timeout", (req, res) => {
-  // Handle M-Pesa timeout
-  console.log("M-Pesa timeout received:", req.body);
-  res.status(200).json({ ResultCode: 0, ResultDesc: "Success" });
-});
-
-// Export both routers
-export { wallet as default };
+// M-Pesa callbacks (no authentication required - public routes)
+wallet.post("/callback", mpesaCallback);
+wallet.post("/b2c/result", mpesaB2CResult);
+wallet.post("/b2c/timeout", mpesaB2CTimeout);

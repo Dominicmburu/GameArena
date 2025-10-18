@@ -1,3 +1,5 @@
+// COMPLETE FILE - Replace your entire CompetitionsTabs.js:
+
 import React from 'react';
 import { Tabs, Tab, Card, Button } from 'react-bootstrap';
 import { GamepadIcon, Medal, UserPlus } from 'lucide-react';
@@ -11,6 +13,7 @@ const CompetitionsTabs = ({
   onPlay,
   onInvite,
   onCopyCode,
+  onLeave,        // ADD THIS PROP
   copiedCode,
   onJoinClick
 }) => {
@@ -47,6 +50,7 @@ const CompetitionsTabs = ({
                 onPlay={onPlay}
                 onInvite={onInvite}
                 onCopyCode={onCopyCode}
+                onLeave={onLeave}      // PASS THE PROP HERE
                 copiedCode={copiedCode}
                 isActive={true}
               />
