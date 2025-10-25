@@ -859,7 +859,7 @@ export const GameProvider = ({ children }) => {
   };
 
   // Load initial data
-  useEffect(() => {
+useEffect(() => {
     let mounted = true;
 
     const loadInitialData = async () => {
@@ -876,14 +876,14 @@ export const GameProvider = ({ children }) => {
 
         if (isAuthenticated && !authLoading) {
           await Promise.all([
-            fetchMyCompetitions().catch(err => console.warn('Could not load my competitions')),
-            fetchParticipatedCompetitions().catch(err => console.warn('Could not load participated competitions')),
-            fetchGlobalLeaderboard().catch(err => console.warn('Could not load global leaderboard')),
-            fetchFriends().catch(err => console.warn('Could not load friends')),
-            fetchFriendRequests().catch(err => console.warn('Could not load friend requests')),
-            fetchGameHistory().catch(err => console.warn('Could not load game history')),
-            fetchPendingInvites().catch(err => console.warn('Could not load pending invites')),
-            fetchSentInvites().catch(err => console.warn('Could not load sent invites'))
+            fetchMyCompetitions().catch(err => console.warn('Could not load my competitions:', err)),
+            fetchParticipatedCompetitions().catch(err => console.warn('Could not load participated competitions:', err)),
+            fetchGlobalLeaderboard().catch(err => console.warn('Could not load global leaderboard:', err)),
+            fetchFriends().catch(err => console.warn('Could not load friends:', err)),
+            fetchFriendRequests().catch(err => console.warn('Could not load friend requests:', err)),
+            fetchGameHistory().catch(err => console.warn('Could not load game history:', err)),
+            fetchPendingInvites().catch(err => console.warn('Could not load pending invites:', err)),
+            fetchSentInvites().catch(err => console.warn('Could not load sent invites:', err))
           ])
         }
 

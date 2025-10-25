@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Form, Button, Badge, Alert, Modal, Spinner } from 'react-bootstrap'
-import { Wallet, CreditCard, DollarSign, Shield, Clock, CheckCircle, AlertCircle, Gift, Phone } from 'lucide-react'
+import { Wallet, CreditCard, DollarSign, Shield, Clock, CheckCircle, AlertCircle, Gift, Phone, ArrowDownToLine } from 'lucide-react'
 import { useWallet } from '../contexts/WalletContext'
 import ToastNotification from '../components/playpage/ToastNotification'
 
@@ -20,16 +20,20 @@ const Deposit = () => {
   const [pollingInterval, setPollingInterval] = useState(null)
   const pollingRef = React.useRef(null)
   const isMountedRef = React.useRef(true)
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false)
+  const [withdrawAmount, setWithdrawAmount] = useState('')
+  const [withdrawPhone, setWithdrawPhone] = useState('')
+  const [withdrawing, setWithdrawing] = useState(false)
 
-  const { 
-    balance, 
-    transactions, 
-    isLoading, 
-    error, 
-    deposit: depositFunds, 
+  const {
+    balance,
+    transactions,
+    isLoading,
+    error,
+    deposit: depositFunds,
     querySTKStatus,
     fetchBalance,
-    fetchTransactions 
+    fetchTransactions
   } = useWallet()
 
   const showToastMessage = (message, variant = 'success') => {
@@ -40,7 +44,7 @@ const Deposit = () => {
 
   useEffect(() => {
     isMountedRef.current = true
-    
+
     // Fetch initial data
     fetchBalance()
     fetchTransactions()
@@ -100,15 +104,15 @@ const Deposit = () => {
 
   const formatPhoneNumber = (number) => {
     let cleaned = number.replace(/\D/g, '')
-    
+
     if (cleaned.startsWith('0')) {
       cleaned = '254' + cleaned.slice(1)
     }
-    
+
     if (!cleaned.startsWith('254')) {
       cleaned = '254' + cleaned
     }
-    
+
     return cleaned
   }
 
@@ -147,6 +151,60 @@ const Deposit = () => {
     setShowConfirmModal(true)
   }
 
+  const handleWithdraw = async () => {
+    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
+      showToastMessage('Please enter a valid withdrawal amount', 'error')
+      return
+    }
+
+    const amount = parseFloat(withdrawAmount)
+
+    if (amount < 100) {
+      showToastMessage('Minimum withdrawal amount is KES 100', 'error')
+      return
+    }
+
+    if (amount > balance) {
+      showToastMessage('Insufficient balance', 'error')
+      return
+    }
+
+    if (!withdrawPhone) {
+      showToastMessage('Please enter your M-Pesa phone number', 'error')
+      return
+    }
+
+    if (!validatePhoneNumber(withdrawPhone)) {
+      showToastMessage('Please enter a valid Kenyan phone number', 'error')
+      return
+    }
+
+    setWithdrawing(true)
+
+    try {
+      // TODO: Implement withdrawal API call
+      // const formattedPhone = formatPhoneNumber(withdrawPhone)
+      // const result = await withdrawFunds(amount, formattedPhone)
+
+      // Simulated response for now
+      showToastMessage('Withdrawal request submitted successfully!', 'success')
+      setShowWithdrawModal(false)
+      setWithdrawAmount('')
+      setWithdrawPhone('')
+
+      // Refresh balance
+      setTimeout(() => {
+        fetchBalance()
+        fetchTransactions()
+      }, 1000)
+    } catch (error) {
+      console.error('Withdrawal error:', error)
+      showToastMessage('Withdrawal failed. Please try again.', 'error')
+    } finally {
+      setWithdrawing(false)
+    }
+  }
+
   const confirmDeposit = async () => {
     setShowConfirmModal(false)
     setShowStatusModal(true)
@@ -161,7 +219,7 @@ const Deposit = () => {
 
       if (result.success && result.data?.checkoutRequestId) {
         const checkoutId = result.data.checkoutRequestId
-        
+
         // Set state first
         setCheckoutRequestId(checkoutId)
         setPaymentStatus('pending')
@@ -228,13 +286,13 @@ const Deposit = () => {
           setPaymentStatus('success')
           setStatusMessage('Payment successful! Your wallet has been credited.')
           showToastMessage('Deposit successful!', 'success')
-          
+
           // Reset form
           setDepositAmount('')
           setPhoneNumber('')
           setSelectedBonus(null)
           setCheckoutRequestId(null)
-          
+
           // Refresh wallet data
           setTimeout(() => {
             if (isMountedRef.current) {
@@ -242,7 +300,7 @@ const Deposit = () => {
               fetchTransactions()
             }
           }, 1000)
-        } 
+        }
         // Check for failed status
         else if (result.status === 'FAILED') {
           clearInterval(poll)
@@ -253,7 +311,7 @@ const Deposit = () => {
           setPaymentStatus('failed')
           setStatusMessage(result.failureReason || result.resultDesc || 'Payment failed')
           showToastMessage('Payment failed', 'error')
-        } 
+        }
         // Check for cancelled status
         else if (result.status === 'CANCELLED') {
           clearInterval(poll)
@@ -318,7 +376,7 @@ const Deposit = () => {
       clearInterval(pollingInterval)
       setPollingInterval(null)
     }
-    
+
     setShowStatusModal(false)
     setPaymentStatus('pending')
     setStatusMessage('')
@@ -340,11 +398,25 @@ const Deposit = () => {
         <Row className="mb-4">
           <Col>
             <div className="page-header cyber-card p-4">
-              <h1 className="cyber-text text-neon mb-2">
-                <Wallet size={32} className="me-3" />
-                Wallet & Deposits
-              </h1>
-              <p className="text-white mb-0">Manage your gaming funds and make secure deposits via M-Pesa</p>
+              <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                  <h1 className="cyber-text text-neon mb-2">
+                    <Wallet size={32} className="me-3" />
+                    Wallet & Deposits
+                  </h1>
+                  <p className="text-white mb-0">Manage your gaming funds and make secure deposits via M-Pesa</p>
+                </div>
+                <Button
+                  variant="success"
+                  size="lg"
+                  onClick={() => setShowWithdrawModal(true)}
+                  disabled={balance <= 0}
+                  className='btn-cyber'
+                >
+                  <ArrowDownToLine size={20} className="me-2" />
+                  Withdraw Funds
+                </Button>
+              </div>
             </div>
           </Col>
         </Row>
@@ -353,7 +425,7 @@ const Deposit = () => {
         {error && (
           <Row className="mb-4">
             <Col>
-              <Alert variant="danger" dismissible onClose={() => {}}>
+              <Alert variant="danger" dismissible onClose={() => { }}>
                 <AlertCircle size={20} className="me-2" />
                 {error}
               </Alert>
@@ -424,7 +496,7 @@ const Deposit = () => {
                   <Form.Group className="mb-4">
                     <Form.Label className="text-white h6">M-Pesa Phone Number</Form.Label>
                     <div className="input-group">
-                      <span 
+                      <span
                         className="input-group-text"
                         style={{
                           background: 'rgba(31, 31, 35, 0.8)',
@@ -452,7 +524,7 @@ const Deposit = () => {
                     <Form.Label className="text-white h6">Deposit Amount (KES)</Form.Label>
                     <div className="amount-input-container">
                       <div className="input-group">
-                        <span 
+                        <span
                           className="input-group-text"
                           style={{
                             background: 'rgba(31, 31, 35, 0.8)',
@@ -476,7 +548,7 @@ const Deposit = () => {
                           }}
                         />
                       </div>
-                      
+
                       {/* Quick Amount Buttons */}
                       <div className="quick-amounts mt-3">
                         <div className="d-flex flex-wrap gap-2">
@@ -544,7 +616,7 @@ const Deposit = () => {
                     </div>
                   )}
 
-                  <Button 
+                  <Button
                     className="btn-cyber w-100"
                     size="lg"
                     onClick={handleDeposit}
@@ -579,7 +651,7 @@ const Deposit = () => {
               </Card.Header>
               <Card.Body className="p-0">
                 {bonusOffers.map(bonus => (
-                  <div 
+                  <div
                     key={bonus.id}
                     className={`bonus-offer p-3 cursor-pointer ${selectedBonus?.id === bonus.id ? 'selected' : ''} ${!bonus.active ? 'disabled' : ''}`}
                     onClick={() => bonus.active && setSelectedBonus(bonus)}
@@ -606,9 +678,9 @@ const Deposit = () => {
                     </div>
                     {selectedBonus?.id === bonus.id && (
                       <div className="bonus-code mt-2">
-                        <Badge 
+                        <Badge
                           className="w-100 text-center py-2"
-                          style={{ 
+                          style={{
                             background: 'rgba(0, 240, 255, 0.2)',
                             border: '1px solid #00F0FF',
                             color: '#00F0FF'
@@ -644,9 +716,9 @@ const Deposit = () => {
                   transactions.slice(0, 5).map(transaction => {
                     const txStatus = transaction.meta?.status || 'PENDING'
                     const receipt = transaction.meta?.MpesaReceiptNumber || transaction.meta?.mpesaReceiptNumber
-                    
+
                     return (
-                      <div 
+                      <div
                         key={transaction.id}
                         className="transaction-item p-3"
                         style={{
@@ -659,8 +731,8 @@ const Deposit = () => {
                               <span className={`transaction-type me-2 ${transaction.type === 'DEPOSIT' ? 'text-energy-green' : 'text-cyber-red'}`}>
                                 {transaction.type === 'DEPOSIT' ? '+' : '-'}KES {transaction.amount}
                               </span>
-                              <Badge 
-                                style={{ 
+                              <Badge
+                                style={{
                                   background: getStatusColor(txStatus),
                                   color: '#0E0E10',
                                   fontSize: '0.7rem'
@@ -690,8 +762,8 @@ const Deposit = () => {
       </Container>
 
       {/* Confirmation Modal */}
-      <Modal 
-        show={showConfirmModal} 
+      <Modal
+        show={showConfirmModal}
         onHide={() => setShowConfirmModal(false)}
         className="cyber-modal"
         centered
@@ -708,7 +780,7 @@ const Deposit = () => {
               <Shield size={20} className="me-2" />
               Please review your deposit details before confirming.
             </Alert>
-            
+
             <div className="deposit-details cyber-card p-3 mb-3">
               <div className="detail-row d-flex justify-content-between mb-2">
                 <span className="text-white">Phone Number:</span>
@@ -736,20 +808,20 @@ const Deposit = () => {
                 </>
               )}
             </div>
-            
+
             <small className="text-white">
               You will receive an M-Pesa prompt on your phone. Enter your PIN to complete the transaction.
             </small>
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <Button 
-            variant="outline-secondary" 
+          <Button
+            variant="outline-secondary"
             onClick={() => setShowConfirmModal(false)}
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             className="btn-cyber"
             onClick={confirmDeposit}
           >
@@ -760,8 +832,8 @@ const Deposit = () => {
       </Modal>
 
       {/* Payment Status Modal */}
-      <Modal 
-        show={showStatusModal} 
+      <Modal
+        show={showStatusModal}
         onHide={closeStatusModal}
         className="cyber-modal"
         centered
@@ -790,9 +862,9 @@ const Deposit = () => {
           {paymentStatus === 'timeout' && (
             <Clock size={64} color="#FFA500" className="mb-3" />
           )}
-          
+
           <p className="text-white h5 mb-3">{statusMessage}</p>
-          
+
           {paymentStatus === 'pending' && (
             <small className="text-white-50">
               Waiting for payment confirmation... Please complete the payment on your phone.
@@ -807,14 +879,14 @@ const Deposit = () => {
         </Modal.Body>
         {(paymentStatus === 'success' || paymentStatus === 'failed' || paymentStatus === 'timeout') && (
           <Modal.Footer>
-            <Button 
+            <Button
               className="btn-cyber w-100"
               onClick={closeStatusModal}
             >
               Close
             </Button>
             {paymentStatus === 'timeout' && (
-              <Button 
+              <Button
                 variant="outline-primary"
                 className="w-100 mt-2"
                 onClick={retryStatusCheck}
@@ -824,6 +896,143 @@ const Deposit = () => {
             )}
           </Modal.Footer>
         )}
+      </Modal>
+
+      {/* Withdrawal Modal */}
+      <Modal
+        show={showWithdrawModal}
+        onHide={() => setShowWithdrawModal(false)}
+        className="cyber-modal"
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title className="d-flex align-items-center">
+            <ArrowDownToLine size={24} className="me-2 text-energy-green" />
+            Withdraw Funds
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Alert variant="info" className="mb-3">
+            <Shield size={20} className="me-2" />
+            Withdrawals are processed within 24 hours to your M-Pesa account.
+          </Alert>
+
+          {/* Current Balance */}
+          <div className="cyber-card p-3 mb-4">
+            <div className="text-center">
+              <small className="text-white d-block mb-1">Available Balance</small>
+              <h3 className="text-neon mb-0">KES {balance.toFixed(2)}</h3>
+            </div>
+          </div>
+
+          <Form>
+            {/* M-Pesa Phone Number */}
+            <Form.Group className="mb-3">
+              <Form.Label className="text-white">M-Pesa Phone Number</Form.Label>
+              <div className="input-group">
+                <span
+                  className="input-group-text"
+                  style={{
+                    background: 'rgba(31, 31, 35, 0.8)',
+                    border: '1px solid rgba(0, 240, 255, 0.3)',
+                    color: '#00F0FF'
+                  }}
+                >
+                  <Phone size={18} />
+                </span>
+                <Form.Control
+                  type="tel"
+                  value={withdrawPhone}
+                  onChange={(e) => setWithdrawPhone(e.target.value)}
+                  placeholder="07XXXXXXXX or 2547XXXXXXXX"
+                  maxLength="12"
+                />
+              </div>
+              <Form.Text className="text-white-50">
+                Enter your M-Pesa number to receive the funds
+              </Form.Text>
+            </Form.Group>
+
+            {/* Withdrawal Amount */}
+            <Form.Group className="mb-3">
+              <Form.Label className="text-white">Withdrawal Amount (KES)</Form.Label>
+              <div className="input-group">
+                <span
+                  className="input-group-text"
+                  style={{
+                    background: 'rgba(31, 31, 35, 0.8)',
+                    border: '1px solid rgba(0, 240, 255, 0.3)',
+                    color: '#00FF85'
+                  }}
+                >
+                  KES
+                </span>
+                <Form.Control
+                  type="number"
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  min="100"
+                  max={balance}
+                  step="1"
+                />
+              </div>
+              <Form.Text className="text-white-50">
+                Minimum: KES 100 | Available: KES {balance.toFixed(2)}
+              </Form.Text>
+            </Form.Group>
+
+            {/* Withdrawal Summary */}
+            {withdrawAmount && parseFloat(withdrawAmount) > 0 && (
+              <div className="cyber-card p-3 mb-3" style={{ background: 'rgba(0, 255, 133, 0.05)', border: '1px solid rgba(0, 255, 133, 0.2)' }}>
+                <h6 className="text-energy-green mb-3">Withdrawal Summary</h6>
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-white">Amount to withdraw:</span>
+                  <span className="text-white fw-bold">KES {parseFloat(withdrawAmount).toFixed(2)}</span>
+                </div>
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-white">Processing fee:</span>
+                  <span className="text-white">KES 0.00</span>
+                </div>
+                <hr style={{ borderColor: 'rgba(0, 255, 133, 0.3)' }} />
+                <div className="d-flex justify-content-between">
+                  <span className="text-white fw-bold">You will receive:</span>
+                  <span className="text-energy-green fw-bold">KES {parseFloat(withdrawAmount).toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+
+            <Alert variant="warning" className="small mb-0">
+              <AlertCircle size={16} className="me-2" />
+              Processing time: 1-24 hours. You'll receive an M-Pesa confirmation once processed.
+            </Alert>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="outline-secondary"
+            onClick={() => setShowWithdrawModal(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="success"
+            onClick={handleWithdraw}
+            disabled={!withdrawAmount || parseFloat(withdrawAmount) <= 0 || !withdrawPhone || withdrawing || parseFloat(withdrawAmount) > balance}
+          >
+            {withdrawing ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-2" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <ArrowDownToLine size={18} className="me-2" />
+                Withdraw KES {parseFloat(withdrawAmount || 0).toFixed(2)}
+              </>
+            )}
+          </Button>
+        </Modal.Footer>
       </Modal>
 
       {/* Toast Notification */}

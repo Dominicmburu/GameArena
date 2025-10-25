@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Form, Button, Badge, Modal, Alert, ProgressBar, Toast, ToastContainer } from 'react-bootstrap'
-import { Plus, Gamepad2, Users, Clock, DollarSign, Lock, Globe, Calendar, Trophy, Settings, CheckCircle, AlertTriangle, Play, Info, Link, AlertCircle } from 'lucide-react'
+import { Plus, Gamepad2, Users, Clock, DollarSign, Lock, Globe, Calendar, Trophy, Settings, CheckCircle, AlertTriangle, Play, Info, Link, AlertCircle, ChevronsLeft } from 'lucide-react'
 import { useGame } from '../contexts/GameContext'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -17,8 +17,6 @@ const MakeGame = () => {
     clearErrors
   } = useGame()
 
-  console.log('Games:', games)
-
   const { user } = useAuth()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
@@ -33,9 +31,17 @@ const MakeGame = () => {
   const [formData, setFormData] = useState({
     title: '',
     gameId: '',
+    privacy: 'PRIVATE',
     maxPlayers: '',
-    entryFee: ''
+    entryFee: '',
+    startsAt: '',
+    endsAt: ''
   })
+
+  // Helper function to format currency in KES
+  const formatKES = (cents) => {
+    return `KES ${(cents).toFixed(2)}`
+  }
 
   const showToastMessage = (message, variant = 'success') => {
     setToastMessage(message)
@@ -49,6 +55,21 @@ const MakeGame = () => {
       fetchMyCompetitions()
     }
   }, [user, fetchMyCompetitions])
+
+  // Set default start and end times when modal opens
+  useEffect(() => {
+    if (showCreateModal && !formData.startsAt) {
+      const now = new Date()
+      const startTime = new Date(now.getTime() + 30 * 60000) // 30 minutes from now
+      const endTime = new Date(startTime.getTime() + 2 * 60 * 60000) // 2 hours after start
+      
+      setFormData(prev => ({
+        ...prev,
+        startsAt: startTime.toISOString().slice(0, 16),
+        endsAt: endTime.toISOString().slice(0, 16)
+      }))
+    }
+  }, [showCreateModal])
 
   // Map game difficulty levels
   const getDifficultyColor = (difficulty) => {
@@ -85,11 +106,18 @@ const MakeGame = () => {
 
     setSelectedGameState(formattedGame)
     setSelectedGame(formattedGame)
+    
+    const now = new Date()
+    const startTime = new Date(now.getTime() + 30 * 60000) // 30 minutes from now
+    const endTime = new Date(startTime.getTime() + 2 * 60 * 60000) // 2 hours after start
+    
     setFormData(prev => ({
       ...prev,
       gameId: game.id,
       maxPlayers: formattedGame.maxPlayersLimit || '4',
-      entryFee: formattedGame.minEntryFee || '0'
+      entryFee: formattedGame.minEntryFee || '0',
+      startsAt: startTime.toISOString().slice(0, 16),
+      endsAt: endTime.toISOString().slice(0, 16)
     }))
     setShowCreateModal(true)
   }
@@ -137,6 +165,32 @@ const MakeGame = () => {
       newErrors.entryFee = 'Entry fee cannot be negative'
     }
 
+    if (!formData.startsAt) {
+      newErrors.startsAt = 'Start time is required'
+    } else {
+      const startTime = new Date(formData.startsAt)
+      const now = new Date()
+      if (startTime <= now) {
+        newErrors.startsAt = 'Start time must be in the future'
+      }
+    }
+
+    if (!formData.endsAt) {
+      newErrors.endsAt = 'End time is required'
+    } else if (formData.startsAt) {
+      const startTime = new Date(formData.startsAt)
+      const endTime = new Date(formData.endsAt)
+      if (endTime <= startTime) {
+        newErrors.endsAt = 'End time must be after start time'
+      }
+      
+      // Check minimum duration (at least 15 minutes)
+      const duration = (endTime - startTime) / (1000 * 60) // in minutes
+      if (duration < 15) {
+        newErrors.endsAt = 'Tournament must last at least 15 minutes'
+      }
+    }
+
     setFormErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -153,13 +207,30 @@ const MakeGame = () => {
     setShowConfirmModal(true)
   }
 
+
   const handleCreateCompetition = async () => {
     try {
+      const entryFeeCents = Math.round(parseFloat(formData.entryFee));
+      console.log('entryFeeCents', entryFeeCents)
+      
+      // Check wallet balance before creating
+      if (user?.wallet?.balance < entryFeeCents) {
+        showToastMessage(
+          `Insufficient wallet balance. You need ${formatKES(entryFeeCents)} but have ${formatKES(user?.wallet?.balance || 0)}`,
+          'error'
+        );
+        setShowConfirmModal(false);
+        return;
+      }
+
       const competitionData = {
         title: formData.title,
         gameId: formData.gameId,
+        privacy: formData.privacy,
         maxPlayers: parseInt(formData.maxPlayers),
-        entryFee: parseFloat(formData.entryFee) || 0
+        entryFee: entryFeeCents,
+        startsAt: new Date(formData.startsAt).toISOString(),
+        endsAt: new Date(formData.endsAt).toISOString()
       }
 
       await createCompetition(competitionData)
@@ -173,6 +244,7 @@ const MakeGame = () => {
     } catch (error) {
       console.error('Failed to create competition:', error)
       showToastMessage(error.message || 'Failed to create tournament', 'error')
+      setShowConfirmModal(false)
     }
   }
 
@@ -180,8 +252,11 @@ const MakeGame = () => {
     setFormData({
       title: '',
       gameId: '',
+      privacy: 'PRIVATE',
       maxPlayers: '',
-      entryFee: ''
+      entryFee: '',
+      startsAt: '',
+      endsAt: ''
     })
     setSelectedGameState(null)
     setSelectedGame(null)
@@ -191,12 +266,44 @@ const MakeGame = () => {
   const calculateEstimatedPrize = () => {
     const entryFee = parseFloat(formData.entryFee) || 0
     const maxPlayers = parseInt(formData.maxPlayers) || 0
-    return entryFee * maxPlayers * 0.85 // 15% platform fee, 85% goes to prize pool
+    const isPrivate = formData.privacy === 'PRIVATE'
+    const platformFeePercent = isPrivate ? 0.15 : 0.20
+    return entryFee * maxPlayers * (1 - platformFeePercent)
   }
 
   const calculateTotalDeduction = () => {
     const entryFee = parseFloat(formData.entryFee) || 0
     return entryFee // Entry fee deducted from creator's account
+  }
+
+  const getPlatformFeePercent = () => {
+    return formData.privacy === 'PRIVATE' ? 15 : 20
+  }
+
+  const formatDateTime = (dateString) => {
+    if (!dateString) return ''
+    const date = new Date(dateString)
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const getTournamentDuration = () => {
+    if (!formData.startsAt || !formData.endsAt) return ''
+    const start = new Date(formData.startsAt)
+    const end = new Date(formData.endsAt)
+    const durationMs = end - start
+    const hours = Math.floor(durationMs / (1000 * 60 * 60))
+    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60))
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`
+    }
+    return `${minutes}m`
   }
 
   return (
@@ -395,11 +502,10 @@ const MakeGame = () => {
           </Col>
           <Col md={3} sm={6} className="mb-3">
             <div className="stat-card cyber-card p-3 text-center h-100">
-              <DollarSign size={30} color="#00FF85" className="mb-2" />
               <h4 className="text-energy-green fw-bold">
-                ${myCompetitions.reduce((total, comp) =>
+                {formatKES(myCompetitions.reduce((total, comp) =>
                   total + comp.totalPrizePool, 0
-                ).toFixed(0)}
+                ))}
               </h4>
               <small className="text-white">Prize Money Distributed</small>
             </div>
@@ -463,6 +569,30 @@ const MakeGame = () => {
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
+                  <Form.Label className="text-white">Privacy *</Form.Label>
+                  <Form.Select
+                    name="privacy"
+                    value={formData.privacy}
+                    onChange={handleInputChange}
+                    className="text-white"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(0, 240, 255, 0.2)',
+                      color: '#fff'
+                    }}
+                  >
+                    <option value="PRIVATE">Private (15% fee)</option>
+                    <option value="PUBLIC">Public (20% fee)</option>
+                  </Form.Select>
+                  <Form.Text className="text-white-50">
+                    {formData.privacy === 'PRIVATE' 
+                      ? 'Only invited players can join' 
+                      : 'Anyone can join this tournament'}
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
                   <Form.Label className="text-white">Max Players *</Form.Label>
                   <Form.Control
                     type="number"
@@ -478,15 +608,18 @@ const MakeGame = () => {
                     {formErrors.maxPlayers}
                   </Form.Control.Feedback>
                   {selectedGameState && (
-                    <Form.Text className="text-white">
+                    <Form.Text className="text-white-50">
                       Max {selectedGameState.maxPlayersLimit} for {selectedGameState.name}
                     </Form.Text>
                   )}
                 </Form.Group>
               </Col>
-              <Col md={6}>
+            </Row>
+
+            <Row>
+              <Col md={12}>
                 <Form.Group className="mb-3">
-                  <Form.Label className="text-white">Entry Fee ($) *</Form.Label>
+                  <Form.Label className="text-white">Entry Fee (KES) *</Form.Label>
                   <Form.Control
                     type="number"
                     name="entryFee"
@@ -501,13 +634,67 @@ const MakeGame = () => {
                     {formErrors.entryFee}
                   </Form.Control.Feedback>
                   {selectedGameState?.minEntryFee > 0 && (
-                    <Form.Text className="text-white">
-                      Minimum ${selectedGameState.minEntryFee} for this game
+                    <Form.Text className="text-white-50">
+                      Minimum {formatKES(selectedGameState.minEntryFee)} for this game
                     </Form.Text>
                   )}
                 </Form.Group>
               </Col>
             </Row>
+
+            <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-white d-flex align-items-center">
+                    <Calendar size={16} className="me-2" />
+                    Start Time *
+                  </Form.Label>
+                  <Form.Control
+                    type="datetime-local"
+                    name="startsAt"
+                    value={formData.startsAt}
+                    onChange={handleInputChange}
+                    isInvalid={!!formErrors.startsAt}
+                    min={new Date().toISOString().slice(0, 16)}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {formErrors.startsAt}
+                  </Form.Control.Feedback>
+                  <Form.Text className="text-white-50">
+                    When players can start joining
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="text-white d-flex align-items-center">
+                    <Clock size={16} className="me-2" />
+                    End Time *
+                  </Form.Label>
+                  <Form.Control
+                    type="datetime-local"
+                    name="endsAt"
+                    value={formData.endsAt}
+                    onChange={handleInputChange}
+                    isInvalid={!!formErrors.endsAt}
+                    min={formData.startsAt || new Date().toISOString().slice(0, 16)}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {formErrors.endsAt}
+                  </Form.Control.Feedback>
+                  <Form.Text className="text-white-50">
+                    Tournament automatically ends
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+            </Row>
+
+            {formData.startsAt && formData.endsAt && (
+              <Alert variant="info" className="mb-3">
+                <Clock size={16} className="me-2" />
+                Tournament Duration: <strong>{getTournamentDuration()}</strong>
+              </Alert>
+            )}
 
             {Object.keys(formErrors).length > 0 && (
               <Alert variant="danger" className="mt-3">
@@ -559,17 +746,70 @@ const MakeGame = () => {
 
         <Modal.Body>
           <div className="confirmation-content">
+            {/* Tournament Details */}
+            <div className="mb-4 p-4 cyber-card" style={{ background: 'rgba(0, 240, 255, 0.08)' }}>
+              <h5 className="text-neon mb-3 d-flex align-items-center">
+                <Trophy size={24} className="me-2" />
+                Tournament Details
+              </h5>
+              
+              <div className="detail-item d-flex justify-content-between mb-2">
+                <span className="text-white-50">Title:</span>
+                <span className="text-white fw-bold">{formData.title}</span>
+              </div>
+              <div className="detail-item d-flex justify-content-between mb-2">
+                <span className="text-white-50">Game:</span>
+                <span className="text-white fw-bold">{selectedGameState?.name}</span>
+              </div>
+              <div className="detail-item d-flex justify-content-between mb-2">
+                <span className="text-white-50">Privacy:</span>
+                <Badge bg={formData.privacy === 'PRIVATE' ? 'secondary' : 'primary'}>
+                  {formData.privacy === 'PRIVATE' ? (
+                    <><Lock size={14} className="me-1" /> Private</>
+                  ) : (
+                    <><Globe size={14} className="me-1" /> Public</>
+                  )}
+                </Badge>
+              </div>
+              <div className="detail-item d-flex justify-content-between mb-2">
+                <span className="text-white-50">Max Players:</span>
+                <span className="text-white fw-bold">{formData.maxPlayers}</span>
+              </div>
+              <div className="detail-item d-flex justify-content-between mb-2">
+                <span className="text-white-50">Start Time:</span>
+                <span className="text-white fw-bold">{formatDateTime(formData.startsAt)}</span>
+              </div>
+              <div className="detail-item d-flex justify-content-between mb-2">
+                <span className="text-white-50">End Time:</span>
+                <span className="text-white fw-bold">{formatDateTime(formData.endsAt)}</span>
+              </div>
+              <div className="detail-item d-flex justify-content-between">
+                <span className="text-white-50">Duration:</span>
+                <span className="text-white fw-bold">{getTournamentDuration()}</span>
+              </div>
+            </div>
+
             {/* Financial Deduction Notice */}
             <div className="mb-4 p-4 cyber-card" style={{ background: 'rgba(0, 255, 133, 0.08)' }}>
               <h5 className="text-energy-green mb-3 d-flex align-items-center">
                 <DollarSign size={24} className="me-2" />
-                Financial Deduction Notice
+                Financial Information
               </h5>
               
               <div className="deduction-info mb-3">
                 <div className="d-flex justify-content-between align-items-center mb-2 p-3" style={{ background: 'rgba(0, 240, 255, 0.05)', borderRadius: '6px' }}>
                   <span className="text-white">Entry Fee Amount:</span>
-                  <span className="text-neon fw-bold fs-5">${parseFloat(formData.entryFee).toFixed(2)}</span>
+                  <span className="text-neon fw-bold fs-5">KES {parseFloat(formData.entryFee).toFixed(2)}</span>
+                </div>
+                
+                <div className="d-flex justify-content-between align-items-center mb-2 p-3" style={{ background: 'rgba(155, 0, 255, 0.05)', borderRadius: '6px' }}>
+                  <span className="text-white">Platform Fee ({getPlatformFeePercent()}%):</span>
+                  <span className="text-purple fw-bold">KES {(parseFloat(formData.entryFee) * getPlatformFeePercent() / 100).toFixed(2)}</span>
+                </div>
+
+                <div className="d-flex justify-content-between align-items-center mb-2 p-3" style={{ background: 'rgba(0, 255, 133, 0.05)', borderRadius: '6px' }}>
+                  <span className="text-white">Max Prize Pool:</span>
+                  <span className="text-energy-green fw-bold fs-5">KES {calculateEstimatedPrize().toFixed(2)}</span>
                 </div>
               </div>
 
@@ -578,9 +818,14 @@ const MakeGame = () => {
                   <AlertTriangle size={20} className="text-cyber-red me-2 mt-1" style={{ flexShrink: 0 }} />
                   <div>
                     <strong className="text-cyber-red d-block mb-2">Important Payment Notice</strong>
-                    <p className="text-white mb-0">
-                      <strong>${calculateTotalDeduction().toFixed(2)}</strong> will be deducted from your wallet immediately upon tournament creation. 
+                    <p className="text-white mb-2">
+                      <strong>KES {calculateTotalDeduction().toFixed(2)}</strong> will be deducted from your wallet immediately upon tournament creation. 
                       This amount covers your entry fee as the tournament creator.
+                    </p>
+                    <p className="text-white-50 mb-0 small">
+                      {formData.privacy === 'PRIVATE' 
+                        ? '15% platform fee will be deducted from each entry (Private tournament)'
+                        : '20% platform fee will be deducted from each entry (Public tournament)'}
                     </p>
                   </div>
                 </div>
@@ -753,6 +998,17 @@ const MakeGame = () => {
           opacity: 1 !important;
         }
 
+        .cyber-modal .form-select {
+          background: rgba(255, 255, 255, 0.05) !important;
+          border: 1px solid rgba(0, 240, 255, 0.2) !important;
+          color: #fff !important;
+        }
+
+        .cyber-modal .form-select option {
+          background: #1f1f23 !important;
+          color: #fff !important;
+        }
+
         .detail-item {
           padding: 8px 0;
         }
@@ -880,6 +1136,11 @@ const MakeGame = () => {
           background: rgba(255, 0, 60, 0.1) !important;
           border: 1px solid rgba(255, 0, 60, 0.3) !important;
           color: #FF003C !important;
+        }
+
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+          filter: invert(1);
+          cursor: pointer;
         }
       `}</style>
     </div>

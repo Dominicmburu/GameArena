@@ -333,7 +333,7 @@ export function registerSockets(io) {
         console.error("Error handling friend request sent:", error);
       }
     });
-
+    
     socket.on("friend_request:accepted", async ({ requestId, senderId, accepterUsername }) => {
       try {
         io.to(`user:${senderId}`).emit("friend_request_accepted", {

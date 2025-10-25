@@ -47,6 +47,7 @@ const PageHeader = ({
             </div>
             {/* <div className="stat-label text-white small">Balance</div> */}
           </div>
+          
           <div className="d-flex gap-2">
             <Button className="btn-cyber" onClick={onJoinClick}>
               <UserPlus size={20} className="me-2" />
