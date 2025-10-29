@@ -166,7 +166,7 @@ const PlayPage = () => {
               onPlay={modalHandlers.handlePlayClick}
               onInvite={modalHandlers.openInviteModal}
               onCopyCode={modalHandlers.handleCopyCode}
-              onLeave={modalHandlers.handleLeaveCompetition}  // ADD THIS LINE
+              onLeave={modalHandlers.handleLeaveCompetition}
               copiedCode={modalHandlers.copiedCode}
               onJoinClick={modalHandlers.openJoinModal}
             />
@@ -204,6 +204,8 @@ const PlayPage = () => {
         handleTopUpFromConfirm={modalHandlers.handleTopUpFromConfirm}
         setShowJoinConfirmModal={modalHandlers.setShowJoinConfirmModal}
         setShowAcceptConfirmModal={modalHandlers.setShowAcceptConfirmModal}
+        confirmLeaveCompetition={modalHandlers.confirmLeaveCompetition}
+        setShowLeaveConfirmModal={modalHandlers.setShowLeaveConfirmModal}
       />
 
       <ToastNotification

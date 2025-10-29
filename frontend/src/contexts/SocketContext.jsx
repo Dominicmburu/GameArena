@@ -98,7 +98,7 @@ export const SocketProvider = ({ children }) => {
 
       // Connection error
       newSocket.on('connect_error', (err) => {
-        console.error('Socket connection error:', err.message);
+        console.error('Connection problem:', err.message);
         setError(err.message);
         setConnected(false);
         initializingRef.current = false;

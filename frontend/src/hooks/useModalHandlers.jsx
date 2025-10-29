@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useGame } from '../contexts/GameContext';
 import { useWallet } from '../contexts/WalletContext';
 
+
 const useModalHandlers = ({
   loadUserData,
   showToastMessage,
@@ -491,11 +492,12 @@ const useModalHandlers = ({
     try {
       setLoading('submittingScore', true);
 
-      const result = await submitScore({
-        competitionCode: selectedCompetition.code,
-        score: gameResults.score,
-        playTime: gameResults.playTime
-      });
+      const result = await submitScore(
+        selectedCompetition.code,
+        {
+          score: gameResults.score
+        }
+      );
 
       let message = `Game completed! Score: ${gameResults.score}`;
 

@@ -1,5 +1,5 @@
 import React, { memo, useState, useEffect } from 'react';
-import { Card, Row, Col, Badge, Button, ProgressBar } from 'react-bootstrap';
+import { Card, Row, Col, Badge, Button } from 'react-bootstrap';
 import { Trophy, Clock, Users, Zap, Send, Play, Check, Copy, LogOut, AlertCircle } from 'lucide-react';
 
 const CompetitionCard = memo(({ 
@@ -12,31 +12,44 @@ const CompetitionCard = memo(({
   isActive 
 }) => {
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [timeUntilStart, setTimeUntilStart] = useState(0);
   const [isExpired, setIsExpired] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
-  // Calculate time remaining with real-time countdown
+  // Calculate time remaining and time until start with real-time countdown
   useEffect(() => {
-    if (!isActive || !competition.expiresAt) return;
+    if (!isActive) return;
 
     const calculateTime = () => {
       const now = new Date().getTime();
-      const expires = new Date(competition.expiresAt).getTime();
-      const diff = Math.max(0, Math.floor((expires - now) / 1000));
+      const starts = competition.startsAt ? new Date(competition.startsAt).getTime() : now;
+      const ends = competition.endsAt ? new Date(competition.endsAt).getTime() : now;
       
-      setTimeRemaining(diff);
-      setIsExpired(diff === 0);
+      const diffToStart = Math.max(0, Math.floor((starts - now) / 1000));
+      const diffToEnd = Math.max(0, Math.floor((ends - now) / 1000));
+      
+      setTimeUntilStart(diffToStart);
+      setTimeRemaining(diffToEnd);
+      setHasStarted(diffToStart === 0);
+      setIsExpired(diffToEnd === 0);
     };
 
     calculateTime();
     const timer = setInterval(calculateTime, 1000);
 
     return () => clearInterval(timer);
-  }, [competition.expiresAt, isActive]);
+  }, [competition.startsAt, competition.endsAt, isActive]);
 
   const formatTime = (seconds) => {
     if (seconds <= 0) return 'EXPIRED';
-    const mins = Math.floor(seconds / 60);
+    
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
+    
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    }
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
@@ -51,9 +64,9 @@ const CompetitionCard = memo(({
   };
 
   const getRankColor = (rank) => {
-    if (rank === 1) return '#FFD700'; // Gold
-    if (rank === 2) return '#C0C0C0'; // Silver
-    if (rank === 3) return '#CD7F32'; // Bronze
+    if (rank === 1) return '#FFD700';
+    if (rank === 2) return '#C0C0C0';
+    if (rank === 3) return '#CD7F32';
     if (rank <= 10) return '#00F0FF';
     if (rank <= 25) return '#9B00FF';
     return '#B0B0B0';
@@ -63,6 +76,7 @@ const CompetitionCard = memo(({
   const canPlay = isActive && 
                   !competition.hasPlayed && 
                   !isExpired &&
+                  hasStarted &&
                   competition.status === 'ONGOING';
 
   // Check if user can leave (only before anyone has played)
@@ -74,10 +88,6 @@ const CompetitionCard = memo(({
   // Progress calculations
   const progress = competition.maxPlayers > 0 
     ? (competition.currentPlayers / competition.maxPlayers) * 100 
-    : 0;
-
-  const playedProgress = competition.currentPlayers > 0
-    ? (competition.playedCount / competition.currentPlayers) * 100
     : 0;
 
   return (
@@ -96,7 +106,7 @@ const CompetitionCard = memo(({
               <div className="flex-grow-1">
                 <h5 className="text-white mb-1">{competition.title}</h5>
                 
-                {/* Status Badges - NOW WITH CORRECT COLORS */}
+                {/* Status Badges */}
                 <div className="d-flex gap-2 flex-wrap mb-2">
                   <Badge style={{ background: '#9B00FF' }}>
                     {competition.Game?.name || 'Unknown Game'}
@@ -146,30 +156,30 @@ const CompetitionCard = memo(({
                   </Button>
                 </div>
 
-                {/* TIME REMAINING - NEW FEATURE */}
-                {isActive && competition.expiresAt && (
+                {/* TIME COUNTDOWN - SIMPLIFIED */}
+                {isActive && (
                   <div className="mb-2">
-                    <div className="d-flex align-items-center justify-content-between mb-1">
+                    <div className="d-flex align-items-center ">
                       <small className="text-grey">
                         <Clock size={12} className="me-1" />
-                        Time Remaining
+                        {!hasStarted ? 'Starts in' : 'Ends in'}
                       </small>
+                      <small className="mx-2 text-grey">:</small>
                       <small 
-                        className={`fw-bold ${isExpired ? 'text-danger' : timeRemaining < 300 ? 'text-warning' : 'text-neon'}`}
+                        className={`fw-bold ${
+                          isExpired ? 'text-danger' : 
+                          (!hasStarted || timeRemaining > 300) ? 'text-info' : 
+                          'text-warning'
+                        }`}
                       >
-                        {formatTime(timeRemaining)}
+                        {!hasStarted ? formatTime(timeUntilStart) : formatTime(timeRemaining)}
                       </small>
                     </div>
-                    <ProgressBar 
-                      now={timeRemaining > 0 ? (timeRemaining / 3600) * 100 : 0}
-                      variant={isExpired ? 'danger' : timeRemaining < 300 ? 'warning' : 'info'}
-                      style={{ height: '4px' }}
-                    />
                   </div>
                 )}
               </div>
 
-              {/* Rank Display - CORRECTED DATA MAPPING */}
+              {/* Rank Display */}
               <div className="rank-display text-center ms-3">
                 {isActive ? (
                   <>
@@ -203,7 +213,7 @@ const CompetitionCard = memo(({
               </div>
             </div>
 
-            {/* Stats Section - CORRECTED FIELD MAPPINGS */}
+            {/* Stats Section */}
             <div className="competition-stats mb-3">
               <Row className="g-2">
                 <Col xs={6} sm={3}>
@@ -244,40 +254,7 @@ const CompetitionCard = memo(({
               </Row>
             </div>
 
-            {/* Player Progress Bars - NEW */}
-            {/* {isActive && competition.currentPlayers > 0 && (
-              <div className="mb-3">
-                <div className="d-flex justify-content-between mb-1">
-                  <small className="text-grey">Players Joined</small>
-                  <small className="text-white">
-                    {competition.currentPlayers}/{competition.maxPlayers}
-                  </small>
-                </div>
-                <ProgressBar 
-                  now={progress} 
-                  variant="info"
-                  style={{ height: '6px' }}
-                />
-                
-                {competition.playedCount > 0 && (
-                  <>
-                    <div className="d-flex justify-content-between mb-1 mt-2">
-                      <small className="text-grey">Completion Progress</small>
-                      <small className="text-white">
-                        {competition.playedCount}/{competition.currentPlayers}
-                      </small>
-                    </div>
-                    <ProgressBar 
-                      now={playedProgress} 
-                      variant="success"
-                      style={{ height: '6px' }}
-                    />
-                  </>
-                )}
-              </div>
-            )} */}
-
-            {/* Players List - IMPROVED DISPLAY */}
+            {/* Players List - UPDATED WITH COLOR CODING */}
             {competition.players && competition.players.length > 0 && (
               <div className="players-status">
                 <small className="text-grey d-block mb-2">Players:</small>
@@ -286,9 +263,10 @@ const CompetitionCard = memo(({
                     <Badge
                       key={player.id || index}
                       style={{
-                        background: player.hasPlayed ? '#00FF85' : '#4A4A4A',
+                        background: player.hasPlayed ? '#00FF85' : '#FF6B6B',
                         fontSize: '0.7rem',
-                        transition: 'background 0.3s ease'
+                        transition: 'background 0.3s ease',
+                        color: '#FFFFFF'
                       }}
                     >
                       {player.username} {player.hasPlayed && '✓'}
@@ -305,7 +283,7 @@ const CompetitionCard = memo(({
             )}
           </Col>
 
-          {/* Action Buttons - ALL LOGIC IMPLEMENTED */}
+          {/* Action Buttons */}
           <Col md={4} className="text-end">
             {isActive && (
               <div className="d-flex flex-column gap-2">
@@ -321,11 +299,11 @@ const CompetitionCard = memo(({
                   Invite Players
                 </Button>
 
-                {/* Play Button - HANDLES EXPIRATION */}
+                {/* Play Button */}
                 <Button
                   className="btn-cyber w-100"
                   onClick={() => onPlay(competition)}
-                  disabled={!canPlay || isExpired}
+                  disabled={!canPlay || isExpired || !hasStarted}
                 >
                   {competition.hasPlayed ? (
                     <>
@@ -337,6 +315,11 @@ const CompetitionCard = memo(({
                       <AlertCircle size={20} className="me-2" />
                       Expired
                     </>
+                  ) : !hasStarted ? (
+                    <>
+                      <Clock size={20} className="me-2" />
+                      Not Started
+                    </>
                   ) : (
                     <>
                       <Play size={20} className="me-2" />
@@ -345,7 +328,7 @@ const CompetitionCard = memo(({
                   )}
                 </Button>
 
-                {/* Leave Button - NEW FEATURE */}
+                {/* Leave Button */}
                 {canLeave && onLeave && (
                   <Button
                     variant="outline-danger"
@@ -364,9 +347,9 @@ const CompetitionCard = memo(({
                     Competition has expired
                   </small>
                 )}
-                {!canPlay && !competition.hasPlayed && !isExpired && (
+                {hasStarted && !competition.hasPlayed && !isExpired && (
                   <small className="text-warning text-center">
-                    Waiting for competition to start
+                    Game in progress
                   </small>
                 )}
               </div>
@@ -421,7 +404,8 @@ const CompetitionCard = memo(({
     prevProps.competition.currentRank === nextProps.competition.currentRank &&
     prevProps.competition.totalPrizePool === nextProps.competition.totalPrizePool &&
     prevProps.competition.hasPlayed === nextProps.competition.hasPlayed &&
-    prevProps.competition.expiresAt === nextProps.competition.expiresAt &&
+    prevProps.competition.startsAt === nextProps.competition.startsAt &&
+    prevProps.competition.endsAt === nextProps.competition.endsAt &&
     prevProps.copiedCode === nextProps.copiedCode &&
     prevProps.isActive === nextProps.isActive &&
     JSON.stringify(prevProps.competition.players) === JSON.stringify(nextProps.competition.players)

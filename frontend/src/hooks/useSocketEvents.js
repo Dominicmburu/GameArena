@@ -72,12 +72,84 @@ const useSocketEvents = ({
     };
 
     const handlePlayerLeft = (data) => {
-      addNotification(`A player left ${data.competitionTitle || 'a competition'}`, 'warning');
+      addNotification(
+        `${data.player} left ${data.competitionTitle || 'the competition'}`,
+        'warning'
+      );
       loadUserData().catch(console.warn);
     };
 
+    // === NEW COMPETITION LIFECYCLE HANDLERS ===
+
     const handleCompetitionExpired = (data) => {
-      addNotification('A competition has expired', 'warning');
+      const refundMsg = data.refundAmount > 0
+        ? ` Refunded ${data.refundAmount} coins.`
+        : '';
+
+      addNotification(
+        `Competition "${data.competitionTitle}" expired. ${data.message}${refundMsg}`,
+        'warning'
+      );
+
+      setTimeout(() => {
+        loadUserData().catch(console.warn);
+      }, 1000);
+    };
+
+    const handleCompetitionDeleted = (data) => {
+      addNotification(
+        `Competition was deleted - ${data.reason}`,
+        'warning'
+      );
+
+      // Reload data to remove deleted competition
+      setTimeout(() => {
+        loadUserData().catch(console.warn);
+      }, 1000);
+    };
+
+    const handleCompetitionCanceled = (data) => {
+      addNotification(
+        `Competition "${data.competitionCode}" canceled - ${data.message}`,
+        'warning'
+      );
+
+      // Reload data to update competition status
+      setTimeout(() => {
+        loadUserData().catch(console.warn);
+      }, 1000);
+    };
+
+    const handleCompetitionCompleted = (data) => {
+      addNotification(
+        `Competition "${data.competitionTitle || data.competitionCode}" completed! Check your results`,
+        'success'
+      );
+
+      // Reload data to show final results
+      setTimeout(() => {
+        loadUserData().catch(console.warn);
+      }, 1000);
+    };
+
+    const handleCompetitionStarted = (data) => {
+      addNotification(
+        `Competition "${data.competitionTitle}" has started! 🎮`,
+        'info'
+      );
+
+      // Reload data to update status
+      loadUserData().catch(console.warn);
+    };
+
+    const handleCompetitionStatusChanged = (data) => {
+      console.log('Competition status changed:', data);
+
+      if (data.message) {
+        addNotification(data.message, 'info');
+      }
+
+      // Reload data to reflect status change
       loadUserData().catch(console.warn);
     };
 
@@ -89,19 +161,30 @@ const useSocketEvents = ({
       subscribe('new_friend_request', handleNewFriendRequest),
       subscribe('friend_request_accepted', handleFriendRequestAccepted),
       subscribe('friend_request_declined', handleFriendRequestDeclined),
+
       subscribe('competition_joined', handleCompetitionJoined),
       subscribe('score_submitted', handleScoreSubmitted),
       subscribe('leaderboard:update', handleLeaderboardUpdate),
+      subscribe('competition:update', handleCompetitionUpdate),
+      subscribe('competition:player_left', handlePlayerLeft),
+
+      subscribe('competition_expired', handleCompetitionExpired),
+      subscribe('competition_deleted', handleCompetitionDeleted),
+      subscribe('competition_canceled', handleCompetitionCanceled),
+      subscribe('competition_completed', handleCompetitionCompleted),
+      subscribe('competition_started', handleCompetitionStarted),
+      subscribe('competition_status_changed', handleCompetitionStatusChanged),
+
       subscribe('subscribed', (data) => {
         console.log('Successfully subscribed to:', data.competition);
+      }),
+      subscribe('unsubscribed', (data) => {
+        console.log('✓ Successfully unsubscribed from:', data.competition);
       }),
       subscribe('error', (error) => {
         console.error('Socket error:', error);
         addNotification(error.message || 'Socket error occurred', 'error');
       }),
-      subscribe('competition:update', handleCompetitionUpdate),
-      subscribe('competition:player_left', handlePlayerLeft),
-      subscribe('competition:expired', handleCompetitionExpired)
     ];
 
     // Subscribe to active competitions for real-time updates
@@ -130,7 +213,8 @@ const useSocketEvents = ({
   // Show socket connection status
   useEffect(() => {
     if (socketError) {
-      addNotification(`Connection error: ${socketError}`, 'error');
+      // addNotification(`Connection problem: ${socketError}`, 'error');
+      addNotification(`Connection problem`, 'error');
     } else if (connected) {
       console.log('Socket connected successfully');
     }

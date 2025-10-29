@@ -8,7 +8,7 @@ export function registerSockets(io) {
   io.use(async (socket, next) => {
     try {
       const cookies = socket.handshake.headers.cookie;
-      
+
       if (!cookies) {
         return next(new Error('AUTH_NO_COOKIES'));
       }
@@ -46,7 +46,7 @@ export function registerSockets(io) {
       // Verify session in database
       const session = await prisma.session.findUnique({
         where: { tokenId: decoded.tokenId },
-        include: { 
+        include: {
           User: {
             select: {
               id: true,
@@ -66,7 +66,7 @@ export function registerSockets(io) {
         await prisma.session.delete({
           where: { id: session.id }
         }).catch(console.error);
-        
+
         return next(new Error('AUTH_SESSION_EXPIRED'));
       }
 
@@ -74,10 +74,10 @@ export function registerSockets(io) {
       socket.userId = session.userId;
       socket.user = session.User;
       socket.sessionId = session.id;
-      
+
       console.log(`✓ Socket authenticated: ${session.User.username} (${socket.id})`);
       next();
-      
+
     } catch (error) {
       console.error('Socket authentication error:', error);
       return next(new Error('AUTH_INTERNAL_ERROR'));
@@ -92,8 +92,8 @@ export function registerSockets(io) {
     socket.join(`user:${socket.userId}`);
 
     // Send connection confirmation
-    socket.emit("connected", { 
-      userId: socket.userId, 
+    socket.emit("connected", {
+      userId: socket.userId,
       username: socket.user.username,
       timestamp: new Date().toISOString()
     });
@@ -101,38 +101,64 @@ export function registerSockets(io) {
     // COMPETITION EVENTS
     socket.on("subscribe:competition", async (code) => {
       try {
+        console.log(`[SUBSCRIBE] User ${socket.user.username} attempting to subscribe to ${code}`);
+
         const competition = await prisma.competition.findUnique({
           where: { code: code.toUpperCase() },
-          include: { 
-            players: true,
-            creator: { select: { id: true } }
+          include: {
+            players: {
+              include: {
+                User: { select: { id: true, username: true } }
+              }
+            },
+            creator: { select: { id: true, username: true } }
           }
         });
 
         if (!competition) {
-          console.log(`❌ Competition ${code} not found`);
-          socket.emit("error", { message: "Competition not found" });
+          console.log(`❌ [SUBSCRIBE] Competition ${code} not found`);
+          socket.emit("error", {
+            message: "Competition not found",
+            code: "COMPETITION_NOT_FOUND"
+          });
           return;
         }
 
-        // FIXED: Check if user is participant OR creator
+        // Check if user is participant OR creator
         const isParticipant = competition.players.some(p => p.userId === socket.userId);
         const isCreator = competition.creatorId === socket.userId;
-        
-        // Only deny access if private AND user is neither participant nor creator
+
+        console.log(`[SUBSCRIBE] User ${socket.user.username} - isParticipant: ${isParticipant}, isCreator: ${isCreator}, privacy: ${competition.privacy}`);
+
+        // Allow if:
+        // 1. User is a participant
+        // 2. User is the creator
+        // 3. Competition is PUBLIC
         if (!isParticipant && !isCreator && competition.privacy === "PRIVATE") {
-          console.log(`❌ User ${socket.user.username} denied access to private competition ${code}`);
-          socket.emit("error", { message: "Access denied" });
+          console.log(`❌ [SUBSCRIBE] Access denied for ${socket.user.username} to private competition ${code}`);
+          // socket.emit("error", { 
+          //   message: "Access denied to private competition",
+          //   code: "ACCESS_DENIED"
+          // });
           return;
         }
 
-        socket.join(`comp:${code.toUpperCase()}`);
-        socket.emit("subscribed", { competition: code.toUpperCase() });
+        console.log(`${!isParticipant, isCreator, competition.privacy} access granted for ${socket.user.username} to competition ${code}`);
 
-        console.log(`✓ User ${socket.user.username} subscribed to competition ${code}`);
+        // Join the room
+        socket.join(`comp:${code.toUpperCase()}`);
+        socket.emit("subscribed", {
+          competition: code.toUpperCase(),
+          role: isCreator ? 'creator' : isParticipant ? 'participant' : 'viewer'
+        });
+
+        console.log(`✓ [SUBSCRIBE] User ${socket.user.username} subscribed to competition ${code}`);
       } catch (error) {
-        console.error("Error subscribing to competition:", error);
-        socket.emit("error", { message: "Failed to subscribe to competition" });
+        console.error("❌ [SUBSCRIBE] Error:", error);
+        socket.emit("error", {
+          message: "Failed to subscribe to competition",
+          code: "SUBSCRIBE_ERROR"
+        });
       }
     });
 
@@ -333,7 +359,7 @@ export function registerSockets(io) {
         console.error("Error handling friend request sent:", error);
       }
     });
-    
+
     socket.on("friend_request:accepted", async ({ requestId, senderId, accepterUsername }) => {
       try {
         io.to(`user:${senderId}`).emit("friend_request_accepted", {

@@ -14,8 +14,8 @@ const app = express();
 
 // Security middleware
 app.use(helmet({
-  crossOriginEmbedderPolicy: false,
-  contentSecurityPolicy: false
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: false
 }));
 
 // Body parsing middleware
@@ -37,26 +37,26 @@ app.use(cookieParser());
 //   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 // }));
 
-app.use(cors({ 
-  origin: (origin, callback) => {
-    // FIX: Only allow specified origins, reject requests with no origin in production
-    if (!origin && process.env.NODE_ENV === 'production') {
-      return callback(new Error("Not allowed by CORS - no origin"));
-    }
-    
-    if (!origin && process.env.NODE_ENV !== 'production') {
-      return callback(null, true); // Allow no origin only in development
-    }
-    
-    if (env.clientOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      return callback(new Error("Not allowed by CORS"));
-    }
-  }, 
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+app.use(cors({
+    origin: (origin, callback) => {
+        // FIX: Only allow specified origins, reject requests with no origin in production
+        if (!origin && process.env.NODE_ENV === 'production') {
+            return callback(new Error("Not allowed by CORS - no origin"));
+        }
+
+        if (!origin && process.env.NODE_ENV !== 'production') {
+            return callback(null, true); // Allow no origin only in development
+        }
+
+        if (env.clientOrigins.includes(origin)) {
+            return callback(null, true);
+        } else {
+            return callback(new Error("Not allowed by CORS"));
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 
 // Helpful for secure cookies behind proxies (Heroku/Render/Nginx)
@@ -64,8 +64,8 @@ app.set('trust proxy', 1);
 
 // Request logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  next();
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    next();
 });
 
 // Health check endpoint
@@ -150,14 +150,9 @@ const io = new Server(server, {
 // Register socket handlers
 registerSockets(io);
 
-
-
 // Make socket.io and userSockets available to controllers
 app.set('io', io);
 app.set('userSockets', io.userSockets);
-
-// Start cron jobs
-// startCleanupJob();
 
 // Graceful shutdown
 const shutdown = async () => {
@@ -167,7 +162,7 @@ const shutdown = async () => {
     server.close(() => {
         console.log("HTTP server closed");
     });
-    
+
     // Close socket connections
     io.close(() => {
         console.log("Socket.io server closed");
@@ -213,6 +208,10 @@ const startServer = async () => {
             console.log(`🌐 Client origins: ${env.clientOrigins.join(", ")}`);
             console.log(`🔒 Cookie secure: ${env.cookieSecure}`);
             console.log(`🍪 Cookie domain: ${env.cookieDomain || "(host-only)"}`);
+
+            // Start cron jobs
+            startCleanupJob(io);
+
         });
     } catch (error) {
         console.error("Failed to start server:", error);

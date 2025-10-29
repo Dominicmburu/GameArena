@@ -58,6 +58,9 @@ frontend/
 │   │   ├── useLocalStorage.js
 │   │   ├── useTheme.js
 │   │   └── useWebSocket.js
+│   ├── games/
+│   │   └── dino/
+│   │       ├── DinoGame.jsx
 │   ├── pages/
 │   │   ├── Deposit.jsx
 │   │   ├── Help.jsx

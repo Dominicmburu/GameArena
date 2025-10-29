@@ -36,7 +36,7 @@ const CompetitionsTabs = ({
                     <UserPlus size={20} className="me-2" />
                     Join Competition
                   </Button>
-                  <Button variant="outline-light" href="/make-game">
+                  <Button variant="outline-light" href="/create">
                     Create Competition
                   </Button>
                 </div>

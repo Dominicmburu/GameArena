@@ -396,6 +396,15 @@ export const leaveCompetition = async (req, res, next) => {
     const uid = req.user.uid;
     const code = req.params.code.toUpperCase();
 
+    const currentUser = await prisma.user.findUnique({
+      where: { id: uid },
+      select: { username: true }
+    });
+
+    if (!currentUser) {
+      return res.status(404).json({ error: "USER_NOT_FOUND", message: "User not found" });
+    }
+
     const competition = await prisma.competition.findUnique({
       where: { code },
       include: {
@@ -468,7 +477,31 @@ export const leaveCompetition = async (req, res, next) => {
       }
     });
 
-    res.json({ ok: true, message: "Successfully left competition" });
+    const io = req.app.get('io');
+    if (io) {
+      // Notify all players in the competition
+      io.to(`comp:${code}`).emit('competition:player_left', {
+        competitionId: competition.id,
+        competitionCode: code,
+        competitionTitle: competition.title,
+        player: currentUser.username,
+        userId: uid,
+        remainingPlayers: competition.players.length - 1,
+        timestamp: new Date().toISOString()
+      });
+
+      // Notify creator specifically if leaver is not creator
+      if (competition.creatorId !== uid) {
+        io.emitToUser(competition.creatorId, 'player_left_competition', {
+          competitionId: competition.id,
+          competitionTitle: competition.title,
+          player: currentUser.username,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+
+    res.json({ ok: true, message: "Successfully left competition", competitionCode: code });
   } catch (e) {
     next(e);
   }
@@ -942,6 +975,15 @@ export const submitScore = async (req, res, next) => {
     }).parse(req.body);
     const code = req.params.code.toUpperCase();
 
+    const currentUser = await prisma.user.findUnique({
+      where: { id: uid },
+      select: { username: true }
+    });
+
+    if (!currentUser) {
+      return res.status(404).json({ error: "USER_NOT_FOUND", message: "User not found" });
+    }
+
     const competition = await prisma.competition.findUnique({
       where: { code },
       include: {
@@ -1015,7 +1057,7 @@ export const submitScore = async (req, res, next) => {
           competitionId: competition.id,
           competitionTitle: competition.title,
           competitionCode: competition.code,
-          player: req.user.username,
+          player: currentUser.username,
           score: score,
           timestamp: new Date().toISOString()
         });
@@ -1172,7 +1214,7 @@ function calculatePrizeBreakdown(totalPrizePool, playerCount, topScores) {
   };
 }
 
-export const cleanupExpiredCompetitions = async () => {
+export const cleanupExpiredCompetitions = async (io) => {
   try {
     const now = new Date();
 
@@ -1195,6 +1237,26 @@ export const cleanupExpiredCompetitions = async () => {
 
       // SCENARIO A: Only creator joined, no one played
       if (isCreatorOnly && !hasAnyonePlayed) {
+        // Notify the creator BEFORE deletion
+        if (io) {
+          io.emitToUser(competition.creatorId, 'competition_expired', {
+            competitionId: competition.id,
+            competitionCode: competition.code,
+            competitionTitle: competition.title,
+            reason: 'NO_PARTICIPANTS',
+            message: 'Competition expired with no other players',
+            refundAmount: competition.entryFee,
+            timestamp: new Date().toISOString()
+          });
+
+          // Broadcast to competition room
+          io.to(`comp:${competition.code.toUpperCase()}`).emit('competition_deleted', {
+            competitionCode: competition.code,
+            reason: 'EXPIRED_NO_PARTICIPANTS',
+            timestamp: new Date().toISOString()
+          });
+        }
+
         await prisma.$transaction(async (tx) => {
           const creator = competition.players[0];
 
@@ -1218,6 +1280,35 @@ export const cleanupExpiredCompetitions = async () => {
 
       // SCENARIO B: Multiple players joined but NO ONE played
       if (!hasAnyonePlayed && !isCreatorOnly) {
+        // Notify all players BEFORE cancellation
+        if (io) {
+          const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
+          const refundAmount = competition.entryFee - platformFee;
+
+          // Notify each player individually
+          for (const player of competition.players) {
+            io.emitToUser(player.userId, 'competition_expired', {
+              competitionId: competition.id,
+              competitionCode: competition.code,
+              competitionTitle: competition.title,
+              reason: 'NO_ACTIVITY',
+              message: 'Competition expired with no participants',
+              refundAmount: competition.entryFee > 0 ? refundAmount : 0,
+              originalAmount: competition.entryFee,
+              commissionDeducted: platformFee,
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          // Broadcast to competition room
+          io.to(`comp:${competition.code.toUpperCase()}`).emit('competition_canceled', {
+            competitionCode: competition.code,
+            reason: 'EXPIRED_NO_ACTIVITY',
+            message: 'Competition canceled - no participants played',
+            timestamp: new Date().toISOString()
+          });
+        }
+
         await prisma.$transaction(async (tx) => {
           // Refund each player MINUS commission based on privacy
           for (const player of competition.players) {
@@ -1247,6 +1338,26 @@ export const cleanupExpiredCompetitions = async () => {
 
       // SCENARIO C: Some players played, complete competition normally
       if (hasAnyonePlayed) {
+        // Notify all players about completion
+        if (io) {
+          for (const player of competition.players) {
+            io.emitToUser(player.userId, 'competition_completed', {
+              competitionId: competition.id,
+              competitionCode: competition.code,
+              competitionTitle: competition.title,
+              message: 'Competition has been completed',
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          // Broadcast to competition room
+          io.to(`comp:${competition.code.toUpperCase()}`).emit('competition_completed', {
+            competitionCode: competition.code,
+            message: 'Competition time ended - results finalized',
+            timestamp: new Date().toISOString()
+          });
+        }
+
         await autoCompleteCompetition(competition.id);
         console.log(`Completed expired competition ${competition.code} - had participants`);
       }
@@ -1258,25 +1369,69 @@ export const cleanupExpiredCompetitions = async () => {
   }
 };
 
-// Function to update competition status from UPCOMING to ONGOING
-export const updateCompetitionStatuses = async () => {
+export const updateCompetitionStatuses = async (io) => {
   try {
     const now = new Date();
 
-    // Update competitions that should now be ONGOING
-    await prisma.competition.updateMany({
+    // Find competitions that should transition to ONGOING
+    const competitionsToStart = await prisma.competition.findMany({
       where: {
         status: "UPCOMING",
         startsAt: { lte: now }
       },
-      data: {
-        status: "ONGOING"
+      include: {
+        players: {
+          include: {
+            User: { select: { id: true, username: true } }
+          }
+        }
       }
     });
 
-    console.log("Updated competition statuses");
+    if (competitionsToStart.length > 0) {
+      // Update all competitions to ONGOING
+      await prisma.competition.updateMany({
+        where: {
+          status: "UPCOMING",
+          startsAt: { lte: now }
+        },
+        data: {
+          status: "ONGOING"
+        }
+      });
+
+      console.log(`✅ Started ${competitionsToStart.length} competition(s)`);
+
+      // Emit socket events to notify participants
+      if (io) {
+        for (const competition of competitionsToStart) {
+          // Notify all players in the competition
+          for (const player of competition.players) {
+            io.emitToUser(player.userId, 'competition_started', {
+              competitionId: competition.id,
+              competitionCode: competition.code,
+              competitionTitle: competition.title,
+              startsAt: competition.startsAt,
+              endsAt: competition.endsAt,
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          // Broadcast to competition room
+          io.to(`comp:${competition.code.toUpperCase()}`).emit('competition_status_changed', {
+            competitionCode: competition.code,
+            status: 'ONGOING',
+            message: 'Competition has started!',
+            timestamp: new Date().toISOString()
+          });
+
+          console.log(`📢 Notified ${competition.players.length} players for competition ${competition.code}`);
+        }
+      }
+    }
   } catch (error) {
-    console.error("Error updating competition statuses:", error);
+    console.error("❌ Error updating competition statuses:", error);
+    throw error;
   }
 };
 

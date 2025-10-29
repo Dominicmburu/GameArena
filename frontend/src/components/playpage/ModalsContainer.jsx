@@ -8,6 +8,7 @@ import PaymentModal from '../payment/PaymentModal';
 import GameModal from './modals/GameModal';
 import { useWallet } from '../../contexts/WalletContext';
 import ConfirmationModal from './modals/ConfirmationModal';
+import LeaveConfirmationModal from './modals/LeaveConfirmationModal';
 
 const ModalsContainer = ({
   showJoinModal,
@@ -47,7 +48,11 @@ const ModalsContainer = ({
   confirmAcceptInvite,
   handleTopUpFromConfirm,
   setShowJoinConfirmModal,
-  setShowAcceptConfirmModal
+  setShowAcceptConfirmModal,
+  showLeaveConfirmModal,
+  pendingLeaveCompetition,
+  confirmLeaveCompetition,
+  setShowLeaveConfirmModal
 }) => {
 
   const { balance } = useWallet();
@@ -119,7 +124,7 @@ const ModalsContainer = ({
         onSuccess={onPaymentSuccess}
         title={`Join ${selectedCompetition?.title}`}
       />
-
+      
       <GameModal
         show={showGameModal}
         onHide={() => closeAllModals('game')}
@@ -153,6 +158,14 @@ const ModalsContainer = ({
         loading={loadingStates?.[`acceptingInvite_${pendingAcceptInvite?.id}`]}
         walletBalance={balance}
         hasEnoughBalance={balance >= (pendingAcceptInvite?.Competition?.entryFee || 0)}
+      />
+
+      <LeaveConfirmationModal
+        show={showLeaveConfirmModal}
+        onHide={() => setShowLeaveConfirmModal(false)}
+        onConfirm={confirmLeaveCompetition}
+        competition={pendingLeaveCompetition}
+        loading={loadingStates?.leaving}
       />
     </>
   );
