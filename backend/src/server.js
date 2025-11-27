@@ -126,82 +126,33 @@ if (process.env.NODE_ENV === "development") {
     });
 }
 
-// Serve frontend in production
-// if (process.env.NODE_ENV === 'production') {
-//     // Serve static files from frontend build
-//     app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "../frontend/dist")));
+  
+  // Catch-all middleware for SPA - but NOT for API routes
+  app.use((req, res, next) => {
+    // Skip if it's an API route
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
     
-//     // Catch-all route to serve index.html for client-side routing
-//     app.get('/*', (req, res) => {
-//         // Don't serve index.html for API routes
-//         if (req.path.startsWith('/api')) {
-//             return res.status(404).json({
-//                 error: "NOT_FOUND",
-//                 message: `Route ${req.method} ${req.originalUrl} not found`
-//             });
-//         }
-//         res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-//     });
-// } else {
-//     // 404 handler for development
-//     app.use((req, res) => {
-//         res.status(404).json({
-//             error: "NOT_FOUND",
-//             message: `Route ${req.method} ${req.originalUrl} not found`
-//         });
-//     });
-// }
-
-// Serve frontend in production
-if (process.env.NODE_ENV === 'production') {
-    // Serve static files from frontend build at /game
-    app.use('/game', express.static(path.join(__dirname, '../frontend/dist')));
+    // Only handle GET requests for the SPA
+    if (req.method === 'GET') {
+      return res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
+    }
     
-    // Catch-all route to serve index.html for client-side routing under /game
-    app.get('/game/:path(*)', (req, res) => {
-        res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-    });
-
-    // Root route - optional: redirect to /game or show API info
-    app.get('/', (req, res) => {
-        res.json({
-            message: "GameArena API",
-            version: "2.0.0",
-            endpoints: {
-                health: "/health",
-                api: "/api",
-                game: "/game"
-            }
-        });
-    });
-
-    // 404 handler for other routes
-    app.use((req, res) => {
-        // Don't interfere with API routes
-        if (req.path.startsWith('/api')) {
-            return res.status(404).json({
-                error: "NOT_FOUND",
-                message: `Route ${req.method} ${req.originalUrl} not found`
-            });
-        }
-        
-        res.status(404).json({
-            error: "NOT_FOUND",
-            message: `Route ${req.method} ${req.originalUrl} not found`,
-            hint: "Frontend is available at /game"
-        });
-    });
-} else {
-    // 404 handler for development
-    app.use((req, res) => {
-        res.status(404).json({
-            error: "NOT_FOUND",
-            message: `Route ${req.method} ${req.originalUrl} not found`
-        });
-    });
+    next();
+  });
 }
 
-
+// 404 handler (for API routes and other unmatched routes)
+app.use((req, res) => {
+  res.status(404).json({
+    error: "NOT_FOUND",
+    message: `Route ${req.method} ${req.originalUrl} not found`,
+  });
+});
 
 // Error handling middleware (must be last)
 app.use(errorHandler);
