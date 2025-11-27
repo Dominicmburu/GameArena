@@ -158,7 +158,7 @@ if (process.env.NODE_ENV === 'production') {
     app.use('/game', express.static(path.join(__dirname, '../frontend/dist')));
     
     // Catch-all route to serve index.html for client-side routing under /game
-    app.get('/game/*', (req, res) => {
+    app.get('/game/:path(*)', (req, res) => {
         res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
     });
 

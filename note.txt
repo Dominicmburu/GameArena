@@ -1,3 +1,8 @@
 // command to run the vps in my machine
 ssh -i C:\Users\Dominic\.ssh\gamingsystem-key.pem ubuntu@13.62.222.49
 
+// shows container running
+docker ps 
+
+// shows logs
+docker logs gamearena 
