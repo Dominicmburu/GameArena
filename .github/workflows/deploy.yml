@@ -39,23 +39,108 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            # Create app directory
+            mkdir -p ~/gamearena
+            cd ~/gamearena
+            
+            # Create .env file with ALL environment variables
+            cat > .env << EOF
+            # Docker & Database
+            POSTGRES_USER=gamearena
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            POSTGRES_DB=gamearena
+            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+            
+            # Application
+            NODE_ENV=production
+            PORT=5000
+            
+            # JWT
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_EXPIRE=7d
+            
+            # Cookies
+            COOKIE_DOMAIN=${{ secrets.COOKIE_DOMAIN }}
+            COOKIE_SECURE=true
+            
+            # URLs
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+            BACKEND_URL=${{ secrets.BACKEND_URL }}
+            CLIENT_ORIGIN=${{ secrets.CLIENT_ORIGIN }}
+            
+            # M-Pesa Production
+            MPESA_ENV=production
+            MPESA_CONSUMER_KEY=${{ secrets.MPESA_CONSUMER_KEY }}
+            MPESA_CONSUMER_SECRET=${{ secrets.MPESA_CONSUMER_SECRET }}
+            MPESA_PASSKEY=${{ secrets.MPESA_PASSKEY }}
+            MPESA_BUSINESS_SHORT_CODE=${{ secrets.MPESA_BUSINESS_SHORT_CODE }}
+            MPESA_CALLBACK_URL=${{ secrets.MPESA_CALLBACK_URL }}
+            MPESA_QUEUE_TIMEOUT_URL=${{ secrets.MPESA_QUEUE_TIMEOUT_URL }}
+            MPESA_RESULT_URL=${{ secrets.MPESA_RESULT_URL }}
+            MPESA_INITIATOR_NAME=${{ secrets.MPESA_INITIATOR_NAME }}
+            MPESA_INITIATOR_PASSWORD=${{ secrets.MPESA_INITIATOR_PASSWORD }}
+            MPESA_CERT_PATH=/app/certs/production_cert.cer
+            EOF
+            
+            # Create docker-compose.yml
+            cat > docker-compose.yml << 'COMPOSE_EOF'
+            version: '3.8'
+
+            services:
+              postgres:
+                image: postgres:15-alpine
+                container_name: gamearena-postgres
+                restart: unless-stopped
+                environment:
+                  POSTGRES_USER: ${POSTGRES_USER}
+                  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+                  POSTGRES_DB: ${POSTGRES_DB}
+                volumes:
+                  - postgres_data:/var/lib/postgresql/data
+                networks:
+                  - gamearena-network
+                healthcheck:
+                  test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+                  interval: 10s
+                  timeout: 5s
+                  retries: 5
+
+              app:
+                image: ${DOCKERHUB_USERNAME}/gamearena:latest
+                container_name: gamearena
+                restart: unless-stopped
+                depends_on:
+                  postgres:
+                    condition: service_healthy
+                env_file:
+                  - .env
+                environment:
+                  DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+                ports:
+                  - "80:5000"
+                networks:
+                  - gamearena-network
+
+            networks:
+              gamearena-network:
+                driver: bridge
+
+            volumes:
+              postgres_data:
+                driver: local
+            COMPOSE_EOF
+            
             # Pull latest image
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gamearena:latest
             
-            # Stop and remove old container
-            docker stop gamearena || true
-            docker rm gamearena || true
+            # Stop and recreate containers
+            docker-compose down
+            docker-compose up -d
             
-            # Run new container
-            docker run -d \
-              --name gamearena \
-              -p 80:5000 \
-              --restart unless-stopped \
-              -e NODE_ENV=production \
-              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-              -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-              -e PORT=5000 \
-              ${{ secrets.DOCKERHUB_USERNAME }}/gamearena:latest
+            # Wait and check status
+            sleep 10
+            docker-compose ps
+            docker-compose logs --tail=50 app
             
-            # Clean up old images
+            # Cleanup
             docker image prune -af
