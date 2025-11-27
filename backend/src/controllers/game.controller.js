@@ -18,14 +18,13 @@ export const listGames = async (req, res, next) => {
             v === true || v === 'true' || v === 1 || v === '1';
 
         const where = {
-            ...(isActive === undefined
-                ? { isActive: true }
-                : { isActive: parseBool(isActive) }),
             ...(gameType && { gameType }),
             ...(level && { level }),
             ...(isPopular !== undefined && { isPopular: isPopular === 'true' }),
             ...(minPlayers && { maxPlayers: { gte: Number(minPlayers) } }),
-            ...(maxPlayers && { minPlayers: { lte: Number(maxPlayers) } })
+            ...(maxPlayers && { minPlayers: { lte: Number(maxPlayers) } }),
+            // Only filter by isActive if explicitly provided
+            ...(isActive !== undefined && { isActive: parseBool(isActive) })
         };
 
         const games = await prisma.game.findMany({
@@ -41,6 +40,7 @@ export const listGames = async (req, res, next) => {
                 minEntryFee: true,
                 isPopular: true,
                 imageUrl: true,
+                isActive: true,
                 _count: {
                     select: {
                         competitions: {
@@ -69,6 +69,7 @@ export const listGames = async (req, res, next) => {
             minEntryFee: game.minEntryFee,
             isPopular: game.isPopular,
             imageUrl: game.imageUrl,
+            isActive: game.isActive,
             activeCompetitions: game._count.competitions
         }));
 
@@ -259,6 +260,7 @@ const createGameSchema = z.object({
     maxPlayers: z.number().int().min(1, "Maximum players must be at least 1"),
     minEntryFee: z.number().int().min(0, "Minimum entry fee cannot be negative").default(0),
     isPopular: z.boolean().default(false),
+    isActive: z.boolean().default(true),
     imageUrl: z.string().url("Invalid image URL").optional()
 }).refine(data => data.maxPlayers >= data.minPlayers, {
     message: "Maximum players must be greater than or equal to minimum players",
@@ -567,6 +569,7 @@ export const getPopularGames = async (req, res, next) => {
                 minPlayers: true,
                 maxPlayers: true,
                 imageUrl: true,
+                isActive: true,
                 _count: {
                     select: {
                         competitions: {
@@ -596,6 +599,7 @@ export const getPopularGames = async (req, res, next) => {
             level: game.level,
             playerRange: `${game.minPlayers}-${game.maxPlayers}`,
             imageUrl: game.imageUrl,
+            isActive: game.isActive,
             activeCompetitions: game._count.competitions
         }));
 

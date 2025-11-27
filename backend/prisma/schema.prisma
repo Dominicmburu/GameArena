@@ -118,6 +118,23 @@ model Wallet {
   @@index([balance])
 }
 
+model PlatformRevenue {
+  id               String   @id @default(cuid())
+  competitionId    String
+  amount           Int      
+  privacy          Privacy  
+  feePercentage    Float    
+  entryFee         Int      
+  playersJoined    Int      
+  createdAt        DateTime @default(now())
+  
+  Competition      Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  
+  @@index([competitionId])
+  @@index([createdAt])
+  @@index([privacy])
+}
+
 model Transaction {
   id             String          @id @default(cuid())
   walletId       String
@@ -241,6 +258,7 @@ model Competition {
   players        CompetitionPlayer[]
   matches        Match[]
   invites        Invite[]
+  platformRevenue PlatformRevenue[]
 
   @@index([gameId])
   @@index([status])
@@ -334,6 +352,7 @@ model GameHistory {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, playedWithId, competitionId])
   @@index([userId])
   @@index([playedWithId])
   @@index([userId, playedWithId])

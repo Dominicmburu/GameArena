@@ -23,7 +23,8 @@ import {
   getSentInvites,
   declineInvite,
   leaveCompetition, // NEW
-  getTimeRemaining // NEW
+  getTimeRemaining, // NEW
+  getPlatformRevenue
 } from "../controllers/competition.controller.js";
 
 export const competitions = Router();
@@ -44,6 +45,8 @@ competitions.get("/friend-requests", requireAuth, getFriendRequests);
 // Game history
 competitions.get("/game-history", requireAuth, getGameHistory);
 
+// competitions.get("/revenue", requireAuth, requireAdmin, getPlatformRevenue);
+competitions.get("/revenue", requireAuth, getPlatformRevenue);
 
 competitions.post("/create", requireAuth, create);
 competitions.post("/:code/join", requireAuth, joinByCode);

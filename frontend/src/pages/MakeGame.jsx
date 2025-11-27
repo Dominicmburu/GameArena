@@ -102,14 +102,19 @@ const MakeGame = () => {
 
   // Handle game selection
   const handleGameSelect = (game) => {
+    if (!game.isActive) {
+      showToastMessage('This game is currently unavailable for competitions', 'error')
+      return
+    }
+
     const formattedGame = formatGameForDisplay(game)
 
     setSelectedGameState(formattedGame)
     setSelectedGame(formattedGame)
     
     const now = new Date()
-    const startTime = new Date(now.getTime() + 30 * 60000) // 30 minutes from now
-    const endTime = new Date(startTime.getTime() + 2 * 60 * 60000) // 2 hours after start
+    const startTime = new Date(now.getTime() + 30 * 60000)
+    const endTime = new Date(startTime.getTime() + 2 * 60 * 60000)
     
     setFormData(prev => ({
       ...prev,

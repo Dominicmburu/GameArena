@@ -3,10 +3,68 @@ import { z } from "zod";
 import { shortCode } from "../utils/id.js";
 import { WalletOps } from "./wallet.controller.js";
 
-// Helper function to calculate platform fee based on privacy
 function calculatePlatformFee(entryFee, privacy) {
   const feePercentage = privacy === "PRIVATE" ? 0.15 : 0.20;
   return Math.floor(entryFee * feePercentage);
+}
+
+async function recordPlatformRevenue(competitionId, entryFee, privacy, tx) {
+  const platformFee = calculatePlatformFee(entryFee, privacy);
+  const feePercentage = privacy === "PRIVATE" ? 15 : 20;
+
+  await tx.platformRevenue.create({
+    data: {
+      competitionId,
+      amount: platformFee,
+      privacy,
+      feePercentage,
+      entryFee,
+      playersJoined: 1
+    }
+  });
+}
+
+async function incrementPlatformRevenue(competitionId, tx) {
+  const revenue = await tx.platformRevenue.findFirst({
+    where: { competitionId },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  if (revenue) {
+    await tx.platformRevenue.update({
+      where: { id: revenue.id },
+      data: {
+        playersJoined: { increment: 1 },
+        amount: { increment: calculatePlatformFee(revenue.entryFee, revenue.privacy) }
+      }
+    });
+  }
+}
+
+async function decrementPlatformRevenue(competitionId, tx) {
+  const revenue = await tx.platformRevenue.findFirst({
+    where: { competitionId },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  if (revenue && revenue.playersJoined > 0) {
+    const platformFee = calculatePlatformFee(revenue.entryFee, revenue.privacy);
+    
+    // If this is the last player, delete the revenue record
+    if (revenue.playersJoined === 1) {
+      await tx.platformRevenue.delete({
+        where: { id: revenue.id }
+      });
+    } else {
+      await tx.platformRevenue.update({
+        where: { id: revenue.id },
+        data: {
+          playersJoined: { decrement: 1 },
+          amount: { decrement: platformFee }
+        }
+      });
+    }
+  }
 }
 
 export const listMine = async (req, res, next) => {
@@ -168,7 +226,6 @@ export const listPublic = async (req, res, next) => {
   }
 };
 
-
 export const getUserCompetitions = async (req, res, next) => {
   try {
     const uid = req.user.uid;
@@ -286,9 +343,28 @@ export const create = async (req, res, next) => {
       });
     }
 
-    const game = await prisma.game.findUnique({ where: { id: body.gameId } });
+    const game = await prisma.game.findUnique({
+      where: { id: body.gameId },
+      select: {
+        id: true,
+        name: true,
+        minPlayers: true,
+        maxPlayers: true,
+        minEntryFee: true,
+        isActive: true
+      }
+    });
+
     if (!game) {
       return res.status(404).json({ error: "GAME_NOT_FOUND", message: "Game not found" });
+    }
+
+    // Validate game is active
+    if (!game.isActive) {
+      return res.status(400).json({
+        error: "GAME_INACTIVE",
+        message: "This game is currently unavailable"
+      });
     }
 
     // Validate against game constraints
@@ -328,8 +404,11 @@ export const create = async (req, res, next) => {
     const platformFee = calculatePlatformFee(body.entryFee, body.privacy);
     const addToPool = body.entryFee - platformFee;
 
+    const code = await shortCode();
+
     // Determine initial status based on start time
-    const status = startsAt <= now ? "ONGOING" : "UPCOMING";
+    // const status = startsAt <= now ? "ONGOING" : "UPCOMING";
+    const status = "UPCOMING";
 
     // Create competition and auto-join creator in a transaction
     const competition = await prisma.$transaction(async (tx) => {
@@ -341,7 +420,7 @@ export const create = async (req, res, next) => {
           maxPlayers: body.maxPlayers,
           entryFee: body.entryFee,
           creatorId: uid,
-          code: shortCode(),
+          code,
           totalPrizePool: body.entryFee > 0 ? addToPool : 0,
           status,
           startsAt,
@@ -366,6 +445,8 @@ export const create = async (req, res, next) => {
         await WalletOps.debit(uid, body.entryFee, "ENTRY_FEE", {
           competitionId: newCompetition.id
         });
+
+        await recordPlatformRevenue(newCompetition.id, body.entryFee, body.privacy, tx);
       }
 
       // Auto-join creator as first player
@@ -390,6 +471,16 @@ export const create = async (req, res, next) => {
     next(e);
   }
 };
+
+function calculateRefundAmount(entryFee, privacy, hasAnyonePlayed) {
+  if (!hasAnyonePlayed) {
+    // Full refund if no one has played
+    return entryFee;
+  }
+  // Partial refund (minus platform fee) if game started
+  const platformFee = calculatePlatformFee(entryFee, privacy);
+  return entryFee - platformFee;
+}
 
 export const leaveCompetition = async (req, res, next) => {
   try {
@@ -454,23 +545,48 @@ export const leaveCompetition = async (req, res, next) => {
 
       // Refund entry fee
       if (competition.entryFee > 0) {
-        await WalletOps.credit(uid, competition.entryFee, "REFUND", {
-          competitionId: competition.id,
-          reason: "Left competition before game started"
-        });
+        const refundAmount = calculateRefundAmount(
+          competition.entryFee, 
+          competition.privacy, 
+          hasAnyonePlayed
+        );
 
-        // Reduce prize pool with dynamic fee
-        const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
-        const removeFromPool = competition.entryFee - platformFee;
+        await WalletOps.credit(uid, refundAmount, "REFUND", {
+          competitionId: competition.id,
+          reason: "Left competition before game started",
+          fullRefund: true
+        });
 
         await tx.competition.update({
           where: { id: competition.id },
-          data: { totalPrizePool: { decrement: removeFromPool } }
+          data: { totalPrizePool: { decrement: competition.entryFee } }
         });
+
+        // ✅ FIX: Decrement platform revenue
+        // const revenue = await tx.platformRevenue.findFirst({
+        //   where: { competitionId: competition.id },
+        //   orderBy: { createdAt: 'desc' }
+        // });
+
+        // if (revenue) {
+        //   await tx.platformRevenue.update({
+        //     where: { id: revenue.id },
+        //     data: {
+        //       playersJoined: { decrement: 1 },
+        //       amount: { decrement: platformFee }
+        //     }
+        //   });
+        // }
+        await decrementPlatformRevenue(competition.id, tx);
       }
 
       // If creator is leaving and alone, delete competition
       if (competition.creatorId === uid && competition.players.length === 1) {
+        // ✅ FIX: Delete platform revenue records when deleting competition
+        await tx.platformRevenue.deleteMany({
+          where: { competitionId: competition.id }
+        });
+
         await tx.competition.delete({
           where: { id: competition.id }
         });
@@ -621,15 +737,27 @@ export const joinByCode = async (req, res, next) => {
         }
       });
 
+      if (competition.entryFee > 0) {
+        await incrementPlatformRevenue(competition.id, tx);
+      }
+
       // Add to game history - single entry per pair
       const historyPromises = competition.players.map(player =>
-        tx.gameHistory.create({
-          data: {
+        tx.gameHistory.upsert({
+          where: {
+            userId_playedWithId_competitionId: {
+              userId: uid,
+              playedWithId: player.userId,
+              competitionId: competition.id
+            }
+          },
+          create: {
             userId: uid,
             playedWithId: player.userId,
             competitionId: competition.id,
             gameType: competition.game?.gameType || 'ARCADE'
-          }
+          },
+          update: {} // No update needed if already exists
         })
       );
 
@@ -750,13 +878,15 @@ export const inviteByUsername = async (req, res, next) => {
       });
     }
 
+    const inviteCode = await shortCode();
+
     const invite = await prisma.invite.create({
       data: {
         competitionId,
         inviterId: uid,
         inviteeId: invitee.id,
         inviteeUsername: invitee.username,
-        code: shortCode()
+        code: inviteCode
       },
       include: {
         Competition: {
@@ -866,13 +996,21 @@ export const acceptInvite = async (req, res, next) => {
 
       // Add to game history
       const historyPromises = competition.players.map(player =>
-        tx.gameHistory.create({
-          data: {
+        tx.gameHistory.upsert({
+          where: {
+            userId_playedWithId_competitionId: {
+              userId: uid,
+              playedWithId: player.userId,
+              competitionId: competition.id
+            }
+          },
+          create: {
             userId: uid,
             playedWithId: player.userId,
             competitionId: competition.id,
             gameType: competition.game?.gameType || 'ARCADE'
-          }
+          },
+          update: {} 
         })
       );
 
@@ -1079,6 +1217,11 @@ async function autoCompleteCompetition(competitionId) {
   const competition = await prisma.competition.findUnique({
     where: { id: competitionId },
     include: {
+      game: {
+        select: {
+          minPlayers: true
+        }
+      },
       players: {
         include: { User: true },
         orderBy: { score: 'desc' }
@@ -1094,6 +1237,11 @@ async function autoCompleteCompetition(competitionId) {
   if (playedPlayers.length === 0) {
     console.log("No players have completed the competition yet");
     return;
+  }
+
+  if (playedPlayers.length < competition.game.minPlayers) {
+    console.log(`Cannot complete: Only ${playedPlayers.length} played, need ${competition.game.minPlayers}`);
+    return; // Don't complete yet
   }
 
   const prizePool = competition.totalPrizePool;
@@ -1162,69 +1310,237 @@ function calculatePrizeBreakdown(totalPrizePool, playerCount, topScores) {
     return { distributions: [] };
   }
 
-  // Check for ties at first place
+  // Get the highest score
   const firstPlaceScore = topScores[0]?.score;
-  const firstPlaceTies = topScores.filter(p => p.score === firstPlaceScore);
 
-  if (firstPlaceTies.length > 1) {
-    // Split entire prize pool among tied winners
-    const prizePerWinner = Math.floor(totalPrizePool / firstPlaceTies.length);
-    return {
-      distributions: firstPlaceTies.map((player, index) => ({
-        userId: player.userId,
-        rank: 1,
-        prize: prizePerWinner
-      }))
-    };
-  }
+  // Find all players with the highest score (ties)
+  const winners = topScores.filter(p => p.score === firstPlaceScore);
 
-  // Regular distribution (no ties)
-  if (playerCount === 1) {
-    return {
-      distributions: [{
-        userId: topScores[0].userId,
-        rank: 1,
-        prize: totalPrizePool
-      }]
-    };
-  }
-
-  if (playerCount === 2) {
-    const first = Math.floor(totalPrizePool * 0.75);
-    const second = totalPrizePool - first;
-    return {
-      distributions: [
-        { userId: topScores[0].userId, rank: 1, prize: first },
-        { userId: topScores[1].userId, rank: 2, prize: second }
-      ]
-    };
-  }
-
-  // For 3+ players: 75% first, 15% second, 10% third
-  const first = Math.floor(totalPrizePool * 0.75);
-  const second = Math.floor(totalPrizePool * 0.15);
-  const third = totalPrizePool - first - second;
+  // ✅ FIX: Award prize only to winner(s), split if tied
+  const prizePerWinner = Math.floor(totalPrizePool / winners.length);
 
   return {
-    distributions: [
-      { userId: topScores[0].userId, rank: 1, prize: first },
-      { userId: topScores[1]?.userId, rank: 2, prize: second },
-      { userId: topScores[2]?.userId, rank: 3, prize: third }
-    ].filter(d => d.userId)
+    distributions: winners.map((player) => ({
+      userId: player.userId,
+      rank: 1,
+      prize: prizePerWinner
+    }))
   };
 }
+
+// export const cleanupExpiredCompetitions = async (io) => {
+//   try {
+//     const now = new Date();
+
+//     const expiredCompetitions = await prisma.competition.findMany({
+//       where: {
+//         endsAt: { lte: now },
+//         status: { in: ["ONGOING", "UPCOMING"] }
+//       },
+//       include: {
+//         game: {
+//           select: { minPlayers: true }
+//         },
+//         players: {
+//           include: { User: true }
+//         }
+//       }
+//     });
+
+//     for (const competition of expiredCompetitions) {
+//       const hasAnyonePlayed = competition.players.some(p => p.hasPlayed);
+//       const playedCount = competition.players.filter(p => p.hasPlayed).length;
+//       const isCreatorOnly = competition.players.length === 1;
+//       const meetsMinimum = playedCount >= competition.game.minPlayers;
+
+//       // SCENARIO A: Only creator joined, no one played
+//       if (isCreatorOnly && !hasAnyonePlayed) {
+//         // Notify the creator BEFORE deletion
+//         if (io) {
+//           io.emitToUser(competition.creatorId, 'competition_expired', {
+//             competitionId: competition.id,
+//             competitionCode: competition.code,
+//             competitionTitle: competition.title,
+//             reason: 'NO_PARTICIPANTS',
+//             message: 'Competition expired with no other players',
+//             refundAmount: competition.entryFee,
+//             timestamp: new Date().toISOString()
+//           });
+
+//           // Broadcast to competition room
+//           io.to(`comp:${competition.code.toUpperCase()}`).emit('competition_deleted', {
+//             competitionCode: competition.code,
+//             reason: 'EXPIRED_NO_PARTICIPANTS',
+//             timestamp: new Date().toISOString()
+//           });
+//         }
+
+//         await prisma.$transaction(async (tx) => {
+//           const creator = competition.players[0];
+
+//           // Full refund to creator (100%)
+//           if (competition.entryFee > 0) {
+//             const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
+//             const refundAmount = competition.entryFee - platformFee;
+//             await WalletOps.credit(creator.userId, refundAmount, "REFUND", {
+//               originalAmount: competition.entryFee,
+//               commissionDeducted: platformFee
+//             });
+//           }
+
+//           // DELETE the competition
+//           await tx.competition.delete({
+//             where: { id: competition.id }
+//           });
+//         });
+
+//         console.log(`Deleted expired competition ${competition.code} - creator only`);
+//         continue;
+//       }
+
+//       // SCENARIO B: Multiple players joined but NO ONE played
+//       if (!hasAnyonePlayed && !isCreatorOnly) {
+//         // Notify all players BEFORE cancellation
+//         if (io) {
+//           const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
+//           const refundAmount = competition.entryFee - platformFee;
+
+//           // Notify each player individually
+//           for (const player of competition.players) {
+//             io.emitToUser(player.userId, 'competition_expired', {
+//               competitionId: competition.id,
+//               competitionCode: competition.code,
+//               competitionTitle: competition.title,
+//               reason: 'NO_ACTIVITY',
+//               message: 'Competition expired with no participants',
+//               refundAmount: competition.entryFee > 0 ? refundAmount : 0,
+//               originalAmount: competition.entryFee,
+//               commissionDeducted: platformFee,
+//               timestamp: new Date().toISOString()
+//             });
+//           }
+
+//           // Broadcast to competition room
+//           io.to(`comp:${competition.code.toUpperCase()}`).emit('competition_canceled', {
+//             competitionCode: competition.code,
+//             reason: 'EXPIRED_NO_ACTIVITY',
+//             message: 'Competition canceled - no participants played',
+//             timestamp: new Date().toISOString()
+//           });
+//         }
+
+//         await prisma.$transaction(async (tx) => {
+//           // Refund each player MINUS commission based on privacy
+//           for (const player of competition.players) {
+//             if (competition.entryFee > 0) {
+//               const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
+//               const refundAmount = competition.entryFee - platformFee;
+
+//               await WalletOps.credit(player.userId, refundAmount, "REFUND", {
+//                 competitionId: competition.id,
+//                 reason: "Competition expired with no participants",
+//                 originalAmount: competition.entryFee,
+//                 commissionDeducted: platformFee
+//               });
+//             }
+//           }
+
+//           // CANCEL the competition (keep record)
+//           await tx.competition.update({
+//             where: { id: competition.id },
+//             data: { status: "CANCELED" }
+//           });
+//         });
+
+//         console.log(`Canceled expired competition ${competition.code} - no participants`);
+//         continue;
+//       }
+
+//       // SCENARIO C: Some players played, complete competition normally
+//       if (hasAnyonePlayed && !meetsMinimum) {
+//         console.log(`⚠️  Competition ${competition.code} expired without minimum players (${playedCount}/${competition.game.minPlayers})`);
+
+//         if (io) {
+//           const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
+//           const refundAmount = competition.entryFee - platformFee;
+
+//           for (const player of competition.players) {
+//             io.emitToUser(player.userId, 'competition_canceled', {
+//               competitionId: competition.id,
+//               competitionCode: competition.code,
+//               competitionTitle: competition.title,
+//               reason: 'INSUFFICIENT_PLAYERS',
+//               message: `Competition canceled - minimum ${competition.game.minPlayers} players required`,
+//               refundAmount: competition.entryFee > 0 ? refundAmount : 0,
+//               timestamp: new Date().toISOString()
+//             });
+//           }
+//         }
+
+//         // Refund all players (minus platform fee) since game cannot be completed
+//         await prisma.$transaction(async (tx) => {
+//           for (const player of competition.players) {
+//             if (competition.entryFee > 0) {
+//               const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
+//               const refundAmount = competition.entryFee - platformFee;
+
+//               await WalletOps.credit(player.userId, refundAmount, "REFUND", {
+//                 competitionId: competition.id,
+//                 reason: `Competition canceled - minimum ${competition.game.minPlayers} players not met`,
+//                 originalAmount: competition.entryFee,
+//                 commissionDeducted: platformFee
+//               });
+//             }
+//           }
+
+//           await tx.competition.update({
+//             where: { id: competition.id },
+//             data: { status: "CANCELED" }
+//           });
+//         });
+
+//         console.log(`Canceled competition ${competition.code} - insufficient players`);
+//         continue;
+//       }
+
+//       // ✅ SCENARIO D: Enough players played, complete normally
+//       if (hasAnyonePlayed && meetsMinimum) {
+//         if (io) {
+//           for (const player of competition.players) {
+//             io.emitToUser(player.userId, 'competition_completed', {
+//               competitionId: competition.id,
+//               competitionCode: competition.code,
+//               competitionTitle: competition.title,
+//               message: 'Competition has been completed',
+//               timestamp: new Date().toISOString()
+//             });
+//           }
+//         }
+
+//         await autoCompleteCompetition(competition.id);
+//         console.log(`✅ Completed competition ${competition.code} - ${playedCount} players participated`);
+//       }
+//     }
+
+//     console.log(`Cleaned up ${expiredCompetitions.length} expired competitions`);
+//   } catch (error) {
+//     console.error("Error cleaning up expired competitions:", error);
+//   }
+// };
 
 export const cleanupExpiredCompetitions = async (io) => {
   try {
     const now = new Date();
 
-    // Find competitions that have passed their end time
     const expiredCompetitions = await prisma.competition.findMany({
       where: {
         endsAt: { lte: now },
         status: { in: ["ONGOING", "UPCOMING"] }
       },
       include: {
+        game: {
+          select: { minPlayers: true }
+        },
         players: {
           include: { User: true }
         }
@@ -1233,11 +1549,12 @@ export const cleanupExpiredCompetitions = async (io) => {
 
     for (const competition of expiredCompetitions) {
       const hasAnyonePlayed = competition.players.some(p => p.hasPlayed);
+      const playedCount = competition.players.filter(p => p.hasPlayed).length;
       const isCreatorOnly = competition.players.length === 1;
+      const meetsMinimum = playedCount >= competition.game.minPlayers;
 
       // SCENARIO A: Only creator joined, no one played
       if (isCreatorOnly && !hasAnyonePlayed) {
-        // Notify the creator BEFORE deletion
         if (io) {
           io.emitToUser(competition.creatorId, 'competition_expired', {
             competitionId: competition.id,
@@ -1249,7 +1566,6 @@ export const cleanupExpiredCompetitions = async (io) => {
             timestamp: new Date().toISOString()
           });
 
-          // Broadcast to competition room
           io.to(`comp:${competition.code.toUpperCase()}`).emit('competition_deleted', {
             competitionCode: competition.code,
             reason: 'EXPIRED_NO_PARTICIPANTS',
@@ -1260,13 +1576,40 @@ export const cleanupExpiredCompetitions = async (io) => {
         await prisma.$transaction(async (tx) => {
           const creator = competition.players[0];
 
-          // Full refund to creator (100%)
+          // Full refund to creator
           if (competition.entryFee > 0) {
-            await WalletOps.credit(creator.userId, competition.entryFee, "REFUND", {
-              competitionId: competition.id,
-              reason: "Competition expired with no other players"
+            const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
+            const refundAmount = competition.entryFee - platformFee;
+            
+            const wallet = await tx.wallet.findUnique({
+              where: { userId: creator.userId }
             });
+
+            if (wallet) {
+              await tx.wallet.update({
+                where: { userId: creator.userId },
+                data: { balance: { increment: refundAmount } }
+              });
+
+              await tx.transaction.create({
+                data: {
+                  walletId: wallet.id,
+                  type: "REFUND",
+                  amount: refundAmount,
+                  meta: {
+                    competitionId: competition.id,
+                    originalAmount: competition.entryFee,
+                    commissionDeducted: platformFee
+                  }
+                }
+              });
+            }
           }
+
+          // Delete platform revenue records
+          await tx.platformRevenue.deleteMany({
+            where: { competitionId: competition.id }
+          });
 
           // DELETE the competition
           await tx.competition.delete({
@@ -1280,12 +1623,10 @@ export const cleanupExpiredCompetitions = async (io) => {
 
       // SCENARIO B: Multiple players joined but NO ONE played
       if (!hasAnyonePlayed && !isCreatorOnly) {
-        // Notify all players BEFORE cancellation
         if (io) {
           const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
           const refundAmount = competition.entryFee - platformFee;
 
-          // Notify each player individually
           for (const player of competition.players) {
             io.emitToUser(player.userId, 'competition_expired', {
               competitionId: competition.id,
@@ -1300,7 +1641,6 @@ export const cleanupExpiredCompetitions = async (io) => {
             });
           }
 
-          // Broadcast to competition room
           io.to(`comp:${competition.code.toUpperCase()}`).emit('competition_canceled', {
             competitionCode: competition.code,
             reason: 'EXPIRED_NO_ACTIVITY',
@@ -1309,19 +1649,40 @@ export const cleanupExpiredCompetitions = async (io) => {
           });
         }
 
+        // ✅ FIX: Decrement platform revenue for each refunded player
         await prisma.$transaction(async (tx) => {
-          // Refund each player MINUS commission based on privacy
           for (const player of competition.players) {
             if (competition.entryFee > 0) {
               const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
               const refundAmount = competition.entryFee - platformFee;
 
-              await WalletOps.credit(player.userId, refundAmount, "REFUND", {
-                competitionId: competition.id,
-                reason: "Competition expired with no participants",
-                originalAmount: competition.entryFee,
-                commissionDeducted: platformFee
+              const wallet = await tx.wallet.findUnique({
+                where: { userId: player.userId }
               });
+
+              if (wallet) {
+                await tx.wallet.update({
+                  where: { userId: player.userId },
+                  data: { balance: { increment: refundAmount } }
+                });
+
+                await tx.transaction.create({
+                  data: {
+                    walletId: wallet.id,
+                    type: "REFUND",
+                    amount: refundAmount,
+                    meta: {
+                      competitionId: competition.id,
+                      reason: "Competition expired with no participants",
+                      originalAmount: competition.entryFee,
+                      commissionDeducted: platformFee
+                    }
+                  }
+                });
+              }
+
+              // ✅ FIX: Decrement platform revenue
+              await decrementPlatformRevenue(competition.id, tx);
             }
           }
 
@@ -1336,9 +1697,76 @@ export const cleanupExpiredCompetitions = async (io) => {
         continue;
       }
 
-      // SCENARIO C: Some players played, complete competition normally
-      if (hasAnyonePlayed) {
-        // Notify all players about completion
+      // SCENARIO C: Some players played, but not enough to meet minimum
+      if (hasAnyonePlayed && !meetsMinimum) {
+        console.log(`⚠️  Competition ${competition.code} expired without minimum players (${playedCount}/${competition.game.minPlayers})`);
+
+        if (io) {
+          const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
+          const refundAmount = competition.entryFee - platformFee;
+
+          for (const player of competition.players) {
+            io.emitToUser(player.userId, 'competition_canceled', {
+              competitionId: competition.id,
+              competitionCode: competition.code,
+              competitionTitle: competition.title,
+              reason: 'INSUFFICIENT_PLAYERS',
+              message: `Competition canceled - minimum ${competition.game.minPlayers} players required`,
+              refundAmount: competition.entryFee > 0 ? refundAmount : 0,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+
+        // ✅ FIX: Refund all players and decrement platform revenue
+        await prisma.$transaction(async (tx) => {
+          for (const player of competition.players) {
+            if (competition.entryFee > 0) {
+              const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
+              const refundAmount = competition.entryFee - platformFee;
+
+              const wallet = await tx.wallet.findUnique({
+                where: { userId: player.userId }
+              });
+
+              if (wallet) {
+                await tx.wallet.update({
+                  where: { userId: player.userId },
+                  data: { balance: { increment: refundAmount } }
+                });
+
+                await tx.transaction.create({
+                  data: {
+                    walletId: wallet.id,
+                    type: "REFUND",
+                    amount: refundAmount,
+                    meta: {
+                      competitionId: competition.id,
+                      reason: `Competition canceled - minimum ${competition.game.minPlayers} players not met`,
+                      originalAmount: competition.entryFee,
+                      commissionDeducted: platformFee
+                    }
+                  }
+                });
+              }
+
+              // ✅ FIX: Decrement platform revenue for each refund
+              await decrementPlatformRevenue(competition.id, tx);
+            }
+          }
+
+          await tx.competition.update({
+            where: { id: competition.id },
+            data: { status: "CANCELED" }
+          });
+        });
+
+        console.log(`Canceled competition ${competition.code} - insufficient players`);
+        continue;
+      }
+
+      // SCENARIO D: Enough players played, complete normally
+      if (hasAnyonePlayed && meetsMinimum) {
         if (io) {
           for (const player of competition.players) {
             io.emitToUser(player.userId, 'competition_completed', {
@@ -1349,17 +1777,10 @@ export const cleanupExpiredCompetitions = async (io) => {
               timestamp: new Date().toISOString()
             });
           }
-
-          // Broadcast to competition room
-          io.to(`comp:${competition.code.toUpperCase()}`).emit('competition_completed', {
-            competitionCode: competition.code,
-            message: 'Competition time ended - results finalized',
-            timestamp: new Date().toISOString()
-          });
         }
 
         await autoCompleteCompetition(competition.id);
-        console.log(`Completed expired competition ${competition.code} - had participants`);
+        console.log(`✅ Completed competition ${competition.code} - ${playedCount} players participated`);
       }
     }
 
@@ -1368,6 +1789,7 @@ export const cleanupExpiredCompetitions = async (io) => {
     console.error("Error cleaning up expired competitions:", error);
   }
 };
+
 
 export const updateCompetitionStatuses = async (io) => {
   try {
@@ -1434,6 +1856,208 @@ export const updateCompetitionStatuses = async (io) => {
     throw error;
   }
 };
+
+// export const transitionExpiredOngoingCompetitions = async (io) => {
+//   try {
+//     const now = new Date();
+
+//     // Find ONGOING competitions that have passed their end time
+//     const expiredOngoing = await prisma.competition.findMany({
+//       where: {
+//         status: "ONGOING",
+//         endsAt: { lte: now }
+//       },
+//       include: {
+//         game: {
+//           select: { minPlayers: true }
+//         },
+//         players: {
+//           include: { User: true }
+//         }
+//       }
+//     });
+
+//     for (const competition of expiredOngoing) {
+//       const playedCount = competition.players.filter(p => p.hasPlayed).length;
+//       const meetsMinimum = playedCount >= competition.game.minPlayers;
+
+//       if (meetsMinimum) {
+//         // Complete the competition
+//         await autoCompleteCompetition(competition.id);
+
+//         if (io) {
+//           for (const player of competition.players) {
+//             io.emitToUser(player.userId, 'competition_completed', {
+//               competitionId: competition.id,
+//               competitionCode: competition.code,
+//               competitionTitle: competition.title,
+//               message: 'Competition time expired and has been completed',
+//               timestamp: new Date().toISOString()
+//             });
+//           }
+//         }
+
+//         console.log(`✅ Auto-completed expired competition ${competition.code}`);
+//       } else {
+//         // Cancel and refund (minus platform fee)
+//         const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
+//         const refundAmount = competition.entryFee - platformFee;
+
+//         await prisma.$transaction(async (tx) => {
+//           for (const player of competition.players) {
+//             if (competition.entryFee > 0) {
+//               await WalletOps.credit(player.userId, refundAmount, "REFUND", {
+//                 competitionId: competition.id,
+//                 reason: `Competition expired without minimum ${competition.game.minPlayers} players`,
+//                 originalAmount: competition.entryFee,
+//                 commissionDeducted: platformFee
+//               });
+//             }
+//           }
+
+//           await tx.competition.update({
+//             where: { id: competition.id },
+//             data: { status: "CANCELED" }
+//           });
+//         });
+
+//         if (io) {
+//           for (const player of competition.players) {
+//             io.emitToUser(player.userId, 'competition_canceled', {
+//               competitionId: competition.id,
+//               competitionCode: competition.code,
+//               competitionTitle: competition.title,
+//               reason: 'INSUFFICIENT_PLAYERS',
+//               message: `Competition canceled - minimum ${competition.game.minPlayers} players not met`,
+//               refundAmount: competition.entryFee > 0 ? refundAmount : 0,
+//               timestamp: new Date().toISOString()
+//             });
+//           }
+//         }
+
+//         console.log(`❌ Canceled expired competition ${competition.code} - insufficient players`);
+//       }
+//     }
+
+//     if (expiredOngoing.length > 0) {
+//       console.log(`Processed ${expiredOngoing.length} expired ONGOING competition(s)`);
+//     }
+//   } catch (error) {
+//     console.error("❌ Error transitioning expired ongoing competitions:", error);
+//   }
+// };
+
+
+export const transitionExpiredOngoingCompetitions = async (io) => {
+  try {
+    const now = new Date();
+
+    const expiredOngoing = await prisma.competition.findMany({
+      where: {
+        status: "ONGOING",
+        endsAt: { lte: now }
+      },
+      include: {
+        game: {
+          select: { minPlayers: true }
+        },
+        players: {
+          include: { User: true }
+        }
+      }
+    });
+
+    for (const competition of expiredOngoing) {
+      const playedCount = competition.players.filter(p => p.hasPlayed).length;
+      const meetsMinimum = playedCount >= competition.game.minPlayers;
+
+      if (meetsMinimum) {
+        // Complete the competition
+        await autoCompleteCompetition(competition.id);
+
+        if (io) {
+          for (const player of competition.players) {
+            io.emitToUser(player.userId, 'competition_completed', {
+              competitionId: competition.id,
+              competitionCode: competition.code,
+              competitionTitle: competition.title,
+              message: 'Competition time expired and has been completed',
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+
+        console.log(`✅ Auto-completed expired competition ${competition.code}`);
+      } else {
+        // ✅ FIX: Cancel and refund (minus platform fee) with proper revenue decrement
+        const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
+        const refundAmount = competition.entryFee - platformFee;
+
+        await prisma.$transaction(async (tx) => {
+          for (const player of competition.players) {
+            if (competition.entryFee > 0) {
+              const wallet = await tx.wallet.findUnique({
+                where: { userId: player.userId }
+              });
+
+              if (wallet) {
+                await tx.wallet.update({
+                  where: { userId: player.userId },
+                  data: { balance: { increment: refundAmount } }
+                });
+
+                await tx.transaction.create({
+                  data: {
+                    walletId: wallet.id,
+                    type: "REFUND",
+                    amount: refundAmount,
+                    meta: {
+                      competitionId: competition.id,
+                      reason: `Competition expired without minimum ${competition.game.minPlayers} players`,
+                      originalAmount: competition.entryFee,
+                      commissionDeducted: platformFee
+                    }
+                  }
+                });
+              }
+
+              // ✅ FIX: Decrement platform revenue for each refund
+              await decrementPlatformRevenue(competition.id, tx);
+            }
+          }
+
+          await tx.competition.update({
+            where: { id: competition.id },
+            data: { status: "CANCELED" }
+          });
+        });
+
+        if (io) {
+          for (const player of competition.players) {
+            io.emitToUser(player.userId, 'competition_canceled', {
+              competitionId: competition.id,
+              competitionCode: competition.code,
+              competitionTitle: competition.title,
+              reason: 'INSUFFICIENT_PLAYERS',
+              message: `Competition canceled - minimum ${competition.game.minPlayers} players not met`,
+              refundAmount: competition.entryFee > 0 ? refundAmount : 0,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+
+        console.log(`❌ Canceled expired competition ${competition.code} - insufficient players`);
+      }
+    }
+
+    if (expiredOngoing.length > 0) {
+      console.log(`Processed ${expiredOngoing.length} expired ONGOING competition(s)`);
+    }
+  } catch (error) {
+    console.error("❌ Error transitioning expired ongoing competitions:", error);
+  }
+};
+
 
 export const complete = async (req, res, next) => {
   try {
@@ -1845,7 +2469,6 @@ export const getSentInvites = async (req, res, next) => {
   }
 };
 
-// Decline invite
 export const declineInvite = async (req, res, next) => {
   try {
     const uid = req.user.uid;
@@ -1878,6 +2501,75 @@ export const declineInvite = async (req, res, next) => {
     }
 
     res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const getPlatformRevenue = async (req, res, next) => {
+  try {
+    const { startDate, endDate, privacy } = req.query;
+
+    const where = {
+      ...(startDate && { createdAt: { gte: new Date(startDate) } }),
+      ...(endDate && { createdAt: { lte: new Date(endDate) } }),
+      ...(privacy && { privacy })
+    };
+
+    const [totalRevenue, revenueByPrivacy, recentRevenue] = await Promise.all([
+      // Total revenue
+      prisma.platformRevenue.aggregate({
+        where,
+        _sum: { amount: true },
+        _count: true
+      }),
+
+      // Revenue by privacy type
+      prisma.platformRevenue.groupBy({
+        by: ['privacy'],
+        where,
+        _sum: { amount: true },
+        _count: true
+      }),
+
+      // Recent revenue entries
+      prisma.platformRevenue.findMany({
+        where,
+        include: {
+          Competition: {
+            select: {
+              code: true,
+              title: true,
+              status: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 20
+      })
+    ]);
+
+    res.json({
+      total: {
+        amount: totalRevenue._sum.amount || 0,
+        competitions: totalRevenue._count
+      },
+      byPrivacy: revenueByPrivacy.map(item => ({
+        privacy: item.privacy,
+        amount: item._sum.amount || 0,
+        competitions: item._count
+      })),
+      recent: recentRevenue.map(rev => ({
+        id: rev.id,
+        amount: rev.amount,
+        privacy: rev.privacy,
+        feePercentage: rev.feePercentage,
+        playersJoined: rev.playersJoined,
+        competitionCode: rev.Competition.code,
+        competitionTitle: rev.Competition.title,
+        createdAt: rev.createdAt
+      }))
+    });
   } catch (e) {
     next(e);
   }

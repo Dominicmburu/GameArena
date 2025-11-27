@@ -89,7 +89,7 @@ const Homepage = () => {
     }
 
     if (hasJoinedCompetition(competition.id)) {
-      navigate(`/competition/${competition.code}`)
+      navigate(`/play`)
       return
     }
 
@@ -112,7 +112,7 @@ const Homepage = () => {
       ])
       
       // Navigate to competition page
-      navigate(`/competition/${competition.code}`)
+      navigate(`/play`)
     } catch (error) {
       alert(error.message || 'Failed to join competition')
     } finally {
@@ -379,7 +379,7 @@ const Homepage = () => {
                         }
                         onClick={() => {
                           if (hasJoinedCompetition(comp.id)) {
-                            navigate(`/competition/${comp.code}`)
+                            navigate(`/play`)
                           } else {
                             handleJoinCompetition(comp)
                           }
@@ -497,7 +497,7 @@ const Homepage = () => {
                         <Col sm={6} className="mb-2">
                           <strong className="text-white">Expires:</strong>
                           <div className="text-white">
-                            {new Date(selectedCompetition.expiresAt).toLocaleString()}
+                            {new Date(selectedCompetition.endsAt).toLocaleString()}
                           </div>
                         </Col>
                       </Row>
@@ -529,7 +529,7 @@ const Homepage = () => {
                     <div className="stat-row d-flex justify-content-between mb-3">
                       <span className="text-white">Time Left:</span>
                       <span className="text-cyber-red fw-bold">
-                        {formatTimeLeft(selectedCompetition.expiresAt, selectedCompetition.status)}
+                        {formatTimeLeft(selectedCompetition.endsAt, selectedCompetition.status)}
                       </span>
                     </div>
                     
