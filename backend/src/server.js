@@ -28,34 +28,18 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// app.use(cors({ 
-//   origin: (origin, callback) => {
-//     if (!origin) return callback(null, true);
-//     if (env.clientOrigins.includes(origin)) {
-//       return callback(null, true);
-//     } else {
-//       return callback(new Error("Not allowed by CORS"));
-//     }
-//   }, 
-//   credentials: true,
-//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-//   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
-// }));
-
 app.use(cors({
     origin: (origin, callback) => {
-        // FIX: Only allow specified origins, reject requests with no origin in production
-        if (!origin && process.env.NODE_ENV === 'production') {
-            return callback(new Error("Not allowed by CORS - no origin"));
+        // Allow requests with no origin (like direct server access, health checks, curl)
+        if (!origin) {
+            return callback(null, true);
         }
 
-        if (!origin && process.env.NODE_ENV !== 'production') {
-            return callback(null, true); // Allow no origin only in development
-        }
-
+        // Check if origin is in allowed list
         if (env.clientOrigins.includes(origin)) {
             return callback(null, true);
         } else {
+            console.log(`❌ CORS blocked origin: ${origin}`);
             return callback(new Error("Not allowed by CORS"));
         }
     },
@@ -64,7 +48,30 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 
+// app.use(cors({
+//     origin: (origin, callback) => {
+//         // FIX: Only allow specified origins, reject requests with no origin in production
+//         if (!origin && process.env.NODE_ENV === 'production') {
+//             return callback(new Error("Not allowed by CORS - no origin"));
+//         }
+
+//         if (!origin && process.env.NODE_ENV !== 'production') {
+//             return callback(null, true); // Allow no origin only in development
+//         }
+
+//         if (env.clientOrigins.includes(origin)) {
+//             return callback(null, true);
+//         } else {
+//             return callback(new Error("Not allowed by CORS"));
+//         }
+//     },
+//     credentials: true,
+//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+// }));
+
 // Helpful for secure cookies behind proxies (Heroku/Render/Nginx)
+
 app.set('trust proxy', 1);
 
 // Request logging middleware

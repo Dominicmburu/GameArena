@@ -59,7 +59,7 @@ export const env = {
 
   clientOrigins: process.env.CLIENT_ORIGINS
     ? process.env.CLIENT_ORIGINS.split(",").map(o => o.trim())
-    : [process.env.CLIENT_ORIGIN || "http://localhost:5173"],
+    : [process.env.CLIENT_ORIGIN || "https://cashcompee.com/"],
 
   // Base API URL for callbacks
   apiBaseUrl: process.env.BACKEND_URL,

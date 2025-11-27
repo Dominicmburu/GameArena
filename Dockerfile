@@ -29,4 +29,5 @@ RUN npx prisma generate
 
 EXPOSE 5000
 
-CMD ["node", "src/server.js"]
+# CMD ["node", "src/server.js"]
+CMD npx prisma migrate deploy && node src/server.js
