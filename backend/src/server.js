@@ -127,20 +127,69 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // Serve frontend in production
-if (process.env.NODE_ENV === 'production') {
-    // Serve static files from frontend build
-    app.use(express.static(path.join(__dirname, '../frontend/dist')));
+// if (process.env.NODE_ENV === 'production') {
+//     // Serve static files from frontend build
+//     app.use(express.static(path.join(__dirname, '../frontend/dist')));
     
-    // Catch-all route to serve index.html for client-side routing
-    app.get('/*', (req, res) => {
-        // Don't serve index.html for API routes
+//     // Catch-all route to serve index.html for client-side routing
+//     app.get('/*', (req, res) => {
+//         // Don't serve index.html for API routes
+//         if (req.path.startsWith('/api')) {
+//             return res.status(404).json({
+//                 error: "NOT_FOUND",
+//                 message: `Route ${req.method} ${req.originalUrl} not found`
+//             });
+//         }
+//         res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+//     });
+// } else {
+//     // 404 handler for development
+//     app.use((req, res) => {
+//         res.status(404).json({
+//             error: "NOT_FOUND",
+//             message: `Route ${req.method} ${req.originalUrl} not found`
+//         });
+//     });
+// }
+
+// Serve frontend in production
+if (process.env.NODE_ENV === 'production') {
+    // Serve static files from frontend build at /game
+    app.use('/game', express.static(path.join(__dirname, '../frontend/dist')));
+    
+    // Catch-all route to serve index.html for client-side routing under /game
+    app.get('/game/*', (req, res) => {
+        res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+    });
+
+    // Root route - optional: redirect to /game or show API info
+    app.get('/', (req, res) => {
+        res.json({
+            message: "GameArena API",
+            version: "2.0.0",
+            endpoints: {
+                health: "/health",
+                api: "/api",
+                game: "/game"
+            }
+        });
+    });
+
+    // 404 handler for other routes
+    app.use((req, res) => {
+        // Don't interfere with API routes
         if (req.path.startsWith('/api')) {
             return res.status(404).json({
                 error: "NOT_FOUND",
                 message: `Route ${req.method} ${req.originalUrl} not found`
             });
         }
-        res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+        
+        res.status(404).json({
+            error: "NOT_FOUND",
+            message: `Route ${req.method} ${req.originalUrl} not found`,
+            hint: "Frontend is available at /game"
+        });
     });
 } else {
     // 404 handler for development
@@ -151,6 +200,8 @@ if (process.env.NODE_ENV === 'production') {
         });
     });
 }
+
+
 
 // Error handling middleware (must be last)
 app.use(errorHandler);
