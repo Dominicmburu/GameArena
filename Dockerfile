@@ -27,7 +27,9 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 # Generate Prisma client
 RUN npx prisma generate
 
+# Run database migrations
+RUN npx prisma migrate deploy
+
 EXPOSE 5000
 
-# CMD ["node", "src/server.js"]
-CMD npx prisma migrate deploy && node src/server.js
+CMD ["node", "src/server.js"]
