@@ -27,10 +27,10 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/gameArena:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/gameArena:${{ github.sha }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gameArena:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gameArena:buildcache,mode=max
+            ${{ secrets.DOCKERHUB_USERNAME }}/gamearena:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/gamearena:${{ github.sha }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gamearena:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gamearena:buildcache,mode=max
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
@@ -40,22 +40,22 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # Pull latest image
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gameArena:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gamearena:latest
             
             # Stop and remove old container
-            docker stop gameArena || true
-            docker rm gameArena || true
+            docker stop gamearena || true
+            docker rm gamearena || true
             
             # Run new container
             docker run -d \
-              --name gameArena \
+              --name gamearena \
               -p 80:5000 \
               --restart unless-stopped \
               -e NODE_ENV=production \
               -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
               -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
               -e PORT=5000 \
-              ${{ secrets.DOCKERHUB_USERNAME }}/gameArena:latest
+              ${{ secrets.DOCKERHUB_USERNAME }}/gamearena:latest
             
             # Clean up old images
             docker image prune -af
