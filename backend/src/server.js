@@ -4,11 +4,16 @@ import cors from "cors";
 import helmet from "helmet";
 import http from "http";
 import { Server } from "socket.io";
+import path from "path";
+import { fileURLToPath } from "url";
 import { env } from "./config/env.js";
 import { routes } from "./routes/index.js";
 import { errorHandler } from "./middleware/error.js";
 import { registerSockets } from "./sockets/index.js";
 import { startCleanupJob } from "./jobs/cleanup.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -121,13 +126,31 @@ if (process.env.NODE_ENV === "development") {
     });
 }
 
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({
-        error: "NOT_FOUND",
-        message: `Route ${req.method} ${req.originalUrl} not found`
+// Serve frontend in production
+if (process.env.NODE_ENV === 'production') {
+    // Serve static files from frontend build
+    app.use(express.static(path.join(__dirname, '../frontend/dist')));
+    
+    // Catch-all route to serve index.html for client-side routing
+    app.get('*', (req, res) => {
+        // Don't serve index.html for API routes
+        if (req.path.startsWith('/api')) {
+            return res.status(404).json({
+                error: "NOT_FOUND",
+                message: `Route ${req.method} ${req.originalUrl} not found`
+            });
+        }
+        res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
     });
-});
+} else {
+    // 404 handler for development
+    app.use((req, res) => {
+        res.status(404).json({
+            error: "NOT_FOUND",
+            message: `Route ${req.method} ${req.originalUrl} not found`
+        });
+    });
+}
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

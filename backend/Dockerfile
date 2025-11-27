@@ -1,21 +1,32 @@
-# Use official Node.js LTS image
+# Multi-stage build
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+COPY frontend/package*.json ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
+# Backend stage
 FROM node:18-alpine
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy backend dependencies
+COPY backend/package*.json ./
+RUN npm ci --only=production
 
-# Install dependencies
-# RUN npm ci --only=production
-RUN pnpm install --frozen-lockfile
+# Copy backend code
+COPY backend/ ./
 
-# Copy application code
-COPY . .
+# Copy built frontend
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# Expose the port your app runs on (change if needed)
+# Generate Prisma client
+RUN npx prisma generate
+
 EXPOSE 5000
 
-# Start the application
-CMD ["node", "index.js"]
+CMD ["node", "server.js"]
