@@ -132,7 +132,7 @@ if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, '../frontend/dist')));
     
     // Catch-all route to serve index.html for client-side routing
-    app.get('*', (req, res) => {
+    app.get('/*', (req, res) => {
         // Don't serve index.html for API routes
         if (req.path.startsWith('/api')) {
             return res.status(404).json({
