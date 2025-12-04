@@ -104,19 +104,23 @@ jobs:
             echo "Stopping existing containers..."
             docker-compose down --remove-orphans
             
-            # Remove old images to force fresh pull
-            echo "Removing old images..."
-            docker rmi ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:latest 2>/dev/null || true
-            docker rmi ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:latest 2>/dev/null || true
+            # Remove ALL images for this project (including intermediate layers)
+            echo "Removing all project images..."
+            docker images | grep "gamearena" | awk '{print $3}' | xargs -r docker rmi -f 2>/dev/null || true
             
-            # Pull latest images
-            echo "Pulling latest images..."
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:latest
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:latest
+            # Pull latest images with no-cache flag
+            echo "Pulling latest images (bypassing cache)..."
+            docker pull --disable-content-trust=false ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:latest
+            docker pull --disable-content-trust=false ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:latest
             
-            # Deploy with docker-compose (force recreate containers)
+            # Verify the images were pulled
+            echo "Verifying pulled images..."
+            docker images | grep "gamearena"
+            
+            # Deploy with docker-compose (pull, force recreate, and no cache)
             echo "Starting new containers..."
-            docker-compose up -d --force-recreate
+            docker-compose pull --ignore-pull-failures
+            docker-compose up -d --force-recreate --always-recreate-deps --renew-anon-volumes
             
             # Wait for containers to stabilize
             echo "Waiting for services to start..."
@@ -141,3 +145,4 @@ jobs:
             
             echo ""
             echo "=== Deployment Complete ==="
+            
