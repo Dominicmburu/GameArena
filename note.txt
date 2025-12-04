@@ -6,3 +6,21 @@ docker ps
 
 // shows logs
 docker logs gamearena 
+
+# SSH into EC2
+ssh -i your-key.pem ubuntu@13.62.222.49
+
+cd ~/gamearena
+
+# Check when images were pulled (should show recent time)
+docker images | grep gamearena
+
+# Check container creation time
+docker compose ps
+
+# Check logs for your changes
+docker compose logs backend --tail=50
+docker compose logs frontend --tail=50
+
+# Look for initialization messages that show new code is running
+
