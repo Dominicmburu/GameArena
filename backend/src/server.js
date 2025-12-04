@@ -4,16 +4,11 @@ import cors from "cors";
 import helmet from "helmet";
 import http from "http";
 import { Server } from "socket.io";
-import path from "path";
-import { fileURLToPath } from "url";
 import { env } from "./config/env.js";
 import { routes } from "./routes/index.js";
 import { errorHandler } from "./middleware/error.js";
 import { registerSockets } from "./sockets/index.js";
 import { startCleanupJob } from "./jobs/cleanup.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -28,9 +23,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
+// CORS configuration
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (like direct server access, health checks, curl)
+        // Allow requests with no origin (health checks, internal Docker requests, curl)
         if (!origin) {
             return callback(null, true);
         }
@@ -48,30 +44,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
 }));
 
-// app.use(cors({
-//     origin: (origin, callback) => {
-//         // FIX: Only allow specified origins, reject requests with no origin in production
-//         if (!origin && process.env.NODE_ENV === 'production') {
-//             return callback(new Error("Not allowed by CORS - no origin"));
-//         }
-
-//         if (!origin && process.env.NODE_ENV !== 'production') {
-//             return callback(null, true); // Allow no origin only in development
-//         }
-
-//         if (env.clientOrigins.includes(origin)) {
-//             return callback(null, true);
-//         } else {
-//             return callback(new Error("Not allowed by CORS"));
-//         }
-//     },
-//     credentials: true,
-//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-//     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
-// }));
-
-// Helpful for secure cookies behind proxies (Heroku/Render/Nginx)
-
+// Trust proxy for secure cookies behind Nginx/reverse proxies
 app.set('trust proxy', 1);
 
 // Request logging middleware
@@ -133,32 +106,12 @@ if (process.env.NODE_ENV === "development") {
     });
 }
 
-
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../frontend/dist")));
-  
-  // Catch-all middleware for SPA - but NOT for API routes
-  app.use((req, res, next) => {
-    // Skip if it's an API route
-    if (req.path.startsWith('/api')) {
-      return next();
-    }
-    
-    // Only handle GET requests for the SPA
-    if (req.method === 'GET') {
-      return res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
-    }
-    
-    next();
-  });
-}
-
-// 404 handler (for API routes and other unmatched routes)
+// 404 handler for API routes
 app.use((req, res) => {
-  res.status(404).json({
-    error: "NOT_FOUND",
-    message: `Route ${req.method} ${req.originalUrl} not found`,
-  });
+    res.status(404).json({
+        error: "NOT_FOUND",
+        message: `Route ${req.method} ${req.originalUrl} not found`,
+    });
 });
 
 // Error handling middleware (must be last)
@@ -170,8 +123,7 @@ const server = http.createServer(app);
 // Socket.io setup
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173",
-        // origin: env.clientOrigins,
+        origin: env.clientOrigins,
         credentials: true,
         methods: ["GET", "POST"]
     },
@@ -190,17 +142,14 @@ app.set('userSockets', io.userSockets);
 const shutdown = async () => {
     console.log("Shutting down gracefully...");
 
-    // Close server
     server.close(() => {
         console.log("HTTP server closed");
     });
 
-    // Close socket connections
     io.close(() => {
         console.log("Socket.io server closed");
     });
 
-    // Close database connection
     try {
         const { prisma } = await import("./prisma.js");
         await prisma.$disconnect();
@@ -215,12 +164,10 @@ const shutdown = async () => {
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-// Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
     process.exit(1);
@@ -229,26 +176,23 @@ process.on('uncaughtException', (error) => {
 // Start server
 const startServer = async () => {
     try {
-        // Test database connection
         const { prisma } = await import("./prisma.js");
         await prisma.$connect();
-        console.log("Database connected successfully");
+        console.log("✅ Database connected successfully");
 
         server.listen(env.port, () => {
-            console.log(`🚀 Server running on http://localhost:${env.port}`);
+            console.log(`🚀 Backend API running on port ${env.port}`);
             console.log(`📊 Environment: ${process.env.NODE_ENV || "development"}`);
-            console.log(`🌐 Client origins: ${env.clientOrigins.join(", ")}`);
+            console.log(`🌐 Allowed origins: ${env.clientOrigins.join(", ")}`);
             console.log(`🔒 Cookie secure: ${env.cookieSecure}`);
             console.log(`🍪 Cookie domain: ${env.cookieDomain || "(host-only)"}`);
 
-            // Start cron jobs
             startCleanupJob(io);
-
         });
     } catch (error) {
-        console.error("Failed to start server:", error);
+        console.error("❌ Failed to start server:", error);
         process.exit(1);
     }
 };
 
-startServer(); 
+startServer();

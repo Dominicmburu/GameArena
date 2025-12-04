@@ -21,16 +21,40 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Build and push Docker image
+      # Build and push backend image
+      - name: Build and push Backend image
         uses: docker/build-push-action@v4
         with:
           context: .
+          file: ./Dockerfile.backend
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/gamearena:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/gamearena:${{ github.sha }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gamearena:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gamearena:buildcache,mode=max
+            ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:${{ github.sha }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:buildcache,mode=max
+
+      # Build and push frontend image
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile.frontend
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:${{ github.sha }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:buildcache,mode=max
+
+      - name: Copy deployment files to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "docker-compose.yml,nginx.conf"
+          target: "~/gamearena"
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
@@ -39,11 +63,9 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Create app directory
-            mkdir -p ~/gamearena
             cd ~/gamearena
             
-            # Create .env file with ALL environment variables
+            # Create/update .env file with secrets
             cat > .env << EOF
             # Docker & Database
             POSTGRES_USER=gamearena
@@ -82,65 +104,22 @@ jobs:
             MPESA_CERT_PATH=/app/certs/production_cert.cer
             EOF
             
-            # Create docker-compose.yml
-            cat > docker-compose.yml << 'COMPOSE_EOF'
-            version: '3.8'
-
-            services:
-              postgres:
-                image: postgres:15-alpine
-                container_name: gamearena-postgres
-                restart: unless-stopped
-                environment:
-                  POSTGRES_USER: ${POSTGRES_USER}
-                  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-                  POSTGRES_DB: ${POSTGRES_DB}
-                volumes:
-                  - postgres_data:/var/lib/postgresql/data
-                networks:
-                  - gamearena-network
-                healthcheck:
-                  test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-                  interval: 10s
-                  timeout: 5s
-                  retries: 5
-
-              app:
-                image: ${DOCKERHUB_USERNAME}/gamearena:latest
-                container_name: gamearena
-                restart: unless-stopped
-                depends_on:
-                  postgres:
-                    condition: service_healthy
-                env_file:
-                  - .env
-                environment:
-                  DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
-                ports:
-                  - "80:5000"
-                networks:
-                  - gamearena-network
-
-            networks:
-              gamearena-network:
-                driver: bridge
-
-            volumes:
-              postgres_data:
-                driver: local
-            COMPOSE_EOF
+            # Pull latest images
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:latest
             
-            # Pull latest image
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gamearena:latest
-            
-            # Stop and recreate containers
+            # Deploy with docker-compose
             docker-compose down
             docker-compose up -d
             
             # Wait and check status
-            sleep 10
+            sleep 15
             docker-compose ps
-            docker-compose logs --tail=50 app
             
-            # Cleanup
+            echo "=== Backend Logs ==="
+            docker-compose logs --tail=30 backend
+            echo "=== Frontend Logs ==="
+            docker-compose logs --tail=30 frontend
+            
+            # Cleanup old images
             docker image prune -af
