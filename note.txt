@@ -24,3 +24,4 @@ docker compose logs frontend --tail=50
 
 # Look for initialization messages that show new code is running
 
+// restart containers

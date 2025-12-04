@@ -31,8 +31,6 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:${{ github.sha }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:buildcache,mode=max
 
       # Build and push frontend image
       - name: Build and push Frontend image
@@ -44,8 +42,6 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:${{ github.sha }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:buildcache,mode=max
 
       - name: Copy deployment files to EC2
         uses: appleboy/scp-action@master
@@ -104,22 +100,44 @@ jobs:
             MPESA_CERT_PATH=/app/certs/production_cert.cer
             EOF
             
+            # Stop and remove old containers
+            echo "Stopping existing containers..."
+            docker-compose down --remove-orphans
+            
+            # Remove old images to force fresh pull
+            echo "Removing old images..."
+            docker rmi ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:latest 2>/dev/null || true
+            docker rmi ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:latest 2>/dev/null || true
+            
             # Pull latest images
+            echo "Pulling latest images..."
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-backend:latest
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gamearena-frontend:latest
             
-            # Deploy with docker-compose
-            docker-compose down
-            docker-compose up -d
+            # Deploy with docker-compose (force recreate containers)
+            echo "Starting new containers..."
+            docker-compose up -d --force-recreate
             
-            # Wait and check status
+            # Wait for containers to stabilize
+            echo "Waiting for services to start..."
             sleep 15
+            
+            # Check status
+            echo "=== Container Status ==="
             docker-compose ps
             
+            echo ""
             echo "=== Backend Logs ==="
             docker-compose logs --tail=30 backend
+            
+            echo ""
             echo "=== Frontend Logs ==="
             docker-compose logs --tail=30 frontend
             
-            # Cleanup old images
-            docker image prune -af
+            # Cleanup old/dangling images (but keep currently used ones)
+            echo ""
+            echo "Cleaning up dangling images..."
+            docker image prune -f
+            
+            echo ""
+            echo "=== Deployment Complete ==="
