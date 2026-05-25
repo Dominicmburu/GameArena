@@ -1137,8 +1137,8 @@ const Homepage = () => {
           }
         }
 
-        /* Very narrow phones: stack vertically as a fallback */
-        @media (max-width: 360px) {
+        /* Very narrow phones only (≤320px, e.g. iPhone SE 1st gen): stack vertically */
+        @media (max-width: 320px) {
           .hero-cta-row { flex-wrap: wrap; }
           .hero-btn-primary,
           .hero-btn-secondary {
