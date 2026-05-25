@@ -207,21 +207,11 @@ const MakeGame = () => {
   const handleShare = async () => {
     if (!created?.code) return
     const url = `${window.location.origin}/play?code=${created.code}`
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: created.title,
-          text: `Join my "${created.title}" competition on GameArena! Code: ${created.code}`,
-          url,
-        })
-      } catch {}
-    } else {
-      try {
-        await navigator.clipboard.writeText(url)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-      } catch {}
-    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
   }
 
   const handleInvite = async (e) => {

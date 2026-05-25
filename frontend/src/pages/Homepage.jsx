@@ -282,7 +282,7 @@ const Homepage = () => {
             color: 'rgba(255,255,255,0.78)', fontSize: '0.93rem',
             lineHeight: 1.65, marginBottom: '28px', maxWidth: '480px',
           }}>{slide.description}</p>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <div className="hero-cta-row">
             <button className="hero-btn-primary" onClick={() => navigate('/play')}>
               <Play size={17} style={{ flexShrink: 0 }} /> PLAY NOW
             </button>
@@ -1086,31 +1086,64 @@ const Homepage = () => {
         .section-link:hover { color: #9B2C2C; text-decoration: none; }
 
         /* ── Hero buttons ── */
+        .hero-cta-row {
+          display: inline-flex;       /* size to content, not parent's max-width */
+          gap: 10px;
+          flex-wrap: nowrap;
+        }
         .hero-btn-primary {
-          display: inline-flex; align-items: center; gap: 8px;
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
           background: #C53030; color: #fff; border: none;
           font-weight: 700; font-size: 0.9rem;
-          padding: 12px 26px; letter-spacing: 1px;
+          padding: 12px 22px; letter-spacing: 1px;
           text-transform: uppercase; border-radius: 3px;
           cursor: pointer; transition: background 0.2s, transform 0.2s;
+          white-space: nowrap;
+          min-width: 150px;          /* equal width with secondary */
         }
         .hero-btn-primary:hover { background: #9B2C2C; transform: translateY(-2px); }
         .hero-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
         .hero-btn-secondary {
-          display: inline-flex; align-items: center; gap: 8px;
+          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
           background: rgba(255,255,255,0.08);
           border: 1.5px solid rgba(255,255,255,0.35);
           color: #fff; font-weight: 700; font-size: 0.9rem;
-          padding: 12px 26px; letter-spacing: 1px;
+          padding: 12px 22px; letter-spacing: 1px;
           text-transform: uppercase; border-radius: 3px;
           cursor: pointer; transition: background 0.2s, border-color 0.2s, transform 0.2s;
           backdrop-filter: blur(6px);
+          white-space: nowrap;
+          min-width: 150px;          /* equal width with primary */
         }
         .hero-btn-secondary:hover {
           background: rgba(255,255,255,0.16);
           border-color: rgba(255,255,255,0.6);
           transform: translateY(-2px);
+        }
+
+        /* Phones: smaller padding/font so both buttons sit in a single row */
+        @media (max-width: 575px) {
+          .hero-cta-row { gap: 8px; }
+          .hero-btn-primary,
+          .hero-btn-secondary {
+            padding: 9px 14px;
+            font-size: 0.74rem;
+            letter-spacing: 0.5px;
+            gap: 6px;
+            flex: 1 1 0;
+            min-width: 0;
+            justify-content: center;
+          }
+        }
+
+        /* Very narrow phones: stack vertically as a fallback */
+        @media (max-width: 360px) {
+          .hero-cta-row { flex-wrap: wrap; }
+          .hero-btn-primary,
+          .hero-btn-secondary {
+            flex: 1 1 100%;
+          }
         }
 
         /* ── Diamond nav ── */
