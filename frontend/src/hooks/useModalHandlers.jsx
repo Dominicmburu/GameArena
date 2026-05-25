@@ -554,6 +554,24 @@ const useModalHandlers = ({
 
   const openJoinModal = () => setShowJoinModal(true);
 
+  // One-click join for public competitions (skip code-input step)
+  const handleJoinPublic = (competition) => {
+    if (!competition) {
+      showToastMessage('Invalid competition', 'error');
+      return;
+    }
+    if (competition.status === 'COMPLETED' || competition.status === 'CANCELED') {
+      showToastMessage('This competition is no longer open', 'error');
+      return;
+    }
+    if (competition.currentPlayers >= competition.maxPlayers) {
+      showToastMessage('Competition is full', 'error');
+      return;
+    }
+    setPendingJoinCompetition(competition);
+    setShowJoinConfirmModal(true);
+  };
+
   const openInviteModal = (competition) => {
     if (!competition) {
       showToastMessage('Invalid competition', 'error');
@@ -633,6 +651,7 @@ const useModalHandlers = ({
     closeAllModals,
     setFormValue,
     openJoinModal,
+    handleJoinPublic,
     openInviteModal,
     openInvitesModal,
     openFriendsModal,

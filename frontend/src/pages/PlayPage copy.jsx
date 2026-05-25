@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Badge, Button, Tab, Tabs, Modal, Alert, Toast, ToastContainer, Form, ListGroup, Spinner } from 'react-bootstrap';
 import { Play, Trophy, Clock, Users, Zap, TrendingUp, Medal, Target, UserPlus, Copy, Check, Send, UserCheck, UserX, MessageCircle, GamepadIcon, Search, History, Bell, Mail, X } from 'lucide-react';
 import { useGame } from '../contexts/GameContext';
@@ -416,18 +416,18 @@ const PlayPage = () => {
   };
 
   const getRankColor = (rank) => {
-    if (rank <= 3) return '#00FF85';
-    if (rank <= 10) return '#00F0FF';
-    if (rank <= 25) return '#9B00FF';
+    if (rank <= 3) return '#38A169';
+    if (rank <= 10) return '#3182CE';
+    if (rank <= 25) return '#805AD5';
     return '#B0B0B0';
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'UPCOMING': return '#00F0FF';
-      case 'ONGOING': return '#00FF85';
+      case 'UPCOMING': return '#3182CE';
+      case 'ONGOING': return '#38A169';
       case 'COMPLETED': return '#B0B0B0';
-      case 'CANCELED': return '#FF003C';
+      case 'CANCELED': return '#C53030';
       default: return '#B0B0B0';
     }
   };
@@ -631,10 +631,10 @@ const PlayPage = () => {
             <Card className="cyber-card sticky-top" style={{ top: '100px' }}>
               <Card.Header className="d-flex align-items-center justify-content-between">
                 <div className="d-flex align-items-center">
-                  <TrendingUp size={20} color="#00F0FF" className="me-2" />
+                  <TrendingUp size={20} color="#3182CE" className="me-2" />
                   <span className="fw-bold">Global Leaderboard</span>
                 </div>
-                <Badge className="pulse" style={{ background: '#00FF85' }}>LIVE</Badge>
+                <Badge className="pulse" style={{ background: '#38A169' }}>LIVE</Badge>
               </Card.Header>
               <Card.Body className="p-0">
                 <div className="leaderboard-list">
@@ -1095,7 +1095,7 @@ const PlayPage = () => {
                       </div>
                       <div className="mt-1">
                         {player.gameTypes?.map(type => (
-                          <Badge key={type} className="me-1" style={{ background: '#9B00FF' }}>
+                          <Badge key={type} className="me-1" style={{ background: '#805AD5' }}>
                             {type}
                           </Badge>
                         ))}
@@ -1196,7 +1196,7 @@ const PlayPage = () => {
         .notification-alert {
           margin-bottom: 10px;
           backdrop-filter: blur(10px);
-          border: 1px solid rgba(0, 240, 255, 0.3);
+          border: 1px solid rgba(49, 130, 206, 0.3);
           animation: slideIn 0.3s ease-out;
         }
 
@@ -1207,14 +1207,14 @@ const PlayPage = () => {
 
         .cyber-card {
           background: rgba(31, 31, 35, 0.9);
-          border: 1px solid rgba(0, 240, 255, 0.3);
+          border: 1px solid rgba(49, 130, 206, 0.3);
           border-radius: 12px;
           backdrop-filter: blur(10px);
         }
 
         .cyber-tabs .nav-link {
           background: transparent;
-          border: 1px solid rgba(0, 240, 255, 0.3);
+          border: 1px solid rgba(49, 130, 206, 0.3);
           color: #B0B0B0;
           margin-right: 10px;
           border-radius: 20px;
@@ -1223,27 +1223,27 @@ const PlayPage = () => {
         }
 
         .cyber-tabs .nav-link.active {
-          background: rgba(0, 240, 255, 0.1);
-          color: #00F0FF;
-          border-color: #00F0FF;
+          background: rgba(49, 130, 206, 0.1);
+          color: #3182CE;
+          border-color: #3182CE;
         }
 
         .cyber-input {
           background: rgba(0, 0, 0, 0.3);
-          border: 1px solid rgba(0, 240, 255, 0.3);
+          border: 1px solid rgba(49, 130, 206, 0.3);
           color: #fff;
           border-radius: 8px;
         }
 
         .cyber-input:focus {
           background: rgba(0, 0, 0, 0.5);
-          border-color: #00F0FF;
-          box-shadow: 0 0 0 0.2rem rgba(0, 240, 255, 0.25);
+          border-color: #3182CE;
+          box-shadow: 0 0 0 0.2rem rgba(49, 130, 206, 0.25);
           color: #fff;
         }
 
         .btn-cyber {
-          background: linear-gradient(45deg, #00F0FF, #9B00FF);
+          background: linear-gradient(45deg, #3182CE, #805AD5);
           border: none;
           color: #0E0E10;
           font-weight: bold;
@@ -1256,7 +1256,7 @@ const PlayPage = () => {
 
         .btn-cyber:hover {
           transform: translateY(-2px);
-          box-shadow: 0 5px 15px rgba(0, 240, 255, 0.4);
+          box-shadow: 0 5px 15px rgba(49, 130, 206, 0.4);
           color: #0E0E10;
         }
 
@@ -1267,26 +1267,26 @@ const PlayPage = () => {
 
         .competition-card:hover {
           transform: translateX(5px);
-          border-left-color: #00F0FF;
+          border-left-color: #3182CE;
         }
 
-        .text-neon { color: #00F0FF; }
-        .text-purple { color: #9B00FF; }
-        .text-energy-green { color: #00FF85; }
-        .text-cyber-red { color: #FF003C; }
+        .text-neon { color: #3182CE; }
+        .text-purple { color: #805AD5; }
+        .text-energy-green { color: #38A169; }
+        .text-cyber-red { color: #C53030; }
         .text-grey { color: #B0B0B0; }
 
         .leaderboard-item {
-          border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+          border-bottom: 1px solid rgba(49, 130, 206, 0.1);
           transition: all 0.3s ease;
         }
 
         .leaderboard-item:hover {
-          background: rgba(0, 240, 255, 0.05);
+          background: rgba(49, 130, 206, 0.05);
         }
 
         .user-row {
-          background: rgba(0, 240, 255, 0.1);
+          background: rgba(49, 130, 206, 0.1);
           position: relative;
         }
 
@@ -1297,7 +1297,7 @@ const PlayPage = () => {
           top: 0;
           bottom: 0;
           width: 3px;
-          background: linear-gradient(45deg, #00F0FF, #9B00FF);
+          background: linear-gradient(45deg, #3182CE, #805AD5);
         }
 
         .pulse {
@@ -1311,38 +1311,38 @@ const PlayPage = () => {
 
         .cyber-modal .modal-content {
           background: rgba(31, 31, 35, 0.95);
-          border: 1px solid rgba(0, 240, 255, 0.3);
+          border: 1px solid rgba(49, 130, 206, 0.3);
           backdrop-filter: blur(10px);
         }
 
         .cyber-modal .modal-header {
-          border-bottom: 1px solid rgba(0, 240, 255, 0.3);
+          border-bottom: 1px solid rgba(49, 130, 206, 0.3);
         }
 
         .cyber-modal .list-group-item {
           background: rgba(31, 31, 35, 0.8);
-          border: 1px solid rgba(0, 240, 255, 0.2);
+          border: 1px solid rgba(49, 130, 206, 0.2);
           border-radius: 8px;
         }
 
         .cyber-toast.success .toast-header {
-          background: rgba(0, 255, 133, 0.1);
-          color: #00FF85;
+          background: rgba(56, 161, 105, 0.1);
+          color: #38A169;
         }
 
         .cyber-toast.error .toast-header {
-          background: rgba(255, 0, 60, 0.1);
-          color: #FF003C;
+          background: rgba(197, 48, 48, 0.1);
+          color: #C53030;
         }
 
         .cyber-toast.info .toast-header {
-          background: rgba(0, 240, 255, 0.1);
-          color: #00F0FF;
+          background: rgba(49, 130, 206, 0.1);
+          color: #3182CE;
         }
 
         .cyber-toast {
           background: rgba(14, 14, 16, 0.95);
-          border: 1px solid rgba(0, 240, 255, 0.3);
+          border: 1px solid rgba(49, 130, 206, 0.3);
         }
 
         .friends-list {
@@ -1358,18 +1358,18 @@ const PlayPage = () => {
 const CompetitionCard = ({ competition, onPlay, onInvite, onCopyCode, copiedCode, isActive }) => {
   const getStatusColor = (status) => {
     switch (status) {
-      case 'UPCOMING': return '#00F0FF';
-      case 'ONGOING': return '#00FF85';
+      case 'UPCOMING': return '#3182CE';
+      case 'ONGOING': return '#38A169';
       case 'COMPLETED': return '#B0B0B0';
-      case 'CANCELED': return '#FF003C';
+      case 'CANCELED': return '#C53030';
       default: return '#B0B0B0';
     }
   };
 
   const getRankColor = (rank) => {
-    if (rank <= 3) return '#00FF85';
-    if (rank <= 10) return '#00F0FF';
-    if (rank <= 25) return '#9B00FF';
+    if (rank <= 3) return '#38A169';
+    if (rank <= 10) return '#3182CE';
+    if (rank <= 25) return '#805AD5';
     return '#B0B0B0';
   };
 
@@ -1382,14 +1382,14 @@ const CompetitionCard = ({ competition, onPlay, onInvite, onCopyCode, copiedCode
               <div>
                 <h5 className="text-white mb-1">{competition.title}</h5>
                 <div className="d-flex gap-2 flex-wrap mb-2">
-                  <Badge style={{ background: '#9B00FF' }}>
+                  <Badge style={{ background: '#805AD5' }}>
                     {competition.Game?.name || competition.gameName || 'Unknown Game'}
                   </Badge>
                   <Badge style={{ background: getStatusColor(competition.status) }}>
                     {competition.status}
                   </Badge>
                   {competition.playedCount > 0 && (
-                    <Badge style={{ background: '#00FF85' }}>
+                    <Badge style={{ background: '#38A169' }}>
                       {competition.playedCount} played
                     </Badge>
                   )}
@@ -1410,7 +1410,7 @@ const CompetitionCard = ({ competition, onPlay, onInvite, onCopyCode, copiedCode
                     onClick={() => onCopyCode(competition.code)}
                   >
                     {copiedCode === competition.code ? (
-                      <Check size={14} color="#00FF85" />
+                      <Check size={14} color="#38A169" />
                     ) : (
                       <Copy size={14} color="#B0B0B0" />
                     )}
@@ -1443,7 +1443,7 @@ const CompetitionCard = ({ competition, onPlay, onInvite, onCopyCode, copiedCode
               <Row className="g-2">
                 <Col xs={6} sm={3}>
                   <div className="d-flex align-items-center">
-                    <Trophy size={16} color="#00F0FF" className="me-2" />
+                    <Trophy size={16} color="#3182CE" className="me-2" />
                     <span className="text-neon small">
                       {isActive ? `KSh ${competition.totalPrizePool || competition.prizePool || 0}` : `${competition.finalScore || competition.score || 0} pts`}
                     </span>
@@ -1451,13 +1451,13 @@ const CompetitionCard = ({ competition, onPlay, onInvite, onCopyCode, copiedCode
                 </Col>
                 <Col xs={6} sm={3}>
                   <div className="d-flex align-items-center">
-                    <Clock size={16} color="#FF003C" className="me-2" />
+                    <Clock size={16} color="#C53030" className="me-2" />
                     <span className="text-cyber-red small">{competition.minutesToPlay || competition.duration || 0}min</span>
                   </div>
                 </Col>
                 <Col xs={6} sm={3}>
                   <div className="d-flex align-items-center">
-                    <Users size={16} color="#9B00FF" className="me-2" />
+                    <Users size={16} color="#805AD5" className="me-2" />
                     <span className="text-purple small">
                       {competition.currentPlayers || competition.participantCount || 0}/{competition.maxPlayers || 'unlimited'}
                     </span>
@@ -1465,7 +1465,7 @@ const CompetitionCard = ({ competition, onPlay, onInvite, onCopyCode, copiedCode
                 </Col>
                 <Col xs={6} sm={3}>
                   <div className="d-flex align-items-center">
-                    <Zap size={16} color="#00FF85" className="me-2" />
+                    <Zap size={16} color="#38A169" className="me-2" />
                     <span className="text-energy-green small">
                       {isActive ? `KSh ${competition.entryFee || 0}` : `KSh ${competition.earnings || 0}`}
                     </span>
@@ -1483,7 +1483,7 @@ const CompetitionCard = ({ competition, onPlay, onInvite, onCopyCode, copiedCode
                     <Badge
                       key={participant.id || index}
                       style={{
-                        background: participant.hasPlayed || participant.score !== null ? '#00FF85' : '#FF003C',
+                        background: participant.hasPlayed || participant.score !== null ? '#38A169' : '#C53030',
                         fontSize: '0.7rem'
                       }}
                     >

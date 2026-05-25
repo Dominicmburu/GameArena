@@ -1,417 +1,267 @@
-import React, { memo, useState, useEffect } from 'react';
-import { Card, Row, Col, Badge, Button } from 'react-bootstrap';
-import { Trophy, Clock, Users, Zap, Send, Play, Check, Copy, LogOut, AlertCircle } from 'lucide-react';
+import React, { memo, useState, useEffect } from 'react'
+import { Trophy, Clock, Users, Zap, Send, Play, Check, Copy, LogOut, AlertCircle, ChevronRight } from 'lucide-react'
 
-const CompetitionCard = memo(({ 
-  competition, 
-  onPlay, 
-  onInvite, 
-  onCopyCode, 
+const STATUS_COLOR = {
+  UPCOMING:  '#3182CE',
+  ONGOING:   '#38A169',
+  COMPLETED: '#805AD5',
+  CANCELED:  '#C53030',
+}
+
+const rankColor = (rank) => {
+  if (rank === 1) return '#F6AD55'
+  if (rank === 2) return '#C0C0C0'
+  if (rank === 3) return '#CD7F32'
+  if (rank <= 10) return '#3182CE'
+  if (rank <= 25) return '#805AD5'
+  return '#B0B0B0'
+}
+
+const formatKES = (n) =>
+  `KES ${Number(n || 0).toLocaleString('en-KE')}`
+
+const formatTime = (seconds) => {
+  if (seconds <= 0) return 'EXPIRED'
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  if (h > 0) return `${h}h ${m}m`
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+const CompetitionCard = memo(({
+  competition,
+  mode = 'joined',  // 'public' | 'joined' | 'completed'
+  onPlay,
+  onJoin,
+  onInvite,
+  onCopyCode,
   onLeave,
-  copiedCode, 
-  isActive 
+  copiedCode,
 }) => {
-  const [timeRemaining, setTimeRemaining] = useState(0);
-  const [timeUntilStart, setTimeUntilStart] = useState(0);
-  const [isExpired, setIsExpired] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(0)
+  const [timeUntilStart, setTimeUntilStart] = useState(0)
+  const [hasStarted, setHasStarted] = useState(false)
+  const [isExpired, setIsExpired] = useState(false)
 
-  // Calculate time remaining and time until start with real-time countdown
+  const isJoined    = mode === 'joined'
+  const isPublic    = mode === 'public'
+  const isCompleted = mode === 'completed'
+
   useEffect(() => {
-    if (!isActive) return;
-
-    const calculateTime = () => {
-      const now = new Date().getTime();
-      const starts = competition.startsAt ? new Date(competition.startsAt).getTime() : now;
-      const ends = competition.endsAt ? new Date(competition.endsAt).getTime() : now;
-      
-      const diffToStart = Math.max(0, Math.floor((starts - now) / 1000));
-      const diffToEnd = Math.max(0, Math.floor((ends - now) / 1000));
-      
-      setTimeUntilStart(diffToStart);
-      setTimeRemaining(diffToEnd);
-      setHasStarted(diffToStart === 0);
-      setIsExpired(diffToEnd === 0);
-    };
-
-    calculateTime();
-    const timer = setInterval(calculateTime, 1000);
-
-    return () => clearInterval(timer);
-  }, [competition.startsAt, competition.endsAt, isActive]);
-
-  const formatTime = (seconds) => {
-    if (seconds <= 0) return 'EXPIRED';
-    
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    
-    if (hours > 0) {
-      return `${hours}h ${mins}m`;
+    if (isCompleted) return
+    const tick = () => {
+      const now    = Date.now()
+      const starts = competition.startsAt ? new Date(competition.startsAt).getTime() : now
+      const ends   = competition.endsAt   ? new Date(competition.endsAt).getTime()   : now
+      const toStart = Math.max(0, Math.floor((starts - now) / 1000))
+      const toEnd   = Math.max(0, Math.floor((ends - now) / 1000))
+      setTimeUntilStart(toStart)
+      setTimeRemaining(toEnd)
+      setHasStarted(toStart === 0)
+      setIsExpired(toEnd === 0)
     }
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+    tick()
+    const timer = setInterval(tick, 1000)
+    return () => clearInterval(timer)
+  }, [competition.startsAt, competition.endsAt, isCompleted])
 
-  const getStatusColor = (status) => {
-    const colors = {
-      'UPCOMING': '#00F0FF',
-      'ONGOING': '#00FF85',
-      'COMPLETED': '#9B00FF',
-      'CANCELED': '#FF003C'
-    };
-    return colors[status] || '#B0B0B0';
-  };
-
-  const getRankColor = (rank) => {
-    if (rank === 1) return '#FFD700';
-    if (rank === 2) return '#C0C0C0';
-    if (rank === 3) return '#CD7F32';
-    if (rank <= 10) return '#00F0FF';
-    if (rank <= 25) return '#9B00FF';
-    return '#B0B0B0';
-  };
-
-  // Determine if user can play
-  const canPlay = isActive && 
-                  !competition.hasPlayed && 
-                  !isExpired &&
-                  hasStarted &&
-                  competition.status === 'ONGOING';
-
-  // Check if user can leave (only before anyone has played)
-  const canLeave = isActive && 
-                   !competition.hasPlayed && 
-                   competition.playedCount === 0 &&
-                   !isExpired;
-
-  // Progress calculations
-  const progress = competition.maxPlayers > 0 
-    ? (competition.currentPlayers / competition.maxPlayers) * 100 
-    : 0;
+  const statusColor   = STATUS_COLOR[competition.status] || '#B0B0B0'
+  const canPlay       = isJoined && !competition.hasPlayed && !isExpired && hasStarted && competition.status === 'ONGOING'
+  const canLeave      = isJoined && !competition.hasPlayed && competition.playedCount === 0 && !isExpired
+  const isFull        = competition.currentPlayers >= competition.maxPlayers
+  const playerPct     = competition.maxPlayers > 0
+    ? Math.min(100, (competition.currentPlayers / competition.maxPlayers) * 100)
+    : 0
 
   return (
-    <Card 
-      className={`cyber-card mb-3 competition-card ${isExpired ? 'opacity-75' : ''}`}
-      style={{ 
-        transition: 'all 0.3s ease',
-        borderLeft: `4px solid ${getStatusColor(competition.status)}`
-      }}
-    >
-      <Card.Body>
-        <Row className="align-items-start">
-          <Col md={8}>
-            {/* Header Section */}
-            <div className="d-flex justify-content-between align-items-start mb-3">
-              <div className="flex-grow-1">
-                <h5 className="text-white mb-1">{competition.title}</h5>
-                
-                {/* Status Badges */}
-                <div className="d-flex gap-2 flex-wrap mb-2">
-                  <Badge style={{ background: '#9B00FF' }}>
-                    {competition.Game?.name || 'Unknown Game'}
-                  </Badge>
-                  <Badge 
-                    style={{ 
-                      background: getStatusColor(competition.status),
-                      transition: 'background 0.3s ease'
-                    }}
-                  >
-                    {competition.status}
-                  </Badge>
-                  {competition.playedCount > 0 && (
-                    <Badge style={{ background: '#00FF85' }}>
-                      {competition.playedCount}/{competition.currentPlayers} played
-                    </Badge>
-                  )}
-                  {isExpired && (
-                    <Badge style={{ background: '#FF003C' }}>
-                      <AlertCircle size={12} className="me-1" />
-                      EXPIRED
-                    </Badge>
-                  )}
-                </div>
+    <div className="pp-card" style={{ borderLeftColor: statusColor }}>
+      {/* Top row: title + status pills */}
+      <div className="pp-card-top">
+        <div className="pp-card-titlewrap">
+          <h5 className="pp-card-title">{competition.title}</h5>
+          <div className="pp-card-pills">
+            <span className="pp-pill pp-pill-game">
+              {competition.Game?.name || 'Unknown Game'}
+            </span>
+            <span className="pp-pill" style={{ background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}55` }}>
+              {competition.status}
+            </span>
+            {competition.Game?.level && (
+              <span className="pp-pill pp-pill-level">{competition.Game.level}</span>
+            )}
+            {isJoined && competition.playedCount > 0 && (
+              <span className="pp-pill pp-pill-progress">
+                {competition.playedCount}/{competition.currentPlayers} played
+              </span>
+            )}
+            {isExpired && !isCompleted && (
+              <span className="pp-pill pp-pill-expired">
+                <AlertCircle size={11} /> Expired
+              </span>
+            )}
+          </div>
+        </div>
 
-                {/* Competition Code */}
-                <div className="competition-code d-flex align-items-center mb-2">
-                  <span className="text-grey me-2">Code:</span>
-                  <code
-                    className="text-neon bg-dark px-2 py-1 rounded cursor-pointer"
-                    onClick={() => onCopyCode(competition.code)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {competition.code}
-                  </code>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="p-0 ms-2"
-                    onClick={() => onCopyCode(competition.code)}
-                  >
-                    {copiedCode === competition.code ? (
-                      <Check size={14} color="#00FF85" />
-                    ) : (
-                      <Copy size={14} color="#B0B0B0" />
-                    )}
-                  </Button>
-                </div>
-
-                {/* TIME COUNTDOWN - SIMPLIFIED */}
-                {isActive && (
-                  <div className="mb-2">
-                    <div className="d-flex align-items-center ">
-                      <small className="text-grey">
-                        <Clock size={12} className="me-1" />
-                        {!hasStarted ? 'Starts in' : 'Ends in'}
-                      </small>
-                      <small className="mx-2 text-grey">:</small>
-                      <small 
-                        className={`fw-bold ${
-                          isExpired ? 'text-danger' : 
-                          (!hasStarted || timeRemaining > 300) ? 'text-info' : 
-                          'text-warning'
-                        }`}
-                      >
-                        {!hasStarted ? formatTime(timeUntilStart) : formatTime(timeRemaining)}
-                      </small>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Rank Display */}
-              <div className="rank-display text-center ms-3">
-                {isActive ? (
-                  <>
-                    <div 
-                      className="rank-number fw-bold h3"
-                      style={{ 
-                        color: competition.currentRank ? getRankColor(competition.currentRank) : '#B0B0B0',
-                        transition: 'all 0.3s ease'
-                      }}
-                    >
-                      #{competition.currentRank || '-'}
-                    </div>
-                    <small className="text-white">
-                      of {competition.currentPlayers}
-                    </small>
-                  </>
-                ) : (
-                  <>
-                    <div
-                      className="rank-number fw-bold h3"
-                      style={{ 
-                        color: getRankColor(competition.finalRank || 999),
-                        transition: 'color 0.3s ease'
-                      }}
-                    >
-                      #{competition.finalRank || '-'}
-                    </div>
-                    <small className="text-white">Final</small>
-                  </>
-                )}
-              </div>
+        {/* Rank badge */}
+        {isJoined && (
+          <div className="pp-rank">
+            <div className="pp-rank-num" style={{ color: competition.currentRank ? rankColor(competition.currentRank) : '#666' }}>
+              #{competition.currentRank || '-'}
             </div>
-
-            {/* Stats Section */}
-            <div className="competition-stats mb-3">
-              <Row className="g-2">
-                <Col xs={6} sm={3}>
-                  <div className="d-flex align-items-center">
-                    <Trophy size={16} color="#00F0FF" className="me-2" />
-                    <span className="text-neon small">
-                      {isActive 
-                        ? `KSh ${competition.totalPrizePool || 0}` 
-                        : `${competition.finalScore || 0} pts`
-                      }
-                    </span>
-                  </div>
-                </Col>
-                <Col xs={6} sm={3}>
-                  <div className="d-flex align-items-center">
-                    <Zap size={16} color="#FF003C" className="me-2" />
-                    <span className="text-cyber-red small">
-                      KSh {competition.entryFee || 0}
-                    </span>
-                  </div>
-                </Col>
-                <Col xs={6} sm={3}>
-                  <div className="d-flex align-items-center">
-                    <Users size={16} color="#9B00FF" className="me-2" />
-                    <span className="text-purple small">
-                      {competition.currentPlayers || 0}/{competition.maxPlayers}
-                    </span>
-                  </div>
-                </Col>
-                <Col xs={6} sm={3}>
-                  <div className="d-flex align-items-center">
-                    <Trophy size={16} color="#00FF85" className="me-2" />
-                    <span className="text-energy-green small">
-                      {competition.Game?.level || 'N/A'}
-                    </span>
-                  </div>
-                </Col>
-              </Row>
+            <span className="pp-rank-label">of {competition.currentPlayers}</span>
+          </div>
+        )}
+        {isCompleted && (
+          <div className="pp-rank">
+            <div className="pp-rank-num" style={{ color: rankColor(competition.finalRank || 999) }}>
+              #{competition.finalRank || '-'}
             </div>
+            <span className="pp-rank-label">Final</span>
+          </div>
+        )}
+      </div>
 
-            {/* Players List - UPDATED WITH COLOR CODING */}
-            {competition.players && competition.players.length > 0 && (
-              <div className="players-status">
-                <small className="text-grey d-block mb-2">Players:</small>
-                <div className="d-flex flex-wrap gap-1">
-                  {competition.players.slice(0, 6).map((player, index) => (
-                    <Badge
-                      key={player.id || index}
-                      style={{
-                        background: player.hasPlayed ? '#00FF85' : '#FF6B6B',
-                        fontSize: '0.7rem',
-                        transition: 'background 0.3s ease',
-                        color: '#FFFFFF'
-                      }}
-                    >
-                      {player.username} {player.hasPlayed && '✓'}
-                      {player.score > 0 && ` (${player.score})`}
-                    </Badge>
-                  ))}
-                  {competition.players.length > 6 && (
-                    <Badge style={{ background: '#B0B0B0', fontSize: '0.7rem' }}>
-                      +{competition.players.length - 6} more
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            )}
-          </Col>
+      {/* Stats row */}
+      <div className="pp-card-stats">
+        <div className="pp-stat">
+          <Trophy size={14} color="#C53030" />
+          <span className="pp-stat-label">Prize</span>
+          <span className="pp-stat-value">{formatKES(competition.totalPrizePool)}</span>
+        </div>
+        <div className="pp-stat">
+          <Zap size={14} color="#DD6B20" />
+          <span className="pp-stat-label">Entry</span>
+          <span className="pp-stat-value">{formatKES(competition.entryFee)}</span>
+        </div>
+        <div className="pp-stat">
+          <Users size={14} color="#3182CE" />
+          <span className="pp-stat-label">Players</span>
+          <span className="pp-stat-value">{competition.currentPlayers || 0}/{competition.maxPlayers}</span>
+        </div>
+        {!isCompleted && (
+          <div className="pp-stat">
+            <Clock size={14} color={!hasStarted ? '#3182CE' : isExpired ? '#C53030' : '#38A169'} />
+            <span className="pp-stat-label">{!hasStarted ? 'Starts in' : 'Ends in'}</span>
+            <span className="pp-stat-value">
+              {!hasStarted ? formatTime(timeUntilStart) : formatTime(timeRemaining)}
+            </span>
+          </div>
+        )}
+        {isCompleted && competition.finalScore !== undefined && (
+          <div className="pp-stat">
+            <Trophy size={14} color="#38A169" />
+            <span className="pp-stat-label">Score</span>
+            <span className="pp-stat-value">{competition.finalScore} pts</span>
+          </div>
+        )}
+      </div>
 
-          {/* Action Buttons */}
-          <Col md={4} className="text-end">
-            {isActive && (
-              <div className="d-flex flex-column gap-2">
-                {/* Invite Button */}
-                <Button
-                  variant="outline-light"
-                  size="sm"
-                  onClick={() => onInvite(competition)}
-                  className="w-100"
-                  disabled={competition.currentPlayers >= competition.maxPlayers || isExpired}
-                >
-                  <Send size={16} className="me-2" />
-                  Invite Players
-                </Button>
+      {/* Capacity bar (public/joined only) */}
+      {!isCompleted && (
+        <div className="pp-progress">
+          <div className="pp-progress-fill" style={{
+            width: `${playerPct}%`,
+            background: isFull ? '#C53030' : 'linear-gradient(90deg, #C53030, #DD6B20)',
+          }} />
+        </div>
+      )}
 
-                {/* Play Button */}
-                <Button
-                  className="btn-cyber w-100"
-                  onClick={() => onPlay(competition)}
-                  disabled={!canPlay || isExpired || !hasStarted}
-                >
-                  {competition.hasPlayed ? (
-                    <>
-                      <Check size={20} className="me-2" />
-                      Completed
-                    </>
-                  ) : isExpired ? (
-                    <>
-                      <AlertCircle size={20} className="me-2" />
-                      Expired
-                    </>
-                  ) : !hasStarted ? (
-                    <>
-                      <Clock size={20} className="me-2" />
-                      Not Started
-                    </>
-                  ) : (
-                    <>
-                      <Play size={20} className="me-2" />
-                      Play Now
-                    </>
-                  )}
-                </Button>
+      {/* Bottom: code + actions */}
+      <div className="pp-card-bottom">
+        {competition.code && (
+          <div className="pp-code">
+            <span className="pp-code-label">Code</span>
+            <button
+              type="button"
+              className="pp-code-value"
+              onClick={() => onCopyCode?.(competition.code)}
+              title="Copy code"
+            >
+              {competition.code}
+              {copiedCode === competition.code
+                ? <Check size={12} color="#38A169" />
+                : <Copy size={12} color="#7A7A7A" />
+              }
+            </button>
+          </div>
+        )}
 
-                {/* Leave Button */}
-                {canLeave && onLeave && (
-                  <Button
-                    variant="outline-danger"
-                    size="sm"
-                    onClick={() => onLeave(competition)}
-                    className="w-100"
-                  >
-                    <LogOut size={16} className="me-2" />
-                    Leave Competition
-                  </Button>
-                )}
+        <div className="pp-card-actions">
+          {/* PUBLIC mode */}
+          {isPublic && (
+            <button
+              type="button"
+              className="pp-btn pp-btn-primary"
+              onClick={() => onJoin?.(competition)}
+              disabled={isFull || isExpired}
+            >
+              {isFull ? 'Full' : isExpired ? 'Expired' : (<>Join Competition <ChevronRight size={14} /></>)}
+            </button>
+          )}
 
-                {/* Warning Messages */}
-                {isExpired && (
-                  <small className="text-danger text-center">
-                    Competition has expired
-                  </small>
-                )}
-                {hasStarted && !competition.hasPlayed && !isExpired && (
-                  <small className="text-warning text-center">
-                    Game in progress
-                  </small>
-                )}
-              </div>
-            )}
+          {/* JOINED mode */}
+          {isJoined && (
+            <>
+              {canLeave && (
+                <button type="button" className="pp-btn pp-btn-ghost-danger" onClick={() => onLeave?.(competition)}>
+                  <LogOut size={14} /> Leave
+                </button>
+              )}
+              <button
+                type="button"
+                className="pp-btn pp-btn-ghost"
+                onClick={() => onInvite?.(competition)}
+                disabled={isFull || isExpired}
+              >
+                <Send size={14} /> Invite
+              </button>
+              <button
+                type="button"
+                className="pp-btn pp-btn-primary"
+                onClick={() => onPlay?.(competition)}
+                disabled={!canPlay}
+              >
+                {competition.hasPlayed
+                  ? (<><Check size={14} /> Played</>)
+                  : isExpired
+                    ? (<><AlertCircle size={14} /> Expired</>)
+                    : !hasStarted
+                      ? (<><Clock size={14} /> Not Started</>)
+                      : (<><Play size={14} /> Play Now</>)
+                }
+              </button>
+            </>
+          )}
 
-            {/* Completed Competition Info */}
-            {!isActive && competition.status === 'COMPLETED' && (
-              <div className="text-center">
-                <Badge 
-                  style={{ 
-                    background: getRankColor(competition.finalRank),
-                    fontSize: '0.9rem',
-                    padding: '8px 16px'
-                  }}
-                  className="mb-2"
-                >
-                  Rank #{competition.finalRank}
-                </Badge>
-                <div className="text-white small">
-                  Score: {competition.finalScore || 0}
-                </div>
-                {competition.earnings > 0 && (
-                  <div className="text-energy-green small fw-bold mt-1">
-                    Won: KSh {competition.earnings}
-                  </div>
-                )}
-              </div>
-            )}
+          {/* COMPLETED mode */}
+          {isCompleted && competition.earnings > 0 && (
+            <div className="pp-earnings">
+              <Trophy size={14} color="#38A169" />
+              <span>Won {formatKES(competition.earnings)}</span>
+            </div>
+          )}
+          {isCompleted && competition.status === 'CANCELED' && (
+            <span className="pp-canceled-note">Refund processed</span>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}, (prev, next) => (
+  prev.competition.id === next.competition.id &&
+  prev.competition.status === next.competition.status &&
+  prev.competition.currentPlayers === next.competition.currentPlayers &&
+  prev.competition.playedCount === next.competition.playedCount &&
+  prev.competition.currentRank === next.competition.currentRank &&
+  prev.competition.totalPrizePool === next.competition.totalPrizePool &&
+  prev.competition.hasPlayed === next.competition.hasPlayed &&
+  prev.competition.startsAt === next.competition.startsAt &&
+  prev.competition.endsAt === next.competition.endsAt &&
+  prev.copiedCode === next.copiedCode &&
+  prev.mode === next.mode
+))
 
-            {/* Canceled Competition Info */}
-            {!isActive && competition.status === 'CANCELED' && (
-              <div className="text-center">
-                <Badge style={{ background: '#FF003C' }}>
-                  Canceled
-                </Badge>
-                <div className="text-grey small mt-2">
-                  Refund processed
-                </div>
-              </div>
-            )}
-          </Col>
-        </Row>
-      </Card.Body>
-    </Card>
-  );
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.competition.id === nextProps.competition.id &&
-    prevProps.competition.status === nextProps.competition.status &&
-    prevProps.competition.currentPlayers === nextProps.competition.currentPlayers &&
-    prevProps.competition.playedCount === nextProps.competition.playedCount &&
-    prevProps.competition.currentRank === nextProps.competition.currentRank &&
-    prevProps.competition.totalPrizePool === nextProps.competition.totalPrizePool &&
-    prevProps.competition.hasPlayed === nextProps.competition.hasPlayed &&
-    prevProps.competition.startsAt === nextProps.competition.startsAt &&
-    prevProps.competition.endsAt === nextProps.competition.endsAt &&
-    prevProps.copiedCode === nextProps.copiedCode &&
-    prevProps.isActive === nextProps.isActive &&
-    JSON.stringify(prevProps.competition.players) === JSON.stringify(nextProps.competition.players)
-  );
-});
+CompetitionCard.displayName = 'CompetitionCard'
 
-CompetitionCard.displayName = 'CompetitionCard';
-
-export default CompetitionCard;
+export default CompetitionCard

@@ -1,21 +1,22 @@
-import React from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import Header from './Header';
-import Footer from './Footer';
-import { useAuth } from '../../contexts/AuthContext';
+import React from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
+import Header from './Header'
+import Footer from './Footer'
+import { useAuth } from '../../contexts/AuthContext'
+
+const HIDE_LAYOUT_ROUTES = ['/auth']
 
 const AppLayout = () => {
-  const { user, loading } = useAuth();
-  const { pathname } = useLocation();
+  const { isLoading } = useAuth()
+  const { pathname } = useLocation()
 
-  const hideLayoutRoutes = ['/auth'];
+  // Auth page renders alone, no Header/Footer (regardless of auth state)
+  if (HIDE_LAYOUT_ROUTES.includes(pathname)) return <Outlet />
 
-  const shouldHideLayout = loading || !user || hideLayoutRoutes.includes(pathname);
+  // Hide everything while auth is still resolving (avoids flash of guest UI for logged-in users)
+  if (isLoading) return <Outlet />
 
-  if (shouldHideLayout) {
-    return <Outlet />;
-  }
-
+  // Otherwise show the shared chrome. Header handles guest vs authenticated state itself.
   return (
     <>
       <Header />
@@ -24,7 +25,7 @@ const AppLayout = () => {
       </main>
       <Footer />
     </>
-  );
-};
+  )
+}
 
-export default AppLayout;
+export default AppLayout

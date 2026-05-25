@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+﻿import React, { useEffect, useRef, useState } from 'react'
 import { Container, Row, Col, Card, Button, Badge } from 'react-bootstrap'
 import { Play, Pause, Square, Users, Trophy } from 'lucide-react';
 import DinoGame from '../../games/dino/DinoGame';
@@ -160,13 +160,13 @@ const GamePlayground = ({ competition, onGameEnd }) => {
                 <small className="text-muted">{competition.Game?.name}</small>
               </div>
               <div className="game-info d-flex gap-3">
-                <Badge style={{ background: '#00F0FF' }}>
+                <Badge style={{ background: '#3182CE' }}>
                   Score: {currentScore}
                 </Badge>
-                <Badge style={{ background: '#FF003C' }}>
+                <Badge style={{ background: '#C53030' }}>
                   Time: {formatTime(timeRemaining)}
                 </Badge>
-                <Badge style={{ background: '#00FF85' }}>
+                <Badge style={{ background: '#38A169' }}>
                   {gameState.toUpperCase()}
                 </Badge>
               </div>
@@ -209,7 +209,7 @@ const GamePlayground = ({ competition, onGameEnd }) => {
                     width: '100%',
                     height: '400px',
                     background: '#f0f0f0',
-                    border: '2px solid #00F0FF'
+                    border: '2px solid #3182CE'
                   }}
                 />
                 
@@ -227,7 +227,7 @@ const GamePlayground = ({ competition, onGameEnd }) => {
                 {gameState === 'finished' && (
                   <div className="game-overlay">
                     <div className="text-center">
-                      <Trophy size={64} color="#00FF85" className="mb-3" />
+                      <Trophy size={64} color="#38A169" className="mb-3" />
                       <h4 className="text-white mb-2">Game Finished!</h4>
                       <h5 className="text-neon">Final Score: {currentScore}</h5>
                     </div>
@@ -254,8 +254,8 @@ const GamePlayground = ({ competition, onGameEnd }) => {
                     key={player.userId}
                     className="leaderboard-item p-3 d-flex justify-content-between align-items-center"
                     style={{
-                      borderBottom: index < liveLeaderboard.length - 1 ? '1px solid rgba(0, 240, 255, 0.1)' : 'none',
-                      background: player.finished ? 'rgba(0, 255, 133, 0.1)' : 'transparent'
+                      borderBottom: index < liveLeaderboard.length - 1 ? '1px solid rgba(49, 130, 206, 0.1)' : 'none',
+                      background: player.finished ? 'rgba(56, 161, 105, 0.1)' : 'transparent'
                     }}
                   >
                     <div className="d-flex align-items-center">
@@ -265,7 +265,7 @@ const GamePlayground = ({ competition, onGameEnd }) => {
                           width: '30px',
                           height: '30px',
                           borderRadius: '50%',
-                          background: index === 0 ? '#00FF85' : index === 1 ? '#00F0FF' : '#9B00FF',
+                          background: index === 0 ? '#38A169' : index === 1 ? '#3182CE' : '#805AD5',
                           color: '#0E0E10',
                           display: 'flex',
                           alignItems: 'center',
@@ -307,7 +307,7 @@ const GamePlayground = ({ competition, onGameEnd }) => {
                     key={player.userId}
                     className="player-item p-2 d-flex align-items-center"
                     style={{
-                      borderBottom: index < connectedPlayers.length - 1 ? '1px solid rgba(0, 240, 255, 0.1)' : 'none'
+                      borderBottom: index < connectedPlayers.length - 1 ? '1px solid rgba(49, 130, 206, 0.1)' : 'none'
                     }}
                   >
                     <div 
@@ -316,7 +316,7 @@ const GamePlayground = ({ competition, onGameEnd }) => {
                         width: '24px',
                         height: '24px',
                         borderRadius: '50%',
-                        background: '#9B00FF',
+                        background: '#805AD5',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -364,7 +364,7 @@ const GamePlayground = ({ competition, onGameEnd }) => {
         }
 
         .leaderboard-item:hover, .player-item:hover {
-          background: rgba(0, 240, 255, 0.05) !important;
+          background: rgba(49, 130, 206, 0.05) !important;
         }
       `}</style>
     </Container>

@@ -1,80 +1,72 @@
-import React from 'react';
-import { Card, Badge } from 'react-bootstrap';
-import { TrendingUp, Trophy } from 'lucide-react';
+import React from 'react'
+import { Trophy, TrendingUp } from 'lucide-react'
 
-const GlobalLeaderboard = ({ leaderboard }) => {
-  const getRankColor = (rank) => {
-    if (rank <= 3) return '#00FF85';
-    if (rank <= 10) return '#00F0FF';
-    if (rank <= 25) return '#9B00FF';
-    return '#B0B0B0';
-  };
+const rankColor = (rank) => {
+  if (rank === 1) return '#F6AD55'
+  if (rank === 2) return '#C0C0C0'
+  if (rank === 3) return '#CD7F32'
+  if (rank <= 10) return '#3182CE'
+  if (rank <= 25) return '#805AD5'
+  return '#7A7A7A'
+}
 
+const GlobalLeaderboard = ({ leaderboard = [] }) => {
   return (
-    <Card className="cyber-card sticky-top" style={{ top: '100px' }}>
-      <Card.Header className="d-flex align-items-center justify-content-between">
-        <div className="d-flex align-items-center">
-          <TrendingUp size={20} color="#00F0FF" className="me-2" />
-          <span className="fw-bold">Global Leaderboard</span>
+    <div className="pp-lb">
+      <div className="pp-lb-head">
+        <div className="pp-lb-title">
+          <TrendingUp size={16} color="#C53030" />
+          <span>Global Leaderboard</span>
         </div>
-        <Badge className="pulse" style={{ background: '#00FF85' }}>LIVE</Badge>
-      </Card.Header>
-      <Card.Body className="p-0">
-        <div className="leaderboard-list">
-          {leaderboard.length === 0 ? (
-            <div className="text-center p-4">
-              <p className="text-grey mb-0">No leaderboard data available</p>
-            </div>
-          ) : (
-            leaderboard.map((player, index) => (
+        <span className="pp-lb-live">
+          <span className="pp-live-dot" /> LIVE
+        </span>
+      </div>
+
+      {leaderboard.length === 0 ? (
+        <div className="pp-lb-empty">
+          <Trophy size={28} color="#3A3A3A" />
+          <p>No leaderboard data yet</p>
+        </div>
+      ) : (
+        <div className="pp-lb-list">
+          {leaderboard.map((player, i) => {
+            const rank = player.rank || i + 1
+            const isTop3 = rank <= 3
+            return (
               <div
-                key={player.id || index}
-                className={`leaderboard-item p-3 d-flex align-items-center ${player.isCurrentUser ? 'user-row' : ''}`}
+                key={player.id || i}
+                className={`pp-lb-row ${player.isCurrentUser ? 'pp-lb-row--me' : ''}`}
               >
-                <div
-                  className="rank-badge me-3"
+                <span
+                  className="pp-lb-rank"
                   style={{
-                    width: '30px',
-                    height: '30px',
-                    borderRadius: '50%',
-                    background: getRankColor(player.rank || index + 1),
-                    color: '#0E0E10',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '0.8rem',
-                    fontWeight: 'bold'
+                    background: isTop3 ? rankColor(rank) : 'transparent',
+                    color: isTop3 ? '#0E0E10' : rankColor(rank),
+                    border: isTop3 ? 'none' : `1px solid ${rankColor(rank)}55`,
                   }}
                 >
-                  {player.rank || index + 1}
-                </div>
+                  {rank}
+                </span>
 
-                <div className="player-avatar me-3" style={{ fontSize: '1.5rem' }}>
-                  {player.avatar || '🎮'}
-                </div>
-
-                <div className="player-info flex-grow-1">
-                  <div className="player-name fw-bold text-white">
+                <div className="pp-lb-info">
+                  <div className="pp-lb-name">
                     {player.username}
-                    {player.isCurrentUser && <span className="text-neon ms-2">(You)</span>}
+                    {player.isCurrentUser && <span className="pp-lb-you">(You)</span>}
                   </div>
-                  <div className="player-score text-grey small">
-                    KSh {player.totalEarnings?.toLocaleString() || 0} earned
+                  <div className="pp-lb-earnings">
+                    KES {Number(player.totalEarnings || 0).toLocaleString()} earned
                   </div>
                 </div>
 
-                {(player.rank || index + 1) <= 3 && (
-                  <div className="trophy-icon">
-                    <Trophy size={16} color={getRankColor(player.rank || index + 1)} />
-                  </div>
-                )}
+                {isTop3 && <Trophy size={14} color={rankColor(rank)} />}
               </div>
-            ))
-          )}
+            )
+          })}
         </div>
-      </Card.Body>
-    </Card>
-  );
-};
+      )}
+    </div>
+  )
+}
 
-export default GlobalLeaderboard;
+export default GlobalLeaderboard

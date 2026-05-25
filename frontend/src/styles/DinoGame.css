@@ -1,4 +1,4 @@
-.dino-game-container {
+﻿.dino-game-container {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -11,8 +11,8 @@
   overflow: hidden;
   position: relative;
   background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 50%, #DEB887 50%, #D2B48C 100%);
-  border: 3px solid #00F0FF;
-  box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+  border: 3px solid #3182CE;
+  box-shadow: 0 0 20px rgba(49, 130, 206, 0.3);
   border-radius: 8px;
 }
 
@@ -41,7 +41,7 @@
   background: rgba(0, 0, 0, 0.8);
   padding: 20px 40px;
   border-radius: 10px;
-  border: 2px solid #00F0FF;
+  border: 2px solid #3182CE;
   z-index: 100;
   animation: pulse 2s ease-in-out infinite;
   user-select: none;
@@ -51,15 +51,15 @@
   font-size: 2.5vmin;
   display: block;
   margin-top: 10px;
-  color: #00FF85;
+  color: #38A169;
 }
 
 @keyframes pulse {
   0%, 100% {
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+    box-shadow: 0 0 10px rgba(49, 130, 206, 0.5);
   }
   50% {
-    box-shadow: 0 0 30px rgba(0, 240, 255, 0.8);
+    box-shadow: 0 0 30px rgba(49, 130, 206, 0.8);
   }
 }
 

@@ -1,4 +1,4 @@
-import React from 'react'
+﻿import React from 'react'
 
 const LoadingSpinner = ({ 
   size = 'large', 
@@ -28,8 +28,8 @@ const LoadingSpinner = ({
           right: 0,
           bottom: 0,
           border: '2px solid transparent',
-          borderTopColor: '#00F0FF',
-          borderRightColor: '#9B00FF',
+          borderTopColor: '#3182CE',
+          borderRightColor: '#805AD5',
           borderRadius: '50%',
           animation: 'cyber-spin 1s linear infinite'
         }}
@@ -44,8 +44,8 @@ const LoadingSpinner = ({
           right: '4px',
           bottom: '4px',
           border: '2px solid transparent',
-          borderBottomColor: '#00FF85',
-          borderLeftColor: '#FF003C',
+          borderBottomColor: '#38A169',
+          borderLeftColor: '#C53030',
           borderRadius: '50%',
           animation: 'cyber-spin-reverse 1.5s linear infinite'
         }}
@@ -75,9 +75,9 @@ const LoadingSpinner = ({
           width: '8px',
           height: '8px',
           transform: 'translate(-50%, -50%)',
-          background: 'radial-gradient(circle, #00F0FF, transparent)',
+          background: 'radial-gradient(circle, #3182CE, transparent)',
           borderRadius: '50%',
-          boxShadow: '0 0 10px #00F0FF',
+          boxShadow: '0 0 10px #3182CE',
           animation: 'cyber-pulse 1.5s ease-in-out infinite'
         }}
       />
@@ -90,7 +90,7 @@ const LoadingSpinner = ({
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'radial-gradient(circle, rgba(0, 240, 255, 0.1), transparent)',
+          background: 'radial-gradient(circle, rgba(49, 130, 206, 0.1), transparent)',
           borderRadius: '50%',
           animation: 'cyber-ping 2s ease-in-out infinite'
         }}

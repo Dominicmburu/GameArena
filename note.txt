@@ -25,3 +25,8 @@ docker compose logs frontend --tail=50
 # Look for initialization messages that show new code is running
 
 // restart containers
+
+
+In big screens such as my monitor which is 24 inches, the system looks bad. can you atleast have a max width for big screens.
+Then i need us to still work on the hero section.
+I want to add multiple images of game. Make transitions/animations look good. Increase the fonts. The images and content for that image should auto scroll the

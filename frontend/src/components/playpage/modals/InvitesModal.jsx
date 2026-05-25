@@ -1,129 +1,166 @@
-import React from 'react';
-import { Modal, Tabs, Tab, ListGroup, Button, Badge, Spinner } from 'react-bootstrap';
-import { Mail, Send, UserCheck, UserX } from 'lucide-react';
+import React, { useState } from 'react'
+import { Modal, Spinner } from 'react-bootstrap'
+import { Mail, Send, Check, X, Inbox } from 'lucide-react'
+
+const formatDate = (iso) => {
+  if (!iso) return ''
+  return new Date(iso).toLocaleString('en-KE', {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}
+
+const formatKES = (n) =>
+  `KES ${Number(n || 0).toLocaleString('en-KE')}`
 
 const InvitesModal = ({
   show,
   onHide,
-  pendingInvites,
-  sentInvites,
+  pendingInvites = [],
+  sentInvites = [],
   onAcceptInvite,
   onDeclineInvite,
-  loadingStates
+  loadingStates = {},
 }) => {
+  const [tab, setTab] = useState('pending')
 
   return (
-    <Modal show={show} onHide={onHide} className="cyber-modal" size="lg">
+    <Modal show={show} onHide={onHide} className="pp-modal" size="lg">
       <Modal.Header closeButton>
-        <Modal.Title className="d-flex align-items-center">
-          <Mail size={24} className="me-2 text-neon" />
-          Game Invitations
+        <Modal.Title>
+          <span className="pp-modal-title-icon"><Mail size={16} /></span>
+          Competition Invites
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body>
-        <Tabs defaultActiveKey="pending" className="mb-3">
-          <Tab eventKey="pending" title={`Pending Invites (${pendingInvites?.length || 0})`}>
-            {(!pendingInvites || pendingInvites.length === 0) ? (
-              <div className="text-center py-4">
-                <Mail size={48} className="text-grey mb-3" />
-                <p className="text-grey">No pending game invitations</p>
-              </div>
-            ) : (
-              <ListGroup>
-                {pendingInvites.map(invite => (
-                  <ListGroup.Item key={invite.id} className="cyber-card mb-2">
-                    <div className="d-flex justify-content-between align-items-start">
-                      <div className="flex-grow-1">
-                        <div className="d-flex align-items-center mb-2">
-                          <div className="me-3" style={{ fontSize: '2rem' }}>
-                            {invite.Competition?.game?.imageUrl ? (
-                              <img
-                                src={invite.Competition.game.imageUrl}
-                                alt="Game"
-                                style={{ width: '40px', height: '40px', borderRadius: '8px' }}
-                              />
-                            ) : '🎮'}
-                          </div>
-                          <div>
-                            <strong className="text-white">{invite.Competition?.title}</strong>
-                            <div className="text-grey small">
-                              from <strong>{invite.inviter?.username}</strong>
-                            </div>
-                            <div className="text-grey small">
-                              {invite.Competition?.game?.name} • Entry: KSh {invite.Competition?.entryFee}
-                            </div>
-                          </div>
-                        </div>
-                        <small className="text-grey">
-                          Received {new Date(invite.createdAt).toLocaleDateString()}
-                        </small>
-                      </div>
-                      <div className="d-flex gap-2">
-                        <Button
-                          variant="success"
-                          size="sm"
-                          onClick={() => onAcceptInvite(invite)}
-                          disabled={loadingStates[`acceptingInvite_${invite.id}`]}
-                        >
-                          {loadingStates[`acceptingInvite_${invite.id}`] ? (
-                            <Spinner animation="border" size="sm" />
-                          ) : (
-                            <UserCheck size={16} />
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => onDeclineInvite(invite.id)}
-                          disabled={loadingStates[`decliningInvite_${invite.id}`]}
-                        >
-                          {loadingStates[`decliningInvite_${invite.id}`] ? (
-                            <Spinner animation="border" size="sm" />
-                          ) : (
-                            <UserX size={16} />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </ListGroup.Item>
-                ))}
-              </ListGroup>
-            )}
-          </Tab>
 
-          <Tab eventKey="sent" title={`Sent Invites (${sentInvites?.length || 0})`}>
-            {(!sentInvites || sentInvites.length === 0) ? (
-              <div className="text-center py-4">
-                <Send size={48} className="text-grey mb-3" />
-                <p className="text-grey">No sent invitations</p>
-              </div>
-            ) : (
-              <ListGroup>
-                {sentInvites.map(invite => (
-                  <ListGroup.Item key={invite.id} className="cyber-card mb-2">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div>
-                        <strong className="text-white">{invite.Competition?.title}</strong>
-                        <div className="text-grey small">
-                          to <strong>{invite.inviteeUsername}</strong>
-                        </div>
-                        <small className="text-grey">
-                          Sent {new Date(invite.createdAt).toLocaleDateString()}
-                        </small>
+      <Modal.Body>
+        <div className="pp-modal-tabs">
+          <button
+            type="button"
+            className={`pp-modal-tab ${tab === 'pending' ? 'active' : ''}`}
+            onClick={() => setTab('pending')}
+          >
+            <Inbox size={14} />
+            Received
+            <span className="pp-modal-tab-count">{pendingInvites.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`pp-modal-tab ${tab === 'sent' ? 'active' : ''}`}
+            onClick={() => setTab('sent')}
+          >
+            <Send size={14} />
+            Sent
+            <span className="pp-modal-tab-count">{sentInvites.length}</span>
+          </button>
+        </div>
+
+        {tab === 'pending' && (
+          pendingInvites.length === 0 ? (
+            <div className="pp-modal-empty">
+              <Inbox size={42} className="pp-modal-empty-icon" />
+              <p>No pending invitations</p>
+            </div>
+          ) : (
+            <div className="pp-modal-list">
+              {pendingInvites.map(invite => {
+                const isAccepting = loadingStates[`acceptingInvite_${invite.id}`]
+                const isDeclining = loadingStates[`decliningInvite_${invite.id}`]
+                const game = invite.Competition?.game
+                return (
+                  <div key={invite.id} className="pp-modal-item">
+                    {game?.imageUrl ? (
+                      <img
+                        src={game.imageUrl}
+                        alt={game.name}
+                        className="pp-modal-game-thumb"
+                        onError={(e) => { e.currentTarget.style.display = 'none' }}
+                      />
+                    ) : (
+                      <div className="pp-modal-avatar">
+                        {invite.inviter?.username?.charAt(0)?.toUpperCase() || '?'}
                       </div>
-                      <Badge bg={invite.accepted ? "success" : "warning"}>
-                        {invite.accepted ? "Accepted" : "Pending"}
-                      </Badge>
+                    )}
+
+                    <div className="pp-modal-item-info">
+                      <div className="pp-modal-item-title">
+                        {invite.Competition?.title || 'Competition'}
+                      </div>
+                      <div className="pp-modal-item-sub">
+                        from <strong>{invite.inviter?.username || 'Unknown'}</strong>
+                        {game?.name && ` · ${game.name}`}
+                      </div>
+                      <span className="pp-modal-fee">
+                        Entry {formatKES(invite.Competition?.entryFee)}
+                      </span>
+                      <div className="pp-modal-item-meta">
+                        {formatDate(invite.createdAt)}
+                      </div>
                     </div>
-                  </ListGroup.Item>
-                ))}
-              </ListGroup>
-            )}
-          </Tab>
-        </Tabs>
+
+                    <div className="pp-modal-item-actions">
+                      <button
+                        type="button"
+                        className="pp-modal-iconbtn pp-modal-iconbtn--accept"
+                        onClick={() => onAcceptInvite(invite)}
+                        disabled={isAccepting || isDeclining}
+                        title="Accept"
+                        aria-label="Accept invitation"
+                      >
+                        {isAccepting ? <Spinner animation="border" size="sm" /> : <Check size={16} />}
+                      </button>
+                      <button
+                        type="button"
+                        className="pp-modal-iconbtn pp-modal-iconbtn--decline"
+                        onClick={() => onDeclineInvite(invite.id)}
+                        disabled={isAccepting || isDeclining}
+                        title="Decline"
+                        aria-label="Decline invitation"
+                      >
+                        {isDeclining ? <Spinner animation="border" size="sm" /> : <X size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        )}
+
+        {tab === 'sent' && (
+          sentInvites.length === 0 ? (
+            <div className="pp-modal-empty">
+              <Send size={42} className="pp-modal-empty-icon" />
+              <p>You haven't sent any invitations yet</p>
+            </div>
+          ) : (
+            <div className="pp-modal-list">
+              {sentInvites.map(invite => (
+                <div key={invite.id} className="pp-modal-item">
+                  <div className="pp-modal-avatar">
+                    {invite.inviteeUsername?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                  <div className="pp-modal-item-info">
+                    <div className="pp-modal-item-title">
+                      {invite.Competition?.title || 'Competition'}
+                    </div>
+                    <div className="pp-modal-item-sub">
+                      to <strong>{invite.inviteeUsername}</strong>
+                    </div>
+                    <div className="pp-modal-item-meta">
+                      Sent {formatDate(invite.createdAt)}
+                    </div>
+                  </div>
+                  <span className={`pp-modal-status pp-modal-status--${invite.accepted ? 'accepted' : 'pending'}`}>
+                    {invite.accepted ? 'Accepted' : 'Pending'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )
+        )}
       </Modal.Body>
     </Modal>
-  );
-};
+  )
+}
 
-export default InvitesModal;
+export default InvitesModal

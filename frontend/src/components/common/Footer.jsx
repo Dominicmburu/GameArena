@@ -1,203 +1,68 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Home, Gamepad2, PlusCircle, Dumbbell } from 'lucide-react';
+import React from 'react'
+import { Link } from 'react-router-dom'
 
 const Footer = () => {
-    const location = useLocation();
-    const isActive = (path) => location.pathname === path;
+  return (
+    <footer className="d-none d-lg-block ga-footer">
+      <div className="ga-footer-inner">
+        <p className="ga-footer-copy">
+          &copy; {new Date().getFullYear()} GameArena. All rights reserved.
+        </p>
+        <div className="ga-footer-links">
+          <Link to="/privacy-policy" className="ga-footer-link">Privacy Policy</Link>
+          <span className="ga-footer-sep" />
+          <Link to="/terms-of-service" className="ga-footer-link">Terms of Service</Link>
+        </div>
+      </div>
 
-    return (
-        <>
-            {/* Desktop Footer */}
-            <footer className="d-lg-block d-none">
-                {/* Line above content */}
-                <div 
-                    style={{
-                        width: '100%',
-                        height: '1px',
-                        background: 'linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.5), transparent)',
-                        marginBottom: '20px'
-                    }}
-                ></div>
-                
-                <div 
-                    className="footer-content"
-                    style={{
-                        color: '#FFFFFF',
-                        textAlign: 'center',
-                        padding: '20px 0',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        gap: '40px',
-                        flexWrap: 'wrap'
-                    }}
-                >
-                    <p style={{ margin: '0', fontSize: '14px' }}>
-                        &copy; {new Date().getFullYear()} GameArena. All rights reserved.
-                    </p>
-                    <div style={{ margin: '0', fontSize: '14px' }}>
-                        <a 
-                            href="/privacy-policy" 
-                            style={{ 
-                                color: '#FFFFFF', 
-                                textDecoration: 'none',
-                                transition: 'color 0.3s ease'
-                            }}
-                            onMouseEnter={(e) => e.target.style.color = '#00F0FF'}
-                            onMouseLeave={(e) => e.target.style.color = '#FFFFFF'}
-                        >
-                            Privacy Policy
-                        </a>
-                        <span style={{ margin: '0 10px', color: '#666' }}>|</span>
-                        <a 
-                            href="/terms-of-service" 
-                            style={{ 
-                                color: '#FFFFFF', 
-                                textDecoration: 'none',
-                                transition: 'color 0.3s ease'
-                            }}
-                            onMouseEnter={(e) => e.target.style.color = '#00F0FF'}
-                            onMouseLeave={(e) => e.target.style.color = '#FFFFFF'}
-                        >
-                            Terms of Service
-                        </a>
-                    </div>
-                </div>
-            </footer>
+      <style jsx>{`
+        .ga-footer {
+          border-top: 1px solid rgba(197, 48, 48, 0.12);
+          padding: 20px 0;
+        }
 
-            {/* Mobile Bottom Navigation */}
-            <nav 
-                className="mobile-bottom-nav d-lg-none"
-                style={{
-                    position: 'fixed',
-                    bottom: '0',
-                    left: '0',
-                    right: '0',
-                    background: 'rgba(14, 14, 16, 0.95)',
-                    backdropFilter: 'blur(10px)',
-                    borderTop: '1px solid rgba(0, 240, 255, 0.3)',
-                    boxShadow: '0 -2px 20px rgba(0, 240, 255, 0.1)',
-                    zIndex: 1030,
-                    padding: '8px 0'
-                }}
-            >
-                <div className="d-flex justify-content-around align-items-center">
-                    <Link 
-                        to="/" 
-                        className={`mobile-nav-item ${isActive('/') ? 'active' : ''}`}
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            textDecoration: 'none',
-                            color: isActive('/') ? '#00F0FF' : '#F5F5F5',
-                            padding: '8px 12px',
-                            borderRadius: '12px',
-                            transition: 'all 0.3s ease',
-                            background: isActive('/') ? 'rgba(0, 240, 255, 0.1)' : 'transparent'
-                        }}
-                    >
-                        <Home size={24} />
-                        <span style={{ 
-                            fontSize: '0.7rem', 
-                            marginTop: '4px',
-                            fontWeight: isActive('/') ? 'bold' : 'normal'
-                        }}>
-                            Home
-                        </span>
-                    </Link>
+        .ga-footer-inner {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 32px;
+          flex-wrap: wrap;
+          padding: 0 28px;
+        }
 
-                    <Link 
-                        to="/play" 
-                        className={`mobile-nav-item ${isActive('/play') ? 'active' : ''}`}
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            textDecoration: 'none',
-                            color: isActive('/play') ? '#00F0FF' : '#F5F5F5',
-                            padding: '8px 12px',
-                            borderRadius: '12px',
-                            transition: 'all 0.3s ease',
-                            background: isActive('/play') ? 'rgba(0, 240, 255, 0.1)' : 'transparent'
-                        }}
-                    >
-                        <Gamepad2 size={24} />
-                        <span style={{ 
-                            fontSize: '0.7rem', 
-                            marginTop: '4px',
-                            fontWeight: isActive('/play') ? 'bold' : 'normal'
-                        }}>
-                            Play
-                        </span>
-                    </Link>
+        .ga-footer-copy {
+          margin: 0;
+          font-size: 0.82rem;
+          color: #505050;
+        }
 
-                    <Link 
-                        to="/create" 
-                        className={`mobile-nav-item ${isActive('/create') ? 'active' : ''}`}
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            textDecoration: 'none',
-                            color: isActive('/create') ? '#00F0FF' : '#F5F5F5',
-                            padding: '8px 12px',
-                            borderRadius: '12px',
-                            transition: 'all 0.3s ease',
-                            background: isActive('/create') ? 'rgba(0, 240, 255, 0.1)' : 'transparent'
-                        }}
-                    >
-                        <PlusCircle size={24} />
-                        <span style={{ 
-                            fontSize: '0.7rem', 
-                            marginTop: '4px',
-                            fontWeight: isActive('/create') ? 'bold' : 'normal'
-                        }}>
-                            Create
-                        </span>
-                    </Link>
+        .ga-footer-links {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
 
-                    <Link 
-                        to="/train" 
-                        className={`mobile-nav-item ${isActive('/train') ? 'active' : ''}`}
-                        style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            textDecoration: 'none',
-                            color: isActive('/train') ? '#00F0FF' : '#F5F5F5',
-                            padding: '8px 12px',
-                            borderRadius: '12px',
-                            transition: 'all 0.3s ease',
-                            background: isActive('/train') ? 'rgba(0, 240, 255, 0.1)' : 'transparent'
-                        }}
-                    >
-                        <Dumbbell size={24} />
-                        <span style={{ 
-                            fontSize: '0.7rem', 
-                            marginTop: '4px',
-                            fontWeight: isActive('/train') ? 'bold' : 'normal'
-                        }}>
-                            Train
-                        </span>
-                    </Link>
-                </div>
-            </nav>
+        .ga-footer-link {
+          font-size: 0.82rem;
+          color: #505050;
+          text-decoration: none;
+          transition: color 0.2s ease;
+        }
 
-            <style jsx>{`
-                .mobile-nav-item:hover {
-                    color: #00F0FF !important;
-                    background: rgba(0, 240, 255, 0.1) !important;
-                    transform: scale(1.05);
-                }
+        .ga-footer-link:hover {
+          color: #C53030;
+          text-decoration: none;
+        }
 
-                .mobile-nav-item.active {
-                    box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
-                }
-            `}</style>
-        </>
-    );
-};
+        .ga-footer-sep {
+          width: 1px;
+          height: 12px;
+          background: rgba(255, 255, 255, 0.1);
+          display: inline-block;
+        }
+      `}</style>
+    </footer>
+  )
+}
 
-export default Footer;
+export default Footer

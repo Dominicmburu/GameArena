@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Modal, ListGroup, Button, Badge } from 'react-bootstrap';
 import { History } from 'lucide-react';
 
@@ -29,7 +29,7 @@ const GameHistoryModal = ({ show, onHide, gameHistory, onInviteAgain }) => {
                     </div>
                     <div className="mt-1">
                       {player.gameTypes?.map(type => (
-                        <Badge key={type} className="me-1" style={{ background: '#9B00FF' }}>
+                        <Badge key={type} className="me-1" style={{ background: '#805AD5' }}>
                           {type}
                         </Badge>
                       ))}

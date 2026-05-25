@@ -1,343 +1,381 @@
-import React from 'react'
-import { Shield, DollarSign, Clock, Users, AlertTriangle, CheckCircle, Award, Info } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Container } from 'react-bootstrap'
+import { Link } from 'react-router-dom'
+import {
+  Shield, Wallet, KeyRound, Sparkles, Trophy, Gamepad2, Scale,
+  ShieldAlert, MessageCircle, AlertTriangle, ChevronLeft, ChevronRight,
+} from 'lucide-react'
+import '../styles/PlayPage.css'
+import '../styles/GameRules.css'
+
+const SECTIONS = [
+  {
+    id: 'getting-started',
+    Icon: Sparkles,
+    title: 'Getting Started',
+    intro: 'How GameArena works and what you need to play.',
+    rules: [
+      {
+        h: 'Create your account',
+        p: 'Sign up free with your email and username. No deposit needed to register or to use Training mode.',
+      },
+      {
+        h: 'Training is always free',
+        p: 'The Practice Arena (/train) lets you play every game with no entry fee, no prize, and no risk. Use it to learn games before competing.',
+      },
+      {
+        h: 'Real competitions need a wallet',
+        p: 'Joining or creating real-money competitions requires you to deposit KES into your GameArena wallet via M-Pesa.',
+      },
+      {
+        h: 'You must be 18+',
+        p: 'Players must be at least 18 years old (or the legal gambling age in their jurisdiction) to participate in paid competitions.',
+      },
+    ],
+  },
+  {
+    id: 'wallet',
+    Icon: Wallet,
+    title: 'Wallet, Deposits & Withdrawals',
+    intro: 'How money moves into and out of your GameArena account.',
+    rules: [
+      {
+        h: 'Deposits via M-Pesa STK Push',
+        p: 'Deposits use an M-Pesa STK push to your phone. Enter the amount and your number, approve the prompt with your M-Pesa PIN, and funds appear in your wallet usually within seconds.',
+      },
+      {
+        h: 'Deposit limits',
+        p: 'Minimum deposit is KES 1. Maximum deposit is KES 150,000 per transaction. Both limits are set by GameArena and may change.',
+      },
+      {
+        h: 'Withdrawals via Pochi La Biashara',
+        p: 'Withdrawals are sent to your M-Pesa number via the Pochi La Biashara service. Your number must have Pochi activated to receive payouts — see the Wallet page for activation steps.',
+      },
+      {
+        h: 'Withdrawal minimum & processing',
+        p: 'Minimum withdrawal is KES 100. Processing time is 1–24 hours via M-Pesa B2C. You can submit multiple withdrawal requests but each is processed separately.',
+      },
+      {
+        h: 'Fees',
+        p: 'GameArena does not charge a fee for deposits or withdrawals. Standard M-Pesa transaction charges apply as per Safaricom\'s rates.',
+      },
+    ],
+  },
+  {
+    id: 'joining',
+    Icon: KeyRound,
+    title: 'Joining Competitions',
+    intro: 'Two ways to find competitions: browse public ones, or use a code.',
+    rules: [
+      {
+        h: 'Browse public competitions',
+        p: 'The Play page lists all public competitions that are Live Now or Upcoming. Anyone can join provided they have enough wallet balance for the entry fee.',
+      },
+      {
+        h: 'Join by code',
+        p: 'Private competitions require an invite code. Get a code from the creator, click "Join by Code" on the Play page, and enter it.',
+      },
+      {
+        h: 'Accepting an invite',
+        p: 'If a friend invites you directly by username, the invite appears under the Mail icon on the Play page. Accept to join; decline to pass.',
+      },
+      {
+        h: 'Entry fee is taken upfront',
+        p: 'The entry fee is deducted from your wallet the moment you confirm joining a competition. If your balance is short, you must top up first.',
+      },
+      {
+        h: 'You can leave before the game starts',
+        p: 'You may leave a competition you joined and get a full refund as long as nobody (including you) has played a game yet. Once anyone has started playing, you can no longer leave.',
+      },
+    ],
+  },
+  {
+    id: 'creating',
+    Icon: Trophy,
+    title: 'Creating Competitions',
+    intro: 'Set the rules and the prize pool. Invite friends or open it to the public.',
+    rules: [
+      {
+        h: 'Pick a game and set the details',
+        p: 'On the Create page, pick a game, set a title, choose Private or Public, set max players (within the game\'s range), set the entry fee (≥ the game\'s minimum), and pick a start time + duration.',
+      },
+      {
+        h: 'Platform fees: 15% private, 20% public',
+        p: 'GameArena retains a platform fee from the total prize pool — 15% for Private competitions (invite-only by code), and 20% for Public competitions (listed on the Play page).',
+      },
+      {
+        h: 'Prize pool math',
+        p: 'Prize pool = (entry fee × players who join) × (1 − platform fee). Example: 4 players × KES 100 entry fee in a Private competition = KES 400 collected × 0.85 = KES 340 prize.',
+      },
+      {
+        h: 'Custom start and duration',
+        p: 'Pick a start time (now, in 5 min, in 30 min, etc., or any custom date/time) and a duration (30 min, 1 hr, 2 hr, 4 hr, or custom). Minimum duration is 15 minutes.',
+      },
+      {
+        h: 'Your entry fee is taken at creation',
+        p: 'The creator is automatically the first player and pays the entry fee on creation. The competition code is generated immediately — share it with friends to invite them.',
+      },
+    ],
+  },
+  {
+    id: 'playing',
+    Icon: Gamepad2,
+    title: 'Playing & Scoring',
+    intro: 'How a competition plays out and how the winner is decided.',
+    rules: [
+      {
+        h: 'Highest score wins',
+        p: 'Whoever has the highest score at the end of the competition window wins the prize pool. Scores are submitted automatically when you finish your game.',
+      },
+      {
+        h: 'One play per player',
+        p: 'Each player gets one attempt per competition. Make it count — you cannot retry to improve your score.',
+      },
+      {
+        h: 'Tied scores split the prize',
+        p: 'If two or more players tie at the top, the prize pool is split equally among the tied players.',
+      },
+      {
+        h: 'Non-participants forfeit their entry',
+        p: 'If you join a competition but never actually play before it ends, you score zero. Your entry fee is added to the prize pool for the players who did play.',
+      },
+      {
+        h: 'Game starts must be on time',
+        p: 'You can play any time between the start time and the end time. Once the competition ends, no more plays are accepted — even if you joined and paid.',
+      },
+    ],
+  },
+  {
+    id: 'prizes',
+    Icon: Trophy,
+    title: 'Prizes & Payouts',
+    intro: 'When and how your winnings reach your wallet.',
+    rules: [
+      {
+        h: 'Winners credited instantly',
+        p: 'When a competition ends, the prize pool is automatically credited to the winner\'s wallet within seconds of the final score being recorded.',
+      },
+      {
+        h: 'Withdraw to M-Pesa anytime',
+        p: 'Your winnings are real KES in your wallet. Withdraw to your M-Pesa number from the Wallet page — processed within 1–24 hours via Pochi La Biashara.',
+      },
+      {
+        h: 'Verification may delay payouts',
+        p: 'Suspicious activity or unusually large wins may trigger a verification hold. We\'ll contact you if so. Standard payouts go through without delay.',
+      },
+    ],
+  },
+  {
+    id: 'refunds',
+    Icon: Scale,
+    title: 'Refunds & Cancellations',
+    intro: 'What happens when a competition doesn\'t go as planned.',
+    rules: [
+      {
+        h: 'No other players joined',
+        p: 'If a competition ends with only the creator and nobody else joined, the full entry fee is refunded to the creator\'s wallet and the competition is closed.',
+      },
+      {
+        h: 'Joined but nobody played',
+        p: 'If players joined but none of them (including the creator) actually played, the platform commission is deducted and the remaining 85–80% is refunded proportionally to all participants.',
+      },
+      {
+        h: 'Leaving before play',
+        p: 'You may leave a competition and receive a full refund of your entry fee, provided no player (including yourself) has started a game yet.',
+      },
+      {
+        h: 'Technical failures',
+        p: 'If GameArena experiences a technical failure that affects competition integrity, we will cancel the affected competition and refund all participants in full.',
+      },
+    ],
+  },
+  {
+    id: 'fair-play',
+    Icon: ShieldAlert,
+    title: 'Fair Play & Compliance',
+    intro: 'Rules that keep the platform safe for everyone.',
+    rules: [
+      {
+        h: 'No cheating, hacking, or exploits',
+        p: 'Modifying game code, automating gameplay, exploiting bugs to gain unfair scores, or using third-party tools is strictly prohibited. Violators are permanently banned and forfeit all funds.',
+      },
+      {
+        h: 'One account per person',
+        p: 'You may only operate one GameArena account. Creating additional accounts to evade bans, collude in competitions, or claim multiple bonuses is prohibited.',
+      },
+      {
+        h: 'Responsible gaming',
+        p: 'Only deposit what you can afford to lose. If you feel your gaming is becoming a problem, contact support to set spending limits or request self-exclusion.',
+      },
+      {
+        h: 'Jurisdictional compliance',
+        p: 'You are responsible for confirming that participation in real-money gaming is legal in your country. GameArena does not operate in jurisdictions where this is prohibited.',
+      },
+      {
+        h: 'Account security',
+        p: 'Keep your password and M-Pesa PIN private. Any action taken from your logged-in account is your responsibility. Report suspicious activity to support immediately.',
+      },
+    ],
+  },
+  {
+    id: 'disputes',
+    Icon: MessageCircle,
+    title: 'Disputes & Support',
+    intro: 'When something goes wrong, here\'s how we resolve it.',
+    rules: [
+      {
+        h: 'File within 24 hours',
+        p: 'Disputes must be filed within 24 hours of competition completion via support. Late disputes may not be considered.',
+      },
+      {
+        h: 'Provide evidence',
+        p: 'Include screenshots, timestamps, and a clear description of the issue. False or malicious disputes can result in account penalties.',
+      },
+      {
+        h: '3–5 business days to investigate',
+        p: 'Our moderation team reviews disputes thoroughly. Most are resolved within 3–5 business days. Decisions are final.',
+      },
+      {
+        h: 'Privacy and data',
+        p: 'Your personal data is protected. We never share it with third parties without your consent. M-Pesa transaction data is handled per Safaricom\'s privacy policies.',
+      },
+      {
+        h: 'Rule updates',
+        p: 'These rules may be updated. Material changes are announced on the platform. Continued use after a change means you accept the new terms.',
+      },
+    ],
+  },
+]
 
 const GameRules = () => {
-  const rulesSections = [
-    {
-      icon: DollarSign,
-      color: '#00FF85',
-      title: 'Payment & Entry Fees',
-      rules: [
-        {
-          subtitle: 'Competition Creation',
-          text: 'When creating a competition, the entry fee amount is immediately deducted from your wallet balance. For example, if you set an entry fee of $100, your wallet will be reduced by $100 upon competition creation.'
-        },
-        {
-          subtitle: 'Upfront Payment Policy',
-          text: 'All payments are processed upfront. When accepting an invite to play or joining a game by code, the entry fee is deducted from your wallet immediately before participation is confirmed.'
-        },
-        {
-          subtitle: 'No Refund After Gameplay',
-          text: 'Once a player has started participating in the competition, entry fees become non-refundable except under the specific refund conditions outlined in these rules.'
-        }
-      ]
-    },
-    {
-      icon: Clock,
-      color: '#00F0FF',
-      title: 'Competition Duration & Expiration',
-      rules: [
-        {
-          subtitle: 'One Hour Time Limit',
-          text: 'All competitions automatically expire one (1) hour after creation. Players must join and complete their gameplay within this timeframe.'
-        },
-        {
-          subtitle: 'Expired Competition - No Players',
-          text: 'If a competition expires with only the creator and no other players have joined, the competition is automatically deleted and the full entry fee is returned to the creator\'s wallet.'
-        },
-        {
-          subtitle: 'Expired Competition - With Players',
-          text: 'If a competition expires and players have joined but none have participated/played, a 15% platform commission is deducted and the remaining 85% is returned proportionally to all participants\' wallets.'
-        }
-      ]
-    },
-    {
-      icon: Users,
-      color: '#9B00FF',
-      title: 'Player Participation & Scoring',
-      rules: [
-        {
-          subtitle: 'Non-Participation Penalty',
-          text: 'If a competition is created and some players do not participate or play, those players receive a score of zero (0) and forfeit their entry fee. The prize pool is awarded to participating players based on their scores.'
-        },
-        {
-          subtitle: 'Highest Score Winner',
-          text: 'The player with the highest score at the end of the competition period is declared the winner and receives the full prize pool minus platform fees.'
-        },
-        {
-          subtitle: 'Tied Scores',
-          text: 'If two or more players achieve the same highest score, the prize pool is divided equally among all tied winners. Each tied winner receives their proportional share of the total prize.'
-        },
-        {
-          subtitle: 'All Players Leave Before Start',
-          text: 'If all players leave the competition before any player has started playing the game, the competition is cancelled and full refunds are issued to all participants, minus a processing fee.'
-        }
-      ]
-    },
-    {
-      icon: Award,
-      color: '#FFD700',
-      title: 'Prize Distribution',
-      rules: [
-        {
-          subtitle: 'Prize Pool Calculation',
-          text: 'The total prize pool consists of 85% of all collected entry fees. A 15% platform commission is retained for operational costs, security, and platform maintenance.'
-        },
-        {
-          subtitle: 'Winner Payout',
-          text: 'Prize money is credited to the winner\'s wallet immediately upon competition completion and score verification. Winners can withdraw their earnings subject to platform withdrawal policies.'
-        },
-        {
-          subtitle: 'Payout Verification',
-          text: 'All payouts are subject to verification to prevent fraud and ensure compliance with gaming regulations. In cases of suspicious activity, payouts may be temporarily held pending investigation.'
-        }
-      ]
-    },
-    {
-      icon: Shield,
-      color: '#FF003C',
-      title: 'Fair Play & Compliance',
-      rules: [
-        {
-          subtitle: 'Anti-Cheating Policy',
-          text: 'Any form of cheating, hacking, or exploiting game mechanics is strictly prohibited. Players found violating this policy will be permanently banned and forfeit all entry fees and prizes.'
-        },
-        {
-          subtitle: 'Age Restriction',
-          text: 'Players must be 18 years of age or older (or the legal gambling age in their jurisdiction) to participate in paid competitions. Age verification may be required before withdrawal of winnings.'
-        },
-        {
-          subtitle: 'Responsible Gaming',
-          text: 'We promote responsible gaming. Players should only wager amounts they can afford to lose. Self-exclusion tools and spending limits are available upon request through platform settings.'
-        },
-        {
-          subtitle: 'Jurisdictional Compliance',
-          text: 'Players are responsible for ensuring that their participation complies with local, state, and federal laws. The platform is not available in jurisdictions where online gaming for money is prohibited.'
-        },
-        {
-          subtitle: 'Account Security',
-          text: 'Users are responsible for maintaining the security of their accounts. Any activity from your account is considered your responsibility. Report suspicious activity immediately to platform support.'
-        }
-      ]
-    },
-    {
-      icon: AlertTriangle,
-      color: '#FFA500',
-      title: 'Dispute Resolution',
-      rules: [
-        {
-          subtitle: 'Dispute Filing',
-          text: 'Disputes must be filed within 24 hours of competition completion through the official support channels. Late disputes may not be considered.'
-        },
-        {
-          subtitle: 'Investigation Process',
-          text: 'All disputes are investigated thoroughly by our moderation team. Investigations typically conclude within 3-5 business days. Decisions made by the moderation team are final.'
-        },
-        {
-          subtitle: 'Evidence Requirements',
-          text: 'Players filing disputes must provide relevant evidence including screenshots, timestamps, and detailed descriptions. False or malicious disputes may result in account penalties.'
-        }
-      ]
-    },
-    {
-      icon: Info,
-      color: '#00F0FF',
-      title: 'General Terms & Conditions',
-      rules: [
-        {
-          subtitle: 'Platform Rights',
-          text: 'The platform reserves the right to cancel, modify, or refuse any competition that violates terms of service or raises security concerns. Affected users will be notified and refunded appropriately.'
-        },
-        {
-          subtitle: 'Rule Changes',
-          text: 'These rules may be updated periodically. Users will be notified of significant changes via email and platform notifications. Continued use of the platform constitutes acceptance of updated rules.'
-        },
-        {
-          subtitle: 'Technical Issues',
-          text: 'In the event of technical difficulties or server outages that affect competition integrity, the platform may cancel affected competitions and issue full refunds to all participants.'
-        },
-        {
-          subtitle: 'Data Privacy',
-          text: 'All player data, gameplay statistics, and financial transactions are protected under our privacy policy and applicable data protection regulations. Data is never shared with third parties without explicit consent.'
-        },
-        {
-          subtitle: 'Tax Obligations',
-          text: 'Winners are responsible for reporting and paying any applicable taxes on their winnings according to their local tax laws. The platform may provide tax documentation upon request where required by law.'
-        }
-      ]
+  const [activeId, setActiveId] = useState(SECTIONS[0].id)
+
+  useEffect(() => {
+    const ids = SECTIONS.map(s => s.id)
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+        if (visible[0]) setActiveId(visible[0].target.id)
+      },
+      { rootMargin: '-15% 0px -65% 0px', threshold: 0 }
+    )
+    ids.forEach(id => {
+      const el = document.getElementById(id)
+      if (el) observer.observe(el)
+    })
+    return () => observer.disconnect()
+  }, [])
+
+  const jumpTo = (id) => {
+    const el = document.getElementById(id)
+    if (el) {
+      const top = el.getBoundingClientRect().top + window.scrollY - 80
+      window.scrollTo({ top, behavior: 'smooth' })
     }
-  ]
+  }
 
   return (
-    <div className="game-rules-page" style={{ minHeight: '100vh', paddingBottom: '60px' }}>
-      <div className="container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
+    <div className="pp-page">
+      <Container fluid className="pp-container">
         {/* Header */}
-        <div className="page-header cyber-card" style={{ padding: '40px', textAlign: 'center', marginBottom: '40px' }}>
-          <Shield size={48} color="#00FF85" style={{ marginBottom: '20px' }} />
-          <h1 className="cyber-text text-neon" style={{ marginBottom: '20px' }}>
-            Game Rules & Regulations
-          </h1>
-          <p className="text-white" style={{ maxWidth: '800px', margin: '0 auto' }}>
-            Please read and understand all rules before participating in any competition. 
-            By creating or joining a competition, you agree to abide by these regulations.
-          </p>
+        <div className="pp-header">
+          <div className="pp-header-top">
+            <div className="pp-header-titleblock">
+              <Link to="/" className="pp-back-link">
+                <ChevronLeft size={14} /> Back to Home
+              </Link>
+              <h1 className="pp-title">
+                <Shield size={20} style={{ marginRight: 10, verticalAlign: 'middle', color: '#C53030' }} />
+                Game Rules
+              </h1>
+              <p className="pp-subtitle">
+                Read these before you compete. By joining or creating a competition, you agree to abide by them.
+              </p>
+            </div>
+          </div>
+
+          <div className="gr-notice">
+            <AlertTriangle size={16} color="#F6AD55" />
+            <div>
+              <strong>Real money disclosure.</strong> Entry fees are taken from your wallet upfront and are
+              non-refundable once any player has started a game in the competition. Make sure you
+              understand the rules before joining or creating.
+            </div>
+          </div>
         </div>
 
-        {/* Important Notice */}
-        <div className="alert-box" style={{ marginBottom: '30px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-            <AlertTriangle size={24} className="text-cyber-red" style={{ marginRight: '15px', marginTop: '5px', flexShrink: 0 }} />
-            <div>
-              <h5 className="text-cyber-red" style={{ marginBottom: '10px' }}>Important Notice</h5>
-              <p className="text-white" style={{ margin: 0 }}>
-                All entry fees are deducted upfront and are non-refundable once gameplay has started. 
-                Please ensure you understand all rules and have sufficient funds before participating.
+        <div className="pp-layout gr-layout">
+          {/* Sidebar TOC */}
+          <aside className="gr-toc">
+            <div className="gr-toc-head">On this page</div>
+            <nav className="gr-toc-list">
+              {SECTIONS.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`gr-toc-item ${activeId === s.id ? 'active' : ''}`}
+                  onClick={() => jumpTo(s.id)}
+                >
+                  <span className="gr-toc-num">{String(i + 1).padStart(2, '0')}</span>
+                  <span className="gr-toc-text">{s.title}</span>
+                </button>
+              ))}
+            </nav>
+          </aside>
+
+          {/* Sections */}
+          <div className="pp-main">
+            {SECTIONS.map((s, i) => (
+              <section key={s.id} id={s.id} className="gr-section">
+                <div className="gr-section-head">
+                  <div className="gr-section-num">{String(i + 1).padStart(2, '0')}</div>
+                  <div className="gr-section-icon">
+                    <s.Icon size={18} />
+                  </div>
+                  <div className="gr-section-titles">
+                    <h2 className="gr-section-title">{s.title}</h2>
+                    <p className="gr-section-intro">{s.intro}</p>
+                  </div>
+                </div>
+
+                <div className="gr-rules">
+                  {s.rules.map((r, j) => (
+                    <div key={j} className="gr-rule">
+                      <h4 className="gr-rule-h">{r.h}</h4>
+                      <p className="gr-rule-p">{r.p}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+
+            {/* Footer */}
+            <div className="gr-foot">
+              <div className="gr-foot-icon">
+                <MessageCircle size={20} color="#C53030" />
+              </div>
+              <h3>Need help?</h3>
+              <p>
+                If anything in these rules is unclear, contact support before you join or create
+                a competition. Our team is happy to walk you through it.
+              </p>
+              <div className="gr-foot-actions">
+                <Link to="/play" className="pp-btn pp-btn-primary">
+                  Browse Competitions <ChevronRight size={14} />
+                </Link>
+                <Link to="/" className="pp-btn pp-btn-ghost">
+                  Back to Home
+                </Link>
+              </div>
+              <p className="gr-foot-stamp">
+                Last updated: May 2026 · Version 2.0
               </p>
             </div>
           </div>
         </div>
-
-        {/* Rules Sections */}
-        {rulesSections.map((section, sectionIndex) => (
-          <div key={sectionIndex} className="cyber-card" style={{ marginBottom: '30px' }}>
-            <div style={{ padding: '30px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '25px' }}>
-                <div 
-                  className="icon-wrapper" 
-                  style={{ 
-                    background: `${section.color}20`,
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: `2px solid ${section.color}`,
-                    marginRight: '15px'
-                  }}
-                >
-                  <section.icon size={28} color={section.color} />
-                </div>
-                <h3 style={{ color: section.color, margin: 0 }}>
-                  {section.title}
-                </h3>
-              </div>
-
-              <div className="rules-content">
-                {section.rules.map((rule, ruleIndex) => (
-                  <div 
-                    key={ruleIndex} 
-                    className="rule-item"
-                    style={{ 
-                      marginBottom: '25px',
-                      paddingBottom: '20px',
-                      borderBottom: ruleIndex < section.rules.length - 1 
-                        ? '1px solid rgba(255, 255, 255, 0.1)' 
-                        : 'none' 
-                    }}
-                  >
-                    <h5 className="text-white" style={{ marginBottom: '10px', display: 'flex', alignItems: 'center' }}>
-                      <CheckCircle size={18} color={section.color} style={{ marginRight: '10px' }} />
-                      {rule.subtitle}
-                    </h5>
-                    <p className="text-white" style={{ margin: 0, marginLeft: '28px', lineHeight: '1.6' }}>
-                      {rule.text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {/* Footer Notice */}
-        <div className="cyber-card" style={{ padding: '30px', textAlign: 'center' }}>
-          <Info size={32} color="#00F0FF" style={{ marginBottom: '15px' }} />
-          <h5 className="text-neon" style={{ marginBottom: '15px' }}>Questions or Concerns?</h5>
-          <p className="text-white" style={{ marginBottom: '15px' }}>
-            If you have any questions about these rules or need clarification, 
-            please contact our support team before participating in any competition.
-          </p>
-          <p className="text-white-50" style={{ fontSize: '0.875rem', margin: 0 }}>
-            Last Updated: October 2025 | Version 1.0
-          </p>
-        </div>
-      </div>
-
-      <style jsx>{`
-        .game-rules-page {
-          background: linear-gradient(135deg, #0E0E10 0%, #1a1a2e 50%, #16213e 100%);
-          background-attachment: fixed;
-        }
-
-        .cyber-card {
-          background: rgba(31, 31, 35, 0.7);
-          border: 1px solid rgba(0, 240, 255, 0.2);
-          border-radius: 12px;
-          backdrop-filter: blur(10px);
-          transition: all 0.3s ease;
-        }
-
-        .cyber-card:hover {
-          border-color: rgba(0, 240, 255, 0.4);
-          box-shadow: 0 8px 32px rgba(0, 240, 255, 0.15);
-        }
-
-        .cyber-text {
-          font-weight: 700;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-        }
-
-        .text-neon {
-          color: #00FF85;
-        }
-
-        .text-cyber-red {
-          color: #FF003C;
-        }
-
-        .text-white {
-          color: #ffffff;
-        }
-
-        .text-white-50 {
-          color: rgba(255, 255, 255, 0.5);
-        }
-
-        .alert-box {
-          padding: 25px;
-          background: rgba(255, 0, 60, 0.15);
-          border: 2px solid rgba(255, 0, 60, 0.4);
-          border-radius: 8px;
-          animation: pulseGlow 2s ease-in-out infinite;
-        }
-
-        .rule-item {
-          transition: all 0.2s ease;
-        }
-
-        .rule-item:hover {
-          transform: translateX(5px);
-        }
-
-        .icon-wrapper {
-          transition: all 0.3s ease;
-          }
-
-        .cyber-card:hover .icon-wrapper {
-          transform: scale(1.05);
-        }
-
-        @keyframes pulseGlow {
-          0%, 100% {
-            box-shadow: 0 0 10px rgba(255, 0, 60, 0.2);
-          }
-          50% {
-            box-shadow: 0 0 20px rgba(255, 0, 60, 0.4);
-          }
-        }
-
-        @media (max-width: 768px) {
-          .page-header h1 {
-            font-size: 1.75rem;
-          }
-          
-          .cyber-card {
-            margin-bottom: 1rem;
-          }
-
-          .container {
-            padding: 20px 15px !important;
-          }
-        }
-      `}</style>
+      </Container>
     </div>
   )
 }

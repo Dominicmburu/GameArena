@@ -37,27 +37,32 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Public routes where a 401 should NOT force a redirect to /auth.
+// Guests can browse these freely; auth probes are expected to 401.
+const PUBLIC_PATHS = ['/', '/game-rules', '/auth'];
+
+// Endpoints where a 401 is an expected response (auth-status probes etc.)
+const isAuthProbe = (url) =>
+  typeof url === 'string' && /\/auth\/me(?:\/|$|\?)/.test(url);
+
 // Centralized error handling
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const status = error.response?.status;
+    const reqUrl = error.config?.url || '';
+    const currentPath = window.location.pathname;
 
     if (status === 401) {
-      // Not authenticated / session expired
-      if (window.location.pathname !== '/auth') {
+      // Skip the auto-redirect when:
+      //  - the request is itself an auth probe (401 is informational, not a "kick out")
+      //  - the user is already on a public page (don't yank guests off the homepage)
+      //  - the user is already on /auth
+      const skip = isAuthProbe(reqUrl) || PUBLIC_PATHS.includes(currentPath);
+      if (!skip) {
         window.location.href = '/auth';
       }
     }
-
-    // Optional: handle CSRF mismatch/expired token (framework-specific)
-    // If your backend exposes a CSRF-refresh endpoint, you can try:
-    // if (status === 403 || status === 419) {
-    //   try {
-    //     await api.get('/auth/csrf'); // e.g., refresh CSRF cookie
-    //     return api(error.config);    // retry original request once
-    //   } catch (_) {}
-    // }
 
     return Promise.reject(error);
   }

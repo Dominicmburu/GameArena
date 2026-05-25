@@ -1,74 +1,76 @@
-
+﻿
 .card {
   background: rgba(31, 31, 35, 0.9) !important;
-  border: 1px solid rgba(0, 240, 255, 0.3) !important;
+  border: 1px solid rgba(49, 130, 206, 0.3) !important;
   color: #F5F5F5 !important;
 }
 
 .card-header {
-  background: rgba(0, 240, 255, 0.1) !important;
-  border-bottom: 1px solid rgba(0, 240, 255, 0.3) !important;
+  background: rgba(49, 130, 206, 0.1) !important;
+  border-bottom: 1px solid rgba(49, 130, 206, 0.3) !important;
 }
 
 .btn-primary {
-  background: linear-gradient(45deg, #00F0FF, #9B00FF) !important;
+  background: #C53030 !important;
   border: none !important;
-  color: #0E0E10 !important;
-  font-weight: 600 !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  border-radius: 4px !important;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(45deg, #9B00FF, #00F0FF) !important;
-  color: #F5F5F5 !important;
+  background: #9B2C2C !important;
+  color: #fff !important;
   transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(197, 48, 48, 0.4) !important;
 }
 
 .btn-outline-primary {
-  border-color: #00F0FF !important;
-  color: #00F0FF !important;
+  border-color: #3182CE !important;
+  color: #3182CE !important;
 }
 
 .btn-outline-primary:hover {
-  background-color: #00F0FF !important;
-  color: #0E0E10 !important;
+  background-color: #3182CE !important;
+  color: #fff !important;
 }
 
 .form-control {
   background: rgba(31, 31, 35, 0.8) !important;
-  border: 1px solid rgba(0, 240, 255, 0.3) !important;
+  border: 1px solid rgba(49, 130, 206, 0.3) !important;
   color: #F5F5F5 !important;
 }
 
 .form-control:focus {
   background: rgba(31, 31, 35, 0.9) !important;
-  border-color: #00F0FF !important;
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3) !important;
+  border-color: #3182CE !important;
+  box-shadow: 0 0 10px rgba(49, 130, 206, 0.3) !important;
   color: #F5F5F5 !important;
 }
 
 .form-select {
   background: rgba(31, 31, 35, 0.8) !important;
-  border: 1px solid rgba(0, 240, 255, 0.3) !important;
+  border: 1px solid rgba(49, 130, 206, 0.3) !important;
   color: #F5F5F5 !important;
 }
 
 .form-select:focus {
-  border-color: #00F0FF !important;
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3) !important;
+  border-color: #3182CE !important;
+  box-shadow: 0 0 10px rgba(49, 130, 206, 0.3) !important;
 }
 
 .modal-content {
   background: rgba(31, 31, 35, 0.95) !important;
-  border: 1px solid rgba(0, 240, 255, 0.3) !important;
+  border: 1px solid rgba(49, 130, 206, 0.3) !important;
   color: #F5F5F5 !important;
 }
 
 .modal-header {
-  border-bottom: 1px solid rgba(0, 240, 255, 0.3) !important;
+  border-bottom: 1px solid rgba(49, 130, 206, 0.3) !important;
 }
 
 .modal-footer {
-  border-top: 1px solid rgba(0, 240, 255, 0.3) !important;
+  border-top: 1px solid rgba(49, 130, 206, 0.3) !important;
 }
 
 .table-dark {
@@ -80,15 +82,15 @@
 }
 
 .navbar-dark .navbar-nav .nav-link:hover {
-  color: #00F0FF !important;
+  color: #3182CE !important;
 }
 
 /* Loading Animation */
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(0, 240, 255, 0.3);
-  border-top: 3px solid #00F0FF;
+  border: 3px solid rgba(49, 130, 206, 0.3);
+  border-top: 3px solid #3182CE;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -100,19 +102,19 @@
 
 /* Utility Classes */
 .text-neon {
-  color: #00F0FF !important;
+  color: #3182CE !important;
 }
 
 .text-purple {
-  color: #9B00FF !important;
+  color: #805AD5 !important;
 }
 
 .text-cyber-red {
-  color: #FF003C !important;
+  color: #C53030 !important;
 }
 
 .text-energy-green {
-  color: #00FF85 !important;
+  color: #38A169 !important;
 }
 
 .bg-gunmetal {
@@ -120,9 +122,9 @@
 }
 
 .border-neon {
-  border-color: #00F0FF !important;
+  border-color: #3182CE !important;
 }
 
 .border-purple {
-  border-color: #9B00FF !important;
+  border-color: #805AD5 !important;
 }

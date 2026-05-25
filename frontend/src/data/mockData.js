@@ -1,4 +1,4 @@
-// Mock data for development and testing purposes
+﻿// Mock data for development and testing purposes
 
 // User Profile Data
 export const mockUser = {
@@ -111,7 +111,7 @@ export const mockTrainingGames = [
     avgScore: 1850,
     improvement: '+12%',
     lastPlayed: '2 hours ago',
-    color: '#00F0FF',
+    color: '#3182CE',
     totalTimePlayed: 420, // minutes
     skillsImproved: ['Accuracy', 'Reaction Time', 'Hand-Eye Coordination']
   },
@@ -127,7 +127,7 @@ export const mockTrainingGames = [
     avgScore: 145,
     improvement: '+8%',
     lastPlayed: '1 day ago',
-    color: '#9B00FF',
+    color: '#805AD5',
     totalTimePlayed: 285,
     skillsImproved: ['Click Speed', 'Precision', 'Endurance']
   },
@@ -143,7 +143,7 @@ export const mockTrainingGames = [
     avgScore: 2650,
     improvement: '+15%',
     lastPlayed: '3 hours ago',
-    color: '#00FF85',
+    color: '#38A169',
     totalTimePlayed: 395,
     skillsImproved: ['Memory', 'Pattern Recognition', 'Focus']
   }

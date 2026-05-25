@@ -1,49 +1,58 @@
-import React from 'react';
-import { Modal, Button, Form, Spinner } from 'react-bootstrap';
-import { UserPlus } from 'lucide-react';
+import React from 'react'
+import { Modal, Spinner } from 'react-bootstrap'
+import { KeyRound, ChevronRight } from 'lucide-react'
 
 const JoinCompetitionModal = ({ show, onHide, joinCode, onJoinCodeChange, onJoin, loading }) => {
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (joinCode.trim() && !loading) onJoin()
+  }
+
   return (
-    <Modal show={show} onHide={onHide} className="cyber-modal" centered>
+    <Modal show={show} onHide={onHide} className="pp-modal" centered>
       <Modal.Header closeButton>
-        <Modal.Title className="d-flex align-items-center">
-          <UserPlus size={24} className="me-2 text-neon" />
-          Join Competition
+        <Modal.Title>
+          <span className="pp-modal-title-icon"><KeyRound size={16} /></span>
+          Join by Code
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body>
-        <Form.Group className="mb-3">
-          <Form.Label className="text-white">Competition Code</Form.Label>
-          <Form.Control
+
+      <form onSubmit={handleSubmit}>
+        <Modal.Body>
+          <p className="pp-modal-helper" style={{ marginBottom: 14 }}>
+            Enter the competition code shared by the host to join the game.
+          </p>
+
+          <input
             type="text"
-            className="cyber-input"
-            placeholder="Enter competition code (e.g., ABC123)"
+            className="pp-modal-input pp-modal-input--code"
+            placeholder="ABC123"
             value={joinCode}
             onChange={(e) => onJoinCodeChange(e.target.value.toUpperCase())}
-            maxLength={8}
+            maxLength={10}
+            autoFocus
           />
-          <Form.Text className="text-grey">Enter the 6-8 character competition code</Form.Text>
-        </Form.Group>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="outline-secondary" onClick={onHide}>
-          Cancel
-        </Button>
-        <Button
-          className="btn-cyber"
-          onClick={onJoin}
-          disabled={!joinCode.trim() || loading}
-        >
-          {loading ? (
-            <Spinner animation="border" size="sm" className="me-2" />
-          ) : (
-            <UserPlus size={18} className="me-2" />
-          )}
-          Join Competition
-        </Button>
-      </Modal.Footer>
-    </Modal>
-  );
-};
+          <p className="pp-modal-helper" style={{ marginTop: 10, textAlign: 'center' }}>
+            Competition codes are typically 6 characters
+          </p>
+        </Modal.Body>
 
-export default JoinCompetitionModal;
+        <Modal.Footer>
+          <button type="button" className="pp-modal-btn pp-modal-btn--ghost" onClick={onHide}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="pp-modal-btn pp-modal-btn--primary"
+            disabled={!joinCode.trim() || loading}
+          >
+            {loading ? <Spinner animation="border" size="sm" /> : <ChevronRight size={15} />}
+            {loading ? 'Finding...' : 'Continue'}
+          </button>
+        </Modal.Footer>
+      </form>
+    </Modal>
+  )
+}
+
+export default JoinCompetitionModal

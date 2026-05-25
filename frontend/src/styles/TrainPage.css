@@ -1,0 +1,275 @@
+/* ════════════════════════════════════════
+   TRAIN PAGE — Practice Arena
+   Reuses .pp-* classes from PlayPage.css
+════════════════════════════════════════ */
+
+/* ── Summary stats in header ──────────────────────── */
+.tp-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.tp-summary-stat {
+  display: flex; flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 0 18px;
+  border-right: 1px solid rgba(255,255,255,0.05);
+}
+.tp-summary-stat:last-child { border-right: none; }
+.tp-summary-label {
+  color: #7A7A7A;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+.tp-summary-value {
+  color: #F5F5F5;
+  font-family: 'Orbitron', monospace;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+@media (max-width: 767px) {
+  .tp-summary {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .tp-summary-stat {
+    border-right: none;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding: 8px 0;
+    flex-direction: row;
+    align-items: center;
+  }
+  .tp-summary-stat:last-child { border-bottom: none; }
+  .tp-summary-label { flex: 1; }
+}
+
+/* ── Feedback bar (after save) ─────────────────────── */
+.tp-feedback {
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  margin-bottom: 18px;
+  animation: tpSlideIn 0.3s ease;
+}
+.tp-feedback--ok {
+  background: rgba(56,161,105,0.1);
+  border: 1px solid rgba(56,161,105,0.35);
+  color: #5BC58A;
+}
+.tp-feedback--err {
+  background: rgba(197,48,48,0.1);
+  border: 1px solid rgba(197,48,48,0.35);
+  color: #E08888;
+}
+@keyframes tpSlideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Game grid ─────────────────────────────────────── */
+.tp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+.tp-card {
+  background: rgba(20,20,22,0.7);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+}
+.tp-card:hover {
+  border-color: rgba(197,48,48,0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+}
+.tp-card-img {
+  position: relative;
+  height: 130px;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.tp-card-img img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.tp-untried-badge {
+  position: absolute;
+  top: 10px; right: 10px;
+  background: rgba(0,0,0,0.7);
+  color: #B0B0B0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.tp-card-body {
+  padding: 14px 16px 16px;
+  flex: 1;
+  display: flex; flex-direction: column;
+  gap: 10px;
+}
+.tp-card-name {
+  color: #F5F5F5;
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+}
+.tp-card-pills {
+  display: flex; gap: 5px; flex-wrap: wrap;
+}
+.tp-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 10px 0;
+  margin-top: auto;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.tp-card-stat {
+  display: flex; flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.tp-card-stat-label {
+  color: #7A7A7A;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.tp-card-stat-value {
+  color: #F5F5F5;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.tp-card-cta {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (max-width: 575px) {
+  .tp-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+  .tp-card-img { height: 100px; }
+  .tp-card-body { padding: 12px 12px 14px; gap: 8px; }
+  .tp-card-name { font-size: 0.9rem; }
+  .tp-card-stat-value { font-size: 0.78rem; }
+}
+
+/* ── Sidebar cards ─────────────────────────────────── */
+.tp-side-card {
+  background: rgba(20,20,22,0.7);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.tp-side-card:last-child { margin-bottom: 0; }
+.tp-side-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: rgba(197,48,48,0.04);
+  color: #F5F5F5;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.tp-side-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: #7A7A7A;
+  font-size: 0.82rem;
+}
+.tp-side-empty p { margin: 0; }
+
+.tp-side-list { padding: 6px 0; }
+.tp-side-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.tp-side-row:last-child { border-bottom: none; }
+.tp-side-row-main { flex: 1; min-width: 0; }
+.tp-side-row-game {
+  color: #F5F5F5;
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tp-side-row-meta {
+  color: #7A7A7A;
+  font-size: 0.7rem;
+  margin-top: 1px;
+}
+.tp-side-row-score {
+  color: #C53030;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.94rem;
+  font-weight: 800;
+}
+
+.tp-top-game {
+  padding: 14px 16px 16px;
+}
+.tp-top-game-name {
+  color: #F5F5F5;
+  font-size: 1rem;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+.tp-top-game-rows {
+  display: flex; flex-direction: column;
+}
+.tp-top-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  color: #B0B0B0;
+  font-size: 0.8rem;
+}
+.tp-top-row:last-child { border-bottom: none; }
+.tp-top-row strong {
+  color: #F5F5F5;
+  font-family: 'Orbitron', monospace;
+  font-weight: 700;
+}
+
+/* ── Saving overlay ────────────────────────────────── */
+.tp-saving-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #F5F5F5;
+  font-weight: 600;
+  font-size: 0.9rem;
+  backdrop-filter: blur(4px);
+}

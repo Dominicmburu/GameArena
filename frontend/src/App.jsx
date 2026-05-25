@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/common/ProtectedRoute'
 import Homepage from './pages/Homepage'
 import PlayPage from './pages/PlayPage'
+import HistoryPage from './pages/HistoryPage'
 import MakeGame from './pages/MakeGame'
 import TrainPage from './pages/TrainPage'
 import Profile from './pages/Profile'
@@ -30,16 +31,20 @@ function App() {
                     <Routes>
                       <Route path="/auth" element={<Auth />} />
 
-                      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-
+                      {/* Public routes — Header shows Sign Up / Log In for guests */}
+                      <Route element={<AppLayout />}>
                         <Route path="/" element={<Homepage />} />
+                        <Route path="/game-rules" element={<GameRules />} />
+                      </Route>
+
+                      {/* Authenticated routes */}
+                      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                         <Route path="/play" element={<PlayPage />} />
+                        <Route path="/history" element={<HistoryPage />} />
                         <Route path="/create" element={<MakeGame />} />
                         <Route path="/train" element={<TrainPage />} />
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/deposit" element={<Deposit />} />
-                        <Route path="/game-rules" element={<GameRules />} />
-
                       </Route>
 
                     </Routes>

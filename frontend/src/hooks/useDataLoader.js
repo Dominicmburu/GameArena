@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 const useDataLoader = ({
   fetchMyCompetitions,
   fetchParticipatedCompetitions,
+  fetchPublicCompetitions,
   fetchGlobalLeaderboard,
   fetchFriends,
   fetchFriendRequests,
@@ -12,7 +13,7 @@ const useDataLoader = ({
   setWalletBalance,
   setLeaderboard,
   showToastMessage,
-  fetchBalance  
+  fetchBalance
 }) => {
 
   const loadGlobalLeaderboard = useCallback(async () => {
@@ -30,6 +31,7 @@ const useDataLoader = ({
       await Promise.all([
         fetchMyCompetitions(),
         fetchParticipatedCompetitions(),
+        fetchPublicCompetitions?.(),
         fetchBalance(),
         loadGlobalLeaderboard(),
         fetchFriends(),
@@ -45,6 +47,7 @@ const useDataLoader = ({
   }, [
     fetchMyCompetitions,
     fetchParticipatedCompetitions,
+    fetchPublicCompetitions,
     fetchBalance,
     loadGlobalLeaderboard,
     fetchFriends,

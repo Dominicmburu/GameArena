@@ -1,4 +1,4 @@
-import React from 'react'
+﻿import React from 'react'
 import { Modal, Button, Row, Col, Alert } from 'react-bootstrap'
 import { Info, DollarSign, AlertTriangle, Gamepad2, CreditCard } from 'lucide-react'
 
@@ -37,11 +37,11 @@ const ConfirmationModal = ({
         <div className="confirmation-content">
 
           {/* Financial Summary */}
-          <div className="mb-4 p-3 cyber-card" style={{ background: 'rgba(0, 255, 133, 0.08)' }}>
+          <div className="mb-4 p-3 cyber-card" style={{ background: 'rgba(56, 161, 105, 0.08)' }}>
             {hasEnoughBalance ? (
               <div className="alert p-3 mt-3 mb-0" style={{ 
-                background: 'rgba(255, 0, 60, 0.15)', 
-                border: '1px solid rgba(255, 0, 60, 0.4)',
+                background: 'rgba(197, 48, 48, 0.15)', 
+                border: '1px solid rgba(197, 48, 48, 0.4)',
                 borderRadius: '6px'
               }}>
                 <div className="d-flex align-items-start">
@@ -57,8 +57,8 @@ const ConfirmationModal = ({
               </div>
             ) : (
               <div className="alert p-3 mt-3 mb-0" style={{ 
-                background: 'rgba(255, 0, 60, 0.2)', 
-                border: '2px solid rgba(255, 0, 60, 0.5)',
+                background: 'rgba(197, 48, 48, 0.2)', 
+                border: '2px solid rgba(197, 48, 48, 0.5)',
                 borderRadius: '6px'
               }}>
                 <div className="d-flex align-items-start">
@@ -78,7 +78,7 @@ const ConfirmationModal = ({
           </div>
 
           {/* Game Rules Link */}
-          <div className="p-3 cyber-card" style={{ background: 'rgba(155, 0, 255, 0.08)' }}>
+          <div className="p-3 cyber-card" style={{ background: 'rgba(128, 90, 213, 0.08)' }}>
             <h5 className="text-purple mb-3">
               <Info size={20} className="me-2 mb-1" style={{ display: 'inline' }} />
               Important Information
@@ -92,9 +92,9 @@ const ConfirmationModal = ({
               variant="outline-light"
               className="w-100 mb-3"
               style={{
-                border: '2px solid rgba(155, 0, 255, 0.5)',
-                color: '#9B00FF',
-                background: 'rgba(155, 0, 255, 0.1)',
+                border: '2px solid rgba(128, 90, 213, 0.5)',
+                color: '#805AD5',
+                background: 'rgba(128, 90, 213, 0.1)',
                 padding: '12px',
                 borderRadius: '6px'
               }}
@@ -107,7 +107,7 @@ const ConfirmationModal = ({
         </div>
       </Modal.Body>
 
-      <Modal.Footer style={{ borderTop: '1px solid rgba(0, 240, 255, 0.3)' }}>
+      <Modal.Footer style={{ borderTop: '1px solid rgba(49, 130, 206, 0.3)' }}>
         <Button
           variant="outline-secondary"
           onClick={onHide}
@@ -139,8 +139,8 @@ const ConfirmationModal = ({
             className="btn-cyber"
             onClick={onTopUp}
             style={{
-              background: 'linear-gradient(45deg, #FF003C, #FF6B00)',
-              boxShadow: '0 0 20px rgba(255, 0, 60, 0.3)'
+              background: 'linear-gradient(45deg, #C53030, #FF6B00)',
+              boxShadow: '0 0 20px rgba(197, 48, 48, 0.3)'
             }}
           >
             <CreditCard size={18} className="me-2" />
@@ -152,28 +152,28 @@ const ConfirmationModal = ({
       <style jsx>{`
         .cyber-modal .modal-content {
           background: rgba(31, 31, 35, 0.95) !important;
-          border: 1px solid rgba(0, 240, 255, 0.3) !important;
+          border: 1px solid rgba(49, 130, 206, 0.3) !important;
           backdrop-filter: blur(10px);
         }
 
         .cyber-modal .modal-header {
-          border-bottom: 1px solid rgba(0, 240, 255, 0.3) !important;
+          border-bottom: 1px solid rgba(49, 130, 206, 0.3) !important;
         }
 
         .text-neon {
-          color: #00FF85;
+          color: #38A169;
         }
 
         .text-purple {
-          color: #9B00FF;
+          color: #805AD5;
         }
 
         .text-energy-green {
-          color: #00FF85;
+          color: #38A169;
         }
 
         .text-cyber-red {
-          color: #FF003C;
+          color: #C53030;
         }
 
         .text-white-50 {
@@ -189,19 +189,19 @@ const ConfirmationModal = ({
         }
 
         .btn-cyber {
-          background: linear-gradient(45deg, #00FF85, #00F0FF) !important;
+          background: linear-gradient(45deg, #38A169, #3182CE) !important;
           border: none !important;
           color: #0E0E10 !important;
           font-weight: bold !important;
           padding: 12px 30px !important;
           border-radius: 8px !important;
           transition: all 0.3s ease !important;
-          box-shadow: 0 0 20px rgba(0, 255, 133, 0.3) !important;
+          box-shadow: 0 0 20px rgba(56, 161, 105, 0.3) !important;
         }
 
         .btn-cyber:hover:not(:disabled) {
           transform: translateY(-2px) !important;
-          box-shadow: 0 5px 25px rgba(0, 255, 133, 0.5) !important;
+          box-shadow: 0 5px 25px rgba(56, 161, 105, 0.5) !important;
         }
 
         .btn-cyber:disabled {
@@ -223,14 +223,14 @@ const ConfirmationModal = ({
         }
 
         .form-check-input {
-          border: 1px solid rgba(0, 240, 255, 0.3);
-          background: rgba(0, 240, 255, 0.05);
+          border: 1px solid rgba(49, 130, 206, 0.3);
+          background: rgba(49, 130, 206, 0.05);
           cursor: pointer;
         }
 
         .form-check-input:checked {
-          background: #00FF85;
-          border-color: #00FF85;
+          background: #38A169;
+          border-color: #38A169;
         }
 
         .confirmation-content {

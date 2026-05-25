@@ -1,28 +1,36 @@
-export const APP_NAME = 'GameArena'
+﻿export const APP_NAME = 'GameArena'
 export const APP_VERSION = '1.0.0'
 
 // export const REACT_APP_API_URL="https://gamearena-qmir.onrender.com/api"
-export const REACT_APP_API_URL="http://13.62.222.49:5000/api" 
-export const REACT_APP_SOCKET_URL="http://13.62.222.49:5000"
+export const REACT_APP_API_URL="http://localhost:5000/api" 
+export const REACT_APP_SOCKET_URL="http://localhost:5000"
 // export const REACT_APP_WS_URL="http://localhost:5000"
 
 // Color Palette
 export const COLORS = {
-  // Primary Colors
-  NEON_BLUE: '#00F0FF',
-  ELECTRIC_PURPLE: '#9B00FF',
-  
+  // Primary action
+  CRIMSON:         '#C53030',
+  CRIMSON_DARK:    '#9B2C2C',
+
+  // Accents
+  STEEL_BLUE:      '#3182CE',
+  MUTED_PURPLE:    '#805AD5',
+  FOREST_GREEN:    '#38A169',
+  WARM_ORANGE:     '#DD6B20',
+
   // Background Tones
-  CHARCOAL_BLACK: '#0E0E10',
-  GUNMETAL_GRAY: '#1F1F23',
-  
-  // Accent Colors
-  CYBER_RED: '#FF003C',
-  ENERGY_GREEN: '#00FF85',
-  
+  CHARCOAL_BLACK:  '#0E0E10',
+  GUNMETAL_GRAY:   '#1F1F23',
+
   // Text Colors
-  WHITE_SMOKE: '#F5F5F5',
-  SILVER_GRAY: '#B0B0B0'
+  WHITE_SMOKE:     '#F5F5F5',
+  SILVER_GRAY:     '#B0B0B0',
+
+  // Legacy aliases (keep for any existing references)
+  NEON_BLUE:       '#3182CE',
+  ELECTRIC_PURPLE: '#805AD5',
+  CYBER_RED:       '#C53030',
+  ENERGY_GREEN:    '#38A169',
 }
 
 // Game Categories

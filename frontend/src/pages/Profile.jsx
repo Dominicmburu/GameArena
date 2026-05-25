@@ -1,645 +1,559 @@
 import React, { useState, useEffect } from 'react'
-import { Container, Row, Col, Card, Form, Button, Badge, Tab, Tabs, Table, Modal, Toast, ToastContainer } from 'react-bootstrap'
-import { User, Settings, Trophy, History, Edit3, Save, Camera, Award, TrendingUp, CheckCircle, AlertCircle } from 'lucide-react'
+import { Container, Spinner } from 'react-bootstrap'
+import { Link } from 'react-router-dom'
+import {
+  Settings, User, Mail, MapPin, Award, Lock, History, Eye, EyeOff,
+  Check, AlertCircle, ChevronRight, Save, X, LogOut, Trophy,
+} from 'lucide-react'
 import { useProfile } from '../contexts/ProfileContext'
 import { useAuth } from '../contexts/AuthContext'
+import '../styles/PlayPage.css'
+import '../styles/SettingsPage.css'
+
+const AVATARS = ['🎮', '🎯', '🏆', '⚡', '🔥', '💎', '🚀', '🌟', '👾', '🎪', '🎭', '🎨']
+
+const LEVEL_OPTIONS = [
+  { value: 'BEGINNER',     label: 'Beginner',     color: '#5BC58A' },
+  { value: 'INTERMEDIATE', label: 'Intermediate', color: '#3182CE' },
+  { value: 'ADVANCED',     label: 'Advanced',     color: '#805AD5' },
+  { value: 'EXPERT',       label: 'Expert',       color: '#C53030' },
+]
+
+const levelColor = (lvl) => LEVEL_OPTIONS.find(l => l.value === lvl)?.color || '#7A7A7A'
 
 const Profile = () => {
-    const { user } = useAuth()
-    const {
-        profile,
-        stats,
-        gameHistory,
-        isLoading,
-        error,
-        updateProfile,
-        updateAvatar,
-        updatePassword
-    } = useProfile()
+  const { user, logout } = useAuth()
+  const {
+    profile, stats, isLoading, error,
+    updateProfile, updateAvatar, updatePassword,
+  } = useProfile()
 
-    const [activeTab, setActiveTab] = useState('overview')
-    const [editMode, setEditMode] = useState(false)
-    const [showAvatarModal, setShowAvatarModal] = useState(false)
-    const [showPasswordModal, setShowPasswordModal] = useState(false)
-    const [showToast, setShowToast] = useState(false)
-    const [toastMessage, setToastMessage] = useState('')
-    const [toastVariant, setToastVariant] = useState('success')
-    const [saving, setSaving] = useState(false)
-    const [currentAvatar, setCurrentAvatar] = useState('🎮')
+  // Edit-profile state
+  const [editing, setEditing] = useState(false)
+  const [profileForm, setProfileForm] = useState({
+    username: '', country: '', level: 'BEGINNER',
+  })
+  const [profileSaving, setProfileSaving] = useState(false)
 
-    const [formData, setFormData] = useState({
-        username: '',
-        email: '',
-        country: '',
-        level: 'BEGINNER'
-    })
+  // Avatar
+  const [avatar, setAvatar] = useState('🎮')
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false)
+  const [avatarSaving, setAvatarSaving] = useState(false)
 
-    const [passwordData, setPasswordData] = useState({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-    })
+  // Password
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '', newPassword: '', confirmPassword: '',
+  })
+  const [showCurrentPw, setShowCurrentPw] = useState(false)
+  const [showNewPw, setShowNewPw]         = useState(false)
+  const [passwordSaving, setPasswordSaving] = useState(false)
 
-    const availableAvatars = ['🎮', '🎯', '🏆', '⚡', '🔥', '💎', '🚀', '🌟', '👾', '🎪', '🎭', '🎨']
+  // Feedback
+  const [feedback, setFeedback] = useState(null)
+  const [loggingOut, setLoggingOut] = useState(false)
 
-    useEffect(() => {
-        if (profile) {
-            setFormData({
-                username: profile.username || '',
-                email: profile.email || '',
-                country: profile.country || '',
-                level: profile.level || 'BEGINNER'
-            })
-            setCurrentAvatar(profile.avatar || '🎮')
-        }
-    }, [profile])
-
-    useEffect(() => {
-        if (error) {
-            showNotification(error, 'error')
-        }
-    }, [error])
-
-    const showNotification = (message, variant = 'success') => {
-        setToastMessage(message)
-        setToastVariant(variant)
-        setShowToast(true)
+  useEffect(() => {
+    if (profile) {
+      setProfileForm({
+        username: profile.username || '',
+        country:  profile.country || '',
+        level:    profile.level || 'BEGINNER',
+      })
+      setAvatar(profile.avatar || '🎮')
     }
+  }, [profile])
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target
-        setFormData({ ...formData, [name]: value })
+  useEffect(() => {
+    if (error) showFeedback(error, 'err')
+  }, [error])
+
+  const showFeedback = (msg, type = 'ok') => {
+    setFeedback({ msg, type })
+    setTimeout(() => setFeedback(null), 5000)
+  }
+
+  const handleSaveProfile = async () => {
+    if (!profileForm.username.trim()) return showFeedback('Username cannot be empty', 'err')
+    try {
+      setProfileSaving(true)
+      await updateProfile({
+        username: profileForm.username.trim(),
+        country:  profileForm.country.trim(),
+        level:    profileForm.level,
+      })
+      setEditing(false)
+      showFeedback('Profile updated', 'ok')
+    } catch (err) {
+      showFeedback(err.message || 'Failed to update profile', 'err')
+    } finally {
+      setProfileSaving(false)
     }
+  }
 
-    const handlePasswordChange = (e) => {
-        const { name, value } = e.target
-        setPasswordData({ ...passwordData, [name]: value })
+  const handleCancelEdit = () => {
+    if (profile) {
+      setProfileForm({
+        username: profile.username || '',
+        country:  profile.country || '',
+        level:    profile.level || 'BEGINNER',
+      })
     }
+    setEditing(false)
+  }
 
-    const handleSave = async () => {
-        try {
-            setSaving(true)
-            
-            await updateProfile({
-                username: formData.username,
-                country: formData.country,
-                level: formData.level
-            })
-            
-            setEditMode(false)
-            showNotification('Profile updated successfully!', 'success')
-        } catch (err) {
-            showNotification(err.message || 'Failed to update profile', 'error')
-        } finally {
-            setSaving(false)
-        }
+  const handlePickAvatar = async (next) => {
+    if (next === avatar) {
+      setShowAvatarPicker(false)
+      return
     }
-
-    const handlePasswordUpdate = async () => {
-        try {
-            setSaving(true)
-
-            if (passwordData.newPassword !== passwordData.confirmPassword) {
-                showNotification('New passwords do not match', 'error')
-                setSaving(false)
-                return
-            }
-
-            if (passwordData.newPassword.length < 6) {
-                showNotification('Password must be at least 6 characters', 'error')
-                setSaving(false)
-                return
-            }
-
-            await updatePassword(passwordData)
-            
-            setShowPasswordModal(false)
-            setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
-            showNotification('Password updated successfully!', 'success')
-        } catch (err) {
-            showNotification(err.message || 'Failed to update password', 'error')
-        } finally {
-            setSaving(false)
-        }
+    try {
+      setAvatarSaving(true)
+      await updateAvatar(next)
+      setAvatar(next)
+      setShowAvatarPicker(false)
+      showFeedback('Avatar updated', 'ok')
+    } catch (err) {
+      showFeedback(err.message || 'Failed to update avatar', 'err')
+    } finally {
+      setAvatarSaving(false)
     }
+  }
 
-    const handleAvatarChange = async (newAvatar) => {
-        try {
-            await updateAvatar(newAvatar)
-            setCurrentAvatar(newAvatar)
-            setShowAvatarModal(false)
-            showNotification('Avatar updated successfully!', 'success')
-        } catch (err) {
-            showNotification(err.message || 'Failed to update avatar', 'error')
-        }
+  const handleUpdatePassword = async (e) => {
+    e?.preventDefault?.()
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      return showFeedback('New passwords do not match', 'err')
     }
-
-    const getRankColor = (rank) => {
-        if (rank <= 10) return '#FF003C'
-        if (rank <= 50) return '#9B00FF'
-        if (rank <= 100) return '#00F0FF'
-        return '#B0B0B0'
+    if (passwordForm.newPassword.length < 6) {
+      return showFeedback('Password must be at least 6 characters', 'err')
     }
-
-    const getLevelBadgeColor = (level) => {
-        switch (level) {
-            case 'BEGINNER': return '#B0B0B0'
-            case 'INTERMEDIATE': return '#00F0FF'
-            case 'ADVANCED': return '#9B00FF'
-            case 'EXPERT': return '#FF003C'
-            default: return '#B0B0B0'
-        }
+    try {
+      setPasswordSaving(true)
+      await updatePassword(passwordForm)
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      setShowPasswordForm(false)
+      showFeedback('Password updated', 'ok')
+    } catch (err) {
+      showFeedback(err.message || 'Failed to update password', 'err')
+    } finally {
+      setPasswordSaving(false)
     }
+  }
 
-    if (isLoading && !profile) {
-        return (
-            <Container className="py-5 text-center">
-                <div className="loading-spinner" style={{ width: '40px', height: '40px', margin: '0 auto' }} />
-                <p className="text-white mt-3">Loading profile...</p>
-            </Container>
-        )
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true)
+      await logout()
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoggingOut(false)
     }
+  }
 
+  if (isLoading && !profile) {
     return (
-        <div className="profile-page animated-bg">
-            {/* Toast Notification */}
-            <ToastContainer position="top-end" className="p-3" style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999 }}>
-                <Toast
-                    show={showToast}
-                    onClose={() => setShowToast(false)}
-                    delay={4000}
-                    autohide
-                    style={{
-                        background: toastVariant === 'success' ? '#1a3a2a' : '#3a1a1a',
-                        border: `2px solid ${toastVariant === 'success' ? '#00FF85' : '#FF003C'}`,
-                        minWidth: '300px'
-                    }}
-                >
-                    <Toast.Header style={{ background: 'rgba(31, 31, 35, 0.95)', borderBottom: `1px solid ${toastVariant === 'success' ? '#00FF85' : '#FF003C'}` }}>
-                        {toastVariant === 'success' ? (
-                            <CheckCircle size={16} color="#00FF85" className="me-2" />
-                        ) : (
-                            <AlertCircle size={16} color="#FF003C" className="me-2" />
-                        )}
-                        <strong className="me-auto text-white">
-                            {toastVariant === 'success' ? 'Success' : 'Error'}
-                        </strong>
-                    </Toast.Header>
-                    <Toast.Body className="text-white" style={{ fontSize: '14px' }}>
-                        {toastMessage}
-                    </Toast.Body>
-                </Toast>
-            </ToastContainer>
-
-            <Container fluid className="py-4">
-                {/* Profile Header */}
-                <Row className="mb-4">
-                    <Col>
-                        <Card className="cyber-card profile-header">
-                            <Card.Body className="p-4">
-                                <Row className="align-items-center">
-                                    <Col md={3} className="text-center mb-3 mb-md-0">
-                                        <div className="position-relative d-inline-block">
-                                            <div
-                                                className="profile-avatar-large"
-                                                style={{
-                                                    width: '120px',
-                                                    height: '120px',
-                                                    background: 'linear-gradient(45deg, #00F0FF, #9B00FF)',
-                                                    borderRadius: '50%',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    fontSize: '3rem',
-                                                    margin: '0 auto',
-                                                    position: 'relative'
-                                                }}
-                                            >
-                                                {currentAvatar}
-                                                <Button
-                                                    className="avatar-edit-btn position-absolute"
-                                                    onClick={() => setShowAvatarModal(true)}
-                                                    style={{
-                                                        bottom: '0',
-                                                        right: '0',
-                                                        width: '35px',
-                                                        height: '35px',
-                                                        borderRadius: '50%',
-                                                        background: 'rgba(31, 31, 35, 0.9)',
-                                                        border: '2px solid #00F0FF',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center'
-                                                    }}
-                                                >
-                                                    <Camera size={16} />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </Col>
-
-                                    <Col md={6}>
-                                        <div className="profile-info">
-                                            <h2 className="text-white mb-2">{profile?.username || 'User'}</h2>
-                                            <p className="text-white mb-3">
-                                                {profile?.country || 'Location not set'} • Level: {profile?.level || 'BEGINNER'}
-                                            </p>
-
-                                            <div className="profile-badges d-flex gap-2 flex-wrap">
-                                                <Badge
-                                                    style={{
-                                                        background: getRankColor(stats?.globalRank || 0),
-                                                        padding: '6px 12px'
-                                                    }}
-                                                >
-                                                    Global Rank #{stats?.globalRank || '—'}
-                                                </Badge>
-                                                <Badge style={{ 
-                                                    background: getLevelBadgeColor(profile?.level), 
-                                                    padding: '6px 12px' 
-                                                }}>
-                                                    {profile?.level || 'BEGINNER'}
-                                                </Badge>
-                                                <Badge style={{ background: '#00FF85', padding: '6px 12px' }}>
-                                                    {stats?.winRate || 0}% Win Rate
-                                                </Badge>
-                                            </div>
-                                        </div>
-                                    </Col>
-
-                                    <Col md={3} className="text-end">
-                                        <Button
-                                            className={editMode ? 'btn-cyber' : 'btn-outline-cyber'}
-                                            onClick={() => editMode ? handleSave() : setEditMode(true)}
-                                            disabled={saving}
-                                        >
-                                            {saving ? (
-                                                <div className="loading-spinner me-2" style={{ width: '16px', height: '16px' }} />
-                                            ) : editMode ? (
-                                                <>
-                                                    <Save size={18} className="me-2" />
-                                                    Save Changes
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Edit3 size={18} className="me-2" />
-                                                    Edit Profile
-                                                </>
-                                            )}
-                                        </Button>
-                                    </Col>
-                                </Row>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                </Row>
-
-                {/* Profile Stats Cards */}
-                <Row className="mb-4">
-                    <Col lg={3} sm={6} className="mb-3">
-                        <Card className="cyber-card stat-card h-100">
-                            <Card.Body className="text-center">
-                                <Trophy size={30} color="#00F0FF" className="mb-2" />
-                                <h4 className="text-neon fw-bold">{stats?.totalGames?.toLocaleString() || 0}</h4>
-                                <small className="text-white">Total Games</small>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                    <Col lg={3} sm={6} className="mb-3">
-                        <Card className="cyber-card stat-card h-100">
-                            <Card.Body className="text-center">
-                                <Award size={30} color="#9B00FF" className="mb-2" />
-                                <h4 className="text-purple fw-bold">${stats?.totalPrize?.toLocaleString() || 0}</h4>
-                                <small className="text-white">Total Winnings</small>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                    <Col lg={3} sm={6} className="mb-3">
-                        <Card className="cyber-card stat-card h-100">
-                            <Card.Body className="text-center">
-                                <TrendingUp size={30} color="#00FF85" className="mb-2" />
-                                <h4 className="text-energy-green fw-bold">{stats?.wins || 0}</h4>
-                                <small className="text-white">Total Wins</small>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                    <Col lg={3} sm={6} className="mb-3">
-                        <Card className="cyber-card stat-card h-100">
-                            <Card.Body className="text-center">
-                                <User size={30} color="#FF003C" className="mb-2" />
-                                <h4 className="text-cyber-red fw-bold">{stats?.totalHours || 0}h</h4>
-                                <small className="text-white">Hours Played</small>
-                            </Card.Body>
-                        </Card>
-                    </Col>
-                </Row>
-
-                {/* Tabbed Content */}
-                <Row>
-                    <Col>
-                        <Tabs
-                            activeKey={activeTab}
-                            onSelect={(tab) => setActiveTab(tab)}
-                            className="cyber-tabs mb-4"
-                        >
-                            <Tab eventKey="overview" title="Overview">
-                                <Row>
-                                    <Col lg={12}>
-                                        <Card className="cyber-card mb-4">
-                                            <Card.Header>
-                                                <h5 className="mb-0 d-flex align-items-center">
-                                                    <History size={20} className="me-2 text-neon" />
-                                                    Recent Game History
-                                                </h5>
-                                            </Card.Header>
-                                            <Card.Body className="p-0">
-                                                {gameHistory && gameHistory.length > 0 ? (
-                                                    <div className="table-responsive">
-                                                        <Table className="mb-0" variant="dark" hover>
-                                                            <thead>
-                                                                <tr>
-                                                                    <th>Competition</th>
-                                                                    <th>Game</th>
-                                                                    <th>Rank</th>
-                                                                    <th>Score</th>
-                                                                    <th>Date</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                {gameHistory.map(game => (
-                                                                    <tr key={game.id}>
-                                                                        <td className="text-white">{game.title}</td>
-                                                                        <td>
-                                                                            <Badge style={{ background: '#9B00FF' }}>
-                                                                                {game.gameName}
-                                                                            </Badge>
-                                                                        </td>
-                                                                        <td>
-                                                                            <span
-                                                                                className="fw-bold"
-                                                                                style={{ color: getRankColor(game.rank || 0) }}
-                                                                            >
-                                                                                #{game.rank || '—'}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td className="text-energy-green fw-bold">
-                                                                            {game.score || 0}
-                                                                        </td>
-                                                                        <td className="text-white">
-                                                                            {new Date(game.joinedAt).toLocaleDateString()}
-                                                                        </td>
-                                                                    </tr>
-                                                                ))}
-                                                            </tbody>
-                                                        </Table>
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-center py-5">
-                                                        <History size={48} color="#666" className="mb-3" />
-                                                        <p className="text-white">No game history yet</p>
-                                                        <small className="text-muted">Start playing to build your history!</small>
-                                                    </div>
-                                                )}
-                                            </Card.Body>
-                                        </Card>
-                                    </Col>
-                                </Row>
-                            </Tab>
-
-                            <Tab eventKey="settings" title="Settings">
-                                <Row>
-                                    <Col lg={8}>
-                                        <Card className="cyber-card mb-4">
-                                            <Card.Header>
-                                                <h5 className="mb-0 d-flex align-items-center">
-                                                    <Settings size={20} className="me-2 text-neon" />
-                                                    Profile Settings
-                                                </h5>
-                                            </Card.Header>
-                                            <Card.Body>
-                                                <Form>
-                                                    <Row>
-                                                        <Col md={6}>
-                                                            <Form.Group className="mb-3">
-                                                                <Form.Label className="text-white">Username</Form.Label>
-                                                                <Form.Control
-                                                                    type="text"
-                                                                    name="username"
-                                                                    value={formData.username}
-                                                                    onChange={handleInputChange}
-                                                                    disabled={!editMode}
-                                                                />
-                                                            </Form.Group>
-                                                        </Col>
-                                                        <Col md={6}>
-                                                            <Form.Group className="mb-3">
-                                                                <Form.Label className="text-white">Email</Form.Label>
-                                                                <Form.Control
-                                                                    type="email"
-                                                                    name="email"
-                                                                    value={formData.email}
-                                                                    onChange={handleInputChange}
-                                                                    disabled
-                                                                />
-                                                                <Form.Text className="text-muted">
-                                                                    Email cannot be changed
-                                                                </Form.Text>
-                                                            </Form.Group>
-                                                        </Col>
-                                                    </Row>
-                                                    <Row>
-                                                        <Col md={6}>
-                                                            <Form.Group className="mb-3">
-                                                                <Form.Label className="text-white">Country</Form.Label>
-                                                                <Form.Control
-                                                                    type="text"
-                                                                    name="country"
-                                                                    value={formData.country}
-                                                                    onChange={handleInputChange}
-                                                                    disabled={!editMode}
-                                                                    placeholder="Enter your country"
-                                                                />
-                                                            </Form.Group>
-                                                        </Col>
-                                                        <Col md={6}>
-                                                            <Form.Group className="mb-3">
-                                                                <Form.Label className="text-white">Level</Form.Label>
-                                                                <Form.Select
-                                                                    name="level"
-                                                                    value={formData.level}
-                                                                    onChange={handleInputChange}
-                                                                    disabled={!editMode}
-                                                                >
-                                                                    <option value="BEGINNER">Beginner</option>
-                                                                    <option value="INTERMEDIATE">Intermediate</option>
-                                                                    <option value="ADVANCED">Advanced</option>
-                                                                    <option value="EXPERT">Expert</option>
-                                                                </Form.Select>
-                                                            </Form.Group>
-                                                        </Col>
-                                                    </Row>
-                                                </Form>
-
-                                                <div className="mt-4 pt-3 border-top">
-                                                    <Button
-                                                        variant="outline-danger"
-                                                        onClick={() => setShowPasswordModal(true)}
-                                                    >
-                                                        Change Password
-                                                    </Button>
-                                                </div>
-                                            </Card.Body>
-                                        </Card>
-
-                                        <Card className="cyber-card">
-                                            <Card.Header>
-                                                <h5 className="mb-0">Performance Summary</h5>
-                                            </Card.Header>
-                                            <Card.Body>
-                                                <Row>
-                                                    <Col md={6} className="mb-3">
-                                                        <div className="stat-item">
-                                                            <small className="text-white d-block mb-1">Average Score</small>
-                                                            <h4 className="text-neon mb-0">{stats?.averageScore || 0}</h4>
-                                                        </div>
-                                                    </Col>
-                                                    <Col md={6} className="mb-3">
-                                                        <div className="stat-item">
-                                                            <small className="text-white d-block mb-1">Total Score</small>
-                                                            <h4 className="text-purple mb-0">{stats?.totalScore?.toLocaleString() || 0}</h4>
-                                                        </div>
-                                                    </Col>
-                                                    <Col md={6} className="mb-3">
-                                                        <div className="stat-item">
-                                                            <small className="text-white d-block mb-1">Training Sessions</small>
-                                                            <h4 className="text-energy-green mb-0">{stats?.trainingSessions || 0}</h4>
-                                                        </div>
-                                                    </Col>
-                                                    <Col md={6} className="mb-3">
-                                                        <div className="stat-item">
-                                                            <small className="text-white d-block mb-1">Favorite Game</small>
-                                                            <h4 className="text-cyber-red mb-0 text-truncate">{stats?.favoriteGame || 'N/A'}</h4>
-                                                        </div>
-                                                    </Col>
-                                                </Row>
-                                            </Card.Body>
-                                        </Card>
-                                    </Col>
-                                </Row>
-                            </Tab>
-                        </Tabs>
-                    </Col>
-                </Row>
-            </Container>
-
-            {/* Avatar Selection Modal */}
-            <Modal show={showAvatarModal} onHide={() => setShowAvatarModal(false)} centered>
-                <Modal.Header closeButton style={{ background: '#1F1F23', borderColor: '#2A2A2E' }}>
-                    <Modal.Title className="text-white">Choose Avatar</Modal.Title>
-                </Modal.Header>
-                <Modal.Body style={{ background: '#1F1F23' }}>
-                    <div className="d-flex flex-wrap gap-3 justify-content-center">
-                        {availableAvatars.map((avatar, index) => (
-                            <div
-                                key={index}
-                                onClick={() => handleAvatarChange(avatar)}
-                                style={{
-                                    width: '80px',
-                                    height: '80px',
-                                    background: currentAvatar === avatar 
-                                        ? 'linear-gradient(45deg, #00F0FF, #9B00FF)' 
-                                        : '#2A2A2E',
-                                    borderRadius: '50%',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '2.5rem',
-                                    cursor: 'pointer',
-                                    transition: 'transform 0.2s',
-                                    border: currentAvatar === avatar ? '3px solid #00F0FF' : 'none'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                            >
-                                {avatar}
-                            </div>
-                        ))}
-                    </div>
-                </Modal.Body>
-            </Modal>
-
-            {/* Password Change Modal */}
-            <Modal show={showPasswordModal} onHide={() => setShowPasswordModal(false)} centered>
-                <Modal.Header closeButton style={{ background: '#1F1F23', borderColor: '#2A2A2E' }}>
-                    <Modal.Title style={{ color: '#ffffff' }}>Change Password</Modal.Title>
-                </Modal.Header>
-                <Modal.Body style={{ background: '#1F1F23' }}>
-                    <Form>
-                        <Form.Group className="mb-3">
-                            <Form.Label style={{ color: '#ffffff', fontWeight: '500' }}>Current Password</Form.Label>
-                            <Form.Control
-                                type="password"
-                                name="currentPassword"
-                                value={passwordData.currentPassword}
-                                onChange={handlePasswordChange}
-                                placeholder="Enter current password"
-                                style={{
-                                    background: '#2A2A2E',
-                                    border: '1px solid #3A3A3E',
-                                    color: '#ffffff'
-                                }}
-                            />
-                        </Form.Group>
-                        <Form.Group className="mb-3">
-                            <Form.Label style={{ color: '#ffffff', fontWeight: '500' }}>New Password</Form.Label>
-                            <Form.Control
-                                type="password"
-                                name="newPassword"
-                                value={passwordData.newPassword}
-                                onChange={handlePasswordChange}
-                                placeholder="Enter new password"
-                                style={{
-                                    background: '#2A2A2E',
-                                    border: '1px solid #3A3A3E',
-                                    color: '#ffffff'
-                                }}
-                            />
-                            <Form.Text style={{ color: '#B0B0B0', fontSize: '0.875rem' }}>
-                                Must be at least 6 characters
-                            </Form.Text>
-                        </Form.Group>
-                        <Form.Group className="mb-3">
-                            <Form.Label style={{ color: '#ffffff', fontWeight: '500' }}>Confirm New Password</Form.Label>
-                            <Form.Control
-                                type="password"
-                                name="confirmPassword"
-                                value={passwordData.confirmPassword}
-                                onChange={handlePasswordChange}
-                                placeholder="Confirm new password"
-                                style={{
-                                    background: '#2A2A2E',
-                                    border: '1px solid #3A3A3E',
-                                    color: '#ffffff'
-                                }}
-                            />
-                        </Form.Group>
-                    </Form>
-                </Modal.Body>
-                <Modal.Footer style={{ background: '#1F1F23', borderColor: '#2A2A2E' }}>
-                    <Button variant="secondary" onClick={() => setShowPasswordModal(false)}>
-                        Cancel
-                    </Button>
-                    <Button 
-                        className="btn-cyber" 
-                        onClick={handlePasswordUpdate}
-                        disabled={saving}
-                    >
-                        {saving ? 'Updating...' : 'Update Password'}
-                    </Button>
-                </Modal.Footer>
-            </Modal>
+      <div className="pp-page">
+        <div className="pp-loader">
+          <Spinner animation="border" style={{ color: '#C53030' }} />
+          <div>Loading settings...</div>
         </div>
+      </div>
     )
+  }
+
+  const winRate     = stats?.winRate || 0
+  const totalGames  = stats?.totalGames || 0
+  const totalWins   = stats?.wins || 0
+  const totalPrize  = stats?.totalPrize || 0
+  const globalRank  = stats?.globalRank
+  const memberSince = profile?.createdAt
+    ? new Date(profile.createdAt).toLocaleDateString('en-KE', { month: 'long', year: 'numeric' })
+    : '—'
+
+  return (
+    <div className="pp-page">
+      <Container fluid className="pp-container">
+        {/* Header */}
+        <div className="pp-header">
+          <div className="pp-header-top">
+            <div className="pp-header-titleblock">
+              <h1 className="pp-title">
+                <Settings size={20} style={{ marginRight: 10, verticalAlign: 'middle', color: '#C53030' }} />
+                Settings
+              </h1>
+              <p className="pp-subtitle">Manage your account, preferences, and security</p>
+            </div>
+          </div>
+
+          {feedback && (
+            <div className={`tp-feedback tp-feedback--${feedback.type}`} style={{ marginTop: 14 }}>
+              {feedback.type === 'ok' ? <Check size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} /> : <AlertCircle size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />}
+              {feedback.msg}
+            </div>
+          )}
+        </div>
+
+        <div className="pp-layout">
+          <div className="pp-main">
+            {/* ── Identity card ── */}
+            <div className="st-card">
+              <div className="st-identity">
+                <button
+                  type="button"
+                  className="st-avatar"
+                  onClick={() => setShowAvatarPicker(v => !v)}
+                  aria-label="Change avatar"
+                >
+                  <span>{avatar}</span>
+                  <span className="st-avatar-edit">
+                    <Settings size={11} />
+                  </span>
+                </button>
+
+                <div className="st-identity-info">
+                  <h2 className="st-identity-name">{profile?.username || 'User'}</h2>
+                  <div className="st-identity-meta">
+                    <span className="st-pill" style={{ color: levelColor(profile?.level), borderColor: `${levelColor(profile?.level)}55`, background: `${levelColor(profile?.level)}18` }}>
+                      <Award size={11} /> {profile?.level || 'BEGINNER'}
+                    </span>
+                    {globalRank && (
+                      <span className="st-pill" style={{ color: '#F6AD55', borderColor: 'rgba(246,173,85,0.4)', background: 'rgba(246,173,85,0.1)' }}>
+                        <Trophy size={11} /> Global #{globalRank}
+                      </span>
+                    )}
+                    {profile?.country && (
+                      <span className="st-pill">
+                        <MapPin size={11} /> {profile.country}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {showAvatarPicker && (
+                <div className="st-avatar-picker">
+                  <div className="st-section-label">Choose Avatar</div>
+                  <div className="st-avatar-grid">
+                    {AVATARS.map(a => (
+                      <button
+                        key={a}
+                        type="button"
+                        className={`st-avatar-option ${avatar === a ? 'active' : ''}`}
+                        onClick={() => handlePickAvatar(a)}
+                        disabled={avatarSaving}
+                      >
+                        {a}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Compact stats strip */}
+              <div className="st-stats-strip">
+                <div className="st-stat">
+                  <span className="st-stat-label">Games</span>
+                  <span className="st-stat-value">{totalGames.toLocaleString()}</span>
+                </div>
+                <div className="st-stat">
+                  <span className="st-stat-label">Wins</span>
+                  <span className="st-stat-value">{totalWins}</span>
+                </div>
+                <div className="st-stat">
+                  <span className="st-stat-label">Win Rate</span>
+                  <span className="st-stat-value">{winRate}%</span>
+                </div>
+                <div className="st-stat">
+                  <span className="st-stat-label">Won</span>
+                  <span className="st-stat-value">KES {Number(totalPrize).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <Link to="/history" className="st-history-link">
+                <History size={14} />
+                <span>View full game history</span>
+                <ChevronRight size={14} />
+              </Link>
+            </div>
+
+            {/* ── Profile info ── */}
+            <div className="st-card">
+              <div className="st-card-head">
+                <div className="st-card-head-icon"><User size={14} /></div>
+                <h3 className="st-card-title">Profile Information</h3>
+                {!editing ? (
+                  <button type="button" className="pp-btn pp-btn-ghost" onClick={() => setEditing(true)}>
+                    Edit
+                  </button>
+                ) : (
+                  <div className="st-card-head-actions">
+                    <button
+                      type="button"
+                      className="pp-btn pp-btn-ghost"
+                      onClick={handleCancelEdit}
+                      disabled={profileSaving}
+                    >
+                      <X size={13} /> Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="pp-btn pp-btn-primary"
+                      onClick={handleSaveProfile}
+                      disabled={profileSaving}
+                    >
+                      {profileSaving ? <Spinner animation="border" size="sm" /> : <Save size={13} />}
+                      Save
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="st-grid-2">
+                <div className="st-field">
+                  <label className="st-label">Username</label>
+                  <input
+                    type="text"
+                    className="st-input"
+                    value={profileForm.username}
+                    onChange={e => setProfileForm(p => ({ ...p, username: e.target.value }))}
+                    disabled={!editing}
+                  />
+                </div>
+                <div className="st-field">
+                  <label className="st-label">Country</label>
+                  <input
+                    type="text"
+                    className="st-input"
+                    placeholder="—"
+                    value={profileForm.country}
+                    onChange={e => setProfileForm(p => ({ ...p, country: e.target.value }))}
+                    disabled={!editing}
+                  />
+                </div>
+              </div>
+
+              <div className="st-field">
+                <label className="st-label">Skill Level</label>
+                {editing ? (
+                  <div className="st-level-pills">
+                    {LEVEL_OPTIONS.map(l => (
+                      <button
+                        key={l.value}
+                        type="button"
+                        className={`st-level-pill ${profileForm.level === l.value ? 'active' : ''}`}
+                        onClick={() => setProfileForm(p => ({ ...p, level: l.value }))}
+                        style={profileForm.level === l.value ? {
+                          background: `${l.color}18`,
+                          borderColor: l.color,
+                          color: '#F5F5F5',
+                        } : {}}
+                      >
+                        {l.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="st-input st-input--readonly">{profileForm.level}</div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Account info (read-only) ── */}
+            <div className="st-card">
+              <div className="st-card-head">
+                <div className="st-card-head-icon"><Mail size={14} /></div>
+                <h3 className="st-card-title">Account</h3>
+              </div>
+
+              <div className="st-grid-2">
+                <div className="st-readrow">
+                  <span className="st-readrow-label">Email</span>
+                  <span className="st-readrow-value">{profile?.email || user?.email || '—'}</span>
+                </div>
+                <div className="st-readrow">
+                  <span className="st-readrow-label">Member Since</span>
+                  <span className="st-readrow-value">{memberSince}</span>
+                </div>
+              </div>
+              <p className="st-help">
+                Email cannot be changed. Contact support if you need to update it.
+              </p>
+            </div>
+
+            {/* ── Security ── */}
+            <div className="st-card">
+              <div className="st-card-head">
+                <div className="st-card-head-icon"><Lock size={14} /></div>
+                <h3 className="st-card-title">Security</h3>
+                {!showPasswordForm && (
+                  <button
+                    type="button"
+                    className="pp-btn pp-btn-ghost"
+                    onClick={() => setShowPasswordForm(true)}
+                  >
+                    Change Password
+                  </button>
+                )}
+              </div>
+
+              {!showPasswordForm ? (
+                <p className="st-help" style={{ margin: 0 }}>
+                  Update your password regularly to keep your account secure.
+                </p>
+              ) : (
+                <form onSubmit={handleUpdatePassword}>
+                  <div className="st-field">
+                    <label className="st-label">Current Password</label>
+                    <div className="st-input-eye">
+                      <input
+                        type={showCurrentPw ? 'text' : 'password'}
+                        className="st-input"
+                        value={passwordForm.currentPassword}
+                        onChange={e => setPasswordForm(p => ({ ...p, currentPassword: e.target.value }))}
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        className="st-eye-btn"
+                        onClick={() => setShowCurrentPw(v => !v)}
+                        tabIndex={-1}
+                        aria-label={showCurrentPw ? 'Hide password' : 'Show password'}
+                      >
+                        {showCurrentPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="st-grid-2">
+                    <div className="st-field">
+                      <label className="st-label">New Password</label>
+                      <div className="st-input-eye">
+                        <input
+                          type={showNewPw ? 'text' : 'password'}
+                          className="st-input"
+                          value={passwordForm.newPassword}
+                          onChange={e => setPasswordForm(p => ({ ...p, newPassword: e.target.value }))}
+                          autoComplete="new-password"
+                        />
+                        <button
+                          type="button"
+                          className="st-eye-btn"
+                          onClick={() => setShowNewPw(v => !v)}
+                          tabIndex={-1}
+                          aria-label={showNewPw ? 'Hide password' : 'Show password'}
+                        >
+                          {showNewPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                      <p className="st-help">Minimum 6 characters</p>
+                    </div>
+
+                    <div className="st-field">
+                      <label className="st-label">Confirm New Password</label>
+                      <input
+                        type={showNewPw ? 'text' : 'password'}
+                        className="st-input"
+                        value={passwordForm.confirmPassword}
+                        onChange={e => setPasswordForm(p => ({ ...p, confirmPassword: e.target.value }))}
+                        autoComplete="new-password"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="st-form-actions">
+                    <button
+                      type="button"
+                      className="pp-btn pp-btn-ghost"
+                      onClick={() => {
+                        setShowPasswordForm(false)
+                        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+                      }}
+                      disabled={passwordSaving}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="pp-btn pp-btn-primary"
+                      disabled={passwordSaving || !passwordForm.currentPassword || !passwordForm.newPassword}
+                    >
+                      {passwordSaving ? <Spinner animation="border" size="sm" /> : <Lock size={13} />}
+                      Update Password
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            {/* ── Sign out ── */}
+            <div className="st-card st-card--danger">
+              <div className="st-card-head">
+                <div className="st-card-head-icon st-card-head-icon--danger"><LogOut size={14} /></div>
+                <h3 className="st-card-title">Sign Out</h3>
+                <button
+                  type="button"
+                  className="pp-btn pp-btn-ghost-danger"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                >
+                  {loggingOut ? <Spinner animation="border" size="sm" /> : <LogOut size={13} />}
+                  Sign Out
+                </button>
+              </div>
+              <p className="st-help" style={{ margin: 0 }}>
+                You'll be returned to the login screen. Your progress is saved.
+              </p>
+            </div>
+          </div>
+
+          {/* ── Sidebar ── */}
+          <aside className="pp-aside">
+            <div className="st-side-card">
+              <div className="st-side-head">
+                <History size={14} color="#C53030" />
+                <span>Game History</span>
+              </div>
+              <div className="st-side-body">
+                <p className="st-side-msg">
+                  Past competitions, players you've faced, and your earnings all in one place.
+                </p>
+                <Link to="/history" className="pp-btn pp-btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+                  Open History <ChevronRight size={13} />
+                </Link>
+              </div>
+            </div>
+
+            <div className="st-side-card">
+              <div className="st-side-head">
+                <Award size={14} color="#F6AD55" />
+                <span>Performance</span>
+              </div>
+              <div className="st-side-body">
+                <div className="st-perf-row">
+                  <span>Average Score</span>
+                  <strong>{stats?.averageScore || 0}</strong>
+                </div>
+                <div className="st-perf-row">
+                  <span>Total Score</span>
+                  <strong>{(stats?.totalScore || 0).toLocaleString()}</strong>
+                </div>
+                <div className="st-perf-row">
+                  <span>Training Sessions</span>
+                  <strong>{stats?.trainingSessions || 0}</strong>
+                </div>
+                <div className="st-perf-row">
+                  <span>Favorite Game</span>
+                  <strong className="st-perf-game">{stats?.favoriteGame || '—'}</strong>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </Container>
+    </div>
+  )
 }
 
 export default Profile

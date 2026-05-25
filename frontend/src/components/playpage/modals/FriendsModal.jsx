@@ -1,152 +1,216 @@
-import React from 'react';
-import { Modal, Tabs, Tab, ListGroup, Button, Badge, Form, Spinner } from 'react-bootstrap';
-import { Users, UserCheck, UserX, Send, MessageCircle } from 'lucide-react';
+import React, { useState } from 'react'
+import { Modal, Spinner } from 'react-bootstrap'
+import { Users, UserPlus, Check, X, Send, Inbox, Mail } from 'lucide-react'
+
+const formatDate = (iso) => {
+  if (!iso) return ''
+  return new Date(iso).toLocaleDateString('en-KE', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  })
+}
 
 const FriendsModal = ({
   show,
   onHide,
-  friends,
-  friendRequests,
-  friendRequestUsername,
+  friends = [],
+  friendRequests = { received: [], sent: [] },
+  friendRequestUsername = '',
   onUsernameChange,
   onSendFriendRequest,
   onAcceptFriendRequest,
   onDeclineFriendRequest,
-  loadingStates
+  loadingStates = {},
 }) => {
+  const [tab, setTab] = useState('requests')
+  const received = friendRequests?.received || []
+  const sent     = friendRequests?.sent || []
+
+  const handleSubmitRequest = (e) => {
+    e.preventDefault()
+    if (friendRequestUsername.trim() && !loadingStates.sendingFriendRequest) {
+      onSendFriendRequest()
+    }
+  }
+
   return (
-    <Modal show={show} onHide={onHide} className="cyber-modal" size="lg">
+    <Modal show={show} onHide={onHide} className="pp-modal" size="lg">
       <Modal.Header closeButton>
-        <Modal.Title className="d-flex align-items-center">
-          <Users size={24} className="me-2 text-neon" />
-          Friends & Friend Requests
+        <Modal.Title>
+          <span className="pp-modal-title-icon"><Users size={16} /></span>
+          Friends
         </Modal.Title>
       </Modal.Header>
+
       <Modal.Body>
-        <Tabs defaultActiveKey="requests" className="mb-3">
-          <Tab eventKey="requests" title={`Friend Requests (${friendRequests?.received?.length || 0})`}>
-            <div className="mb-3">
-              <h6 className="text-white">Received Friend Requests</h6>
-              {(!friendRequests?.received || friendRequests.received.length === 0) ? (
-                <p className="text-grey">No pending friend requests</p>
-              ) : (
-                <ListGroup>
-                  {friendRequests.received.map(request => (
-                    <ListGroup.Item key={request.id} className="cyber-card mb-2">
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div>
-                          <strong className="text-white">{request.from?.username || request.username}</strong>
-                          <small className="text-grey d-block">
-                            {new Date(request.createdAt).toLocaleDateString()}
-                          </small>
-                        </div>
-                        <div className="d-flex gap-2">
-                          <Button
-                            variant="success"
-                            size="sm"
-                            onClick={() => onAcceptFriendRequest(request.id)}
-                            disabled={loadingStates[`acceptingRequest_${request.id}`]}
-                          >
-                            <UserCheck size={16} />
-                          </Button>
-                          <Button
-                            variant="outline-danger"
-                            size="sm"
-                            onClick={() => onDeclineFriendRequest(request.id)}
-                            disabled={loadingStates[`decliningRequest_${request.id}`]}
-                          >
-                            {loadingStates[`decliningRequest_${request.id}`] ? (
-                              <Spinner animation="border" size="sm" />
-                            ) : (
-                              <UserX size={16} />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    </ListGroup.Item>
-                  ))}
-                </ListGroup>
-              )}
-            </div>
+        <div className="pp-modal-tabs">
+          <button
+            type="button"
+            className={`pp-modal-tab ${tab === 'requests' ? 'active' : ''}`}
+            onClick={() => setTab('requests')}
+          >
+            <Mail size={14} />
+            Requests
+            <span className="pp-modal-tab-count">{received.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`pp-modal-tab ${tab === 'friends' ? 'active' : ''}`}
+            onClick={() => setTab('friends')}
+          >
+            <Users size={14} />
+            Friends
+            <span className="pp-modal-tab-count">{friends.length}</span>
+          </button>
+        </div>
 
-            <div className="mb-3">
-              <h6 className="text-white">Sent Friend Requests</h6>
-              {(!friendRequests?.sent || friendRequests.sent.length === 0) ? (
-                <p className="text-grey">No pending sent requests</p>
-              ) : (
-                <ListGroup>
-                  {friendRequests.sent.map(request => (
-                    <ListGroup.Item key={request.id} className="cyber-card mb-2">
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div>
-                          <strong className="text-white">{request.to?.username || request.username}</strong>
-                          <small className="text-grey d-block">
-                            Sent {new Date(request.createdAt).toLocaleDateString()}
-                          </small>
-                        </div>
-                        <Badge bg="warning">Pending</Badge>
-                      </div>
-                    </ListGroup.Item>
-                  ))}
-                </ListGroup>
-              )}
-            </div>
-
-            <div>
-              <h6 className="text-white">Send New Friend Request</h6>
-              <div className="d-flex gap-2">
-                <Form.Control
+        {tab === 'requests' && (
+          <>
+            {/* Send friend request form */}
+            <div className="pp-modal-section">
+              <div className="pp-modal-section-head">
+                <UserPlus size={13} color="#7A7A7A" />
+                <span className="pp-modal-section-title">Add a Friend</span>
+              </div>
+              <form onSubmit={handleSubmitRequest} className="pp-modal-input-group">
+                <input
                   type="text"
-                  className="cyber-input"
+                  className="pp-modal-input"
                   placeholder="Enter username"
                   value={friendRequestUsername}
                   onChange={(e) => onUsernameChange(e.target.value)}
                 />
-                <Button
-                  className="btn-cyber"
-                  onClick={onSendFriendRequest}
+                <button
+                  type="submit"
+                  className="pp-modal-btn-icon"
                   disabled={!friendRequestUsername.trim() || loadingStates.sendingFriendRequest}
+                  title="Send friend request"
+                  aria-label="Send friend request"
                 >
-                  {loadingStates.sendingFriendRequest ? (
-                    <Spinner animation="border" size="sm" />
-                  ) : (
-                    <Send size={16} />
-                  )}
-                </Button>
-              </div>
+                  {loadingStates.sendingFriendRequest
+                    ? <Spinner animation="border" size="sm" />
+                    : <Send size={16} />}
+                </button>
+              </form>
             </div>
-          </Tab>
 
-          <Tab eventKey="friends" title={`Friends (${friends?.length || 0})`}>
-            {(!friends || friends.length === 0) ? (
-              <div className="text-center py-4">
-                <Users size={48} className="text-grey mb-3" />
-                <p className="text-grey">No friends yet</p>
+            {/* Received requests */}
+            <div className="pp-modal-section">
+              <div className="pp-modal-section-head">
+                <Inbox size={13} color="#7A7A7A" />
+                <span className="pp-modal-section-title">Received</span>
+                <span className="pp-modal-section-count">{received.length}</span>
               </div>
-            ) : (
-              <ListGroup>
-                {friends.map(friend => (
-                  <ListGroup.Item key={friend.id} className="cyber-card mb-2">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div>
-                        <strong className="text-white">{friend.username}</strong>
-                        <small className="text-grey d-block">
-                          Friends since {new Date(friend.friendsSince || friend.createdAt).toLocaleDateString()}
-                        </small>
+              {received.length === 0 ? (
+                <div className="pp-modal-empty" style={{ padding: '20px 16px' }}>
+                  <p>No pending friend requests</p>
+                </div>
+              ) : (
+                <div className="pp-modal-list">
+                  {received.map(request => {
+                    const name = request.from?.username || request.username
+                    const isAccepting = loadingStates[`acceptingRequest_${request.id}`]
+                    const isDeclining = loadingStates[`decliningRequest_${request.id}`]
+                    return (
+                      <div key={request.id} className="pp-modal-item">
+                        <div className="pp-modal-avatar">
+                          {name?.charAt(0)?.toUpperCase() || '?'}
+                        </div>
+                        <div className="pp-modal-item-info">
+                          <div className="pp-modal-item-title">{name}</div>
+                          <div className="pp-modal-item-meta">
+                            Sent {formatDate(request.createdAt)}
+                          </div>
+                        </div>
+                        <div className="pp-modal-item-actions">
+                          <button
+                            type="button"
+                            className="pp-modal-iconbtn pp-modal-iconbtn--accept"
+                            onClick={() => onAcceptFriendRequest(request.id)}
+                            disabled={isAccepting || isDeclining}
+                            title="Accept"
+                            aria-label="Accept friend request"
+                          >
+                            {isAccepting ? <Spinner animation="border" size="sm" /> : <Check size={16} />}
+                          </button>
+                          <button
+                            type="button"
+                            className="pp-modal-iconbtn pp-modal-iconbtn--decline"
+                            onClick={() => onDeclineFriendRequest(request.id)}
+                            disabled={isAccepting || isDeclining}
+                            title="Decline"
+                            aria-label="Decline friend request"
+                          >
+                            {isDeclining ? <Spinner animation="border" size="sm" /> : <X size={16} />}
+                          </button>
+                        </div>
                       </div>
-                      <Button variant="outline-light" size="sm">
-                        <MessageCircle size={16} />
-                      </Button>
-                    </div>
-                  </ListGroup.Item>
-                ))}
-              </ListGroup>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Sent requests */}
+            {sent.length > 0 && (
+              <div className="pp-modal-section">
+                <div className="pp-modal-section-head">
+                  <Send size={13} color="#7A7A7A" />
+                  <span className="pp-modal-section-title">Sent</span>
+                  <span className="pp-modal-section-count">{sent.length}</span>
+                </div>
+                <div className="pp-modal-list">
+                  {sent.map(request => {
+                    const name = request.to?.username || request.username
+                    return (
+                      <div key={request.id} className="pp-modal-item">
+                        <div className="pp-modal-avatar">
+                          {name?.charAt(0)?.toUpperCase() || '?'}
+                        </div>
+                        <div className="pp-modal-item-info">
+                          <div className="pp-modal-item-title">{name}</div>
+                          <div className="pp-modal-item-meta">
+                            Sent {formatDate(request.createdAt)}
+                          </div>
+                        </div>
+                        <span className="pp-modal-status pp-modal-status--pending">
+                          Pending
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             )}
-          </Tab>
-        </Tabs>
+          </>
+        )}
+
+        {tab === 'friends' && (
+          friends.length === 0 ? (
+            <div className="pp-modal-empty">
+              <Users size={42} className="pp-modal-empty-icon" />
+              <p>You haven't added any friends yet</p>
+            </div>
+          ) : (
+            <div className="pp-modal-list">
+              {friends.map(friend => (
+                <div key={friend.id} className="pp-modal-item">
+                  <div className="pp-modal-avatar">
+                    {friend.username?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                  <div className="pp-modal-item-info">
+                    <div className="pp-modal-item-title">{friend.username}</div>
+                    <div className="pp-modal-item-meta">
+                      Friends since {formatDate(friend.friendsSince || friend.createdAt)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
       </Modal.Body>
     </Modal>
-  );
-};
+  )
+}
 
-export default FriendsModal;
+export default FriendsModal

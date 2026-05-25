@@ -1,0 +1,260 @@
+/* ════════════════════════════════════════
+   GAME RULES — Reuses .pp-* framework
+════════════════════════════════════════ */
+
+/* ── Notice banner under header ─────────────── */
+.gr-notice {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(246,173,85,0.08);
+  border: 1px solid rgba(246,173,85,0.3);
+  border-radius: 10px;
+  color: #D8C19E;
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+.gr-notice strong { color: #F6AD55; font-weight: 700; }
+.gr-notice > svg { flex-shrink: 0; margin-top: 2px; }
+
+/* ── Layout: TOC + content ──────────────────── */
+.gr-layout {
+  /* override .pp-layout to put TOC on the LEFT */
+  grid-template-columns: 280px 1fr !important;
+}
+@media (max-width: 991px) {
+  .gr-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Table of contents (sticky sidebar) ─────── */
+.gr-toc {
+  position: sticky;
+  top: 88px;
+  background: rgba(20,20,22,0.7);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 14px 10px;
+  align-self: start;
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(197,48,48,0.3) transparent;
+}
+.gr-toc::-webkit-scrollbar { width: 5px; }
+.gr-toc::-webkit-scrollbar-thumb { background: rgba(197,48,48,0.25); border-radius: 3px; }
+
+.gr-toc-head {
+  color: #7A7A7A;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 6px 10px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 8px;
+}
+.gr-toc-list { display: flex; flex-direction: column; }
+.gr-toc-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  color: #B0B0B0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s ease;
+  font-family: inherit;
+  width: 100%;
+}
+.gr-toc-item:hover {
+  background: rgba(197,48,48,0.08);
+  color: #F5F5F5;
+}
+.gr-toc-item.active {
+  background: rgba(197,48,48,0.14);
+  color: #F5F5F5;
+}
+.gr-toc-item.active .gr-toc-num {
+  background: #C53030;
+  color: #fff;
+}
+.gr-toc-num {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.05);
+  color: #7A7A7A;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.66rem;
+  font-weight: 800;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.gr-toc-text { line-height: 1.3; }
+
+@media (max-width: 991px) {
+  .gr-toc {
+    position: static;
+    max-height: none;
+  }
+  .gr-toc-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 4px;
+  }
+}
+
+/* ── Sections ───────────────────────────────── */
+.gr-section {
+  scroll-margin-top: 80px;
+  background: rgba(20,20,22,0.7);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 26px 28px;
+  margin-bottom: 16px;
+}
+@media (max-width: 575px) {
+  .gr-section { padding: 20px 18px; }
+}
+
+.gr-section-head {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.gr-section-num {
+  font-family: 'Orbitron', monospace;
+  color: #C53030;
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  opacity: 0.55;
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+.gr-section-icon {
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  background: rgba(197,48,48,0.12);
+  border: 1px solid rgba(197,48,48,0.35);
+  color: #C53030;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.gr-section-titles { flex: 1; min-width: 0; }
+.gr-section-title {
+  color: #F5F5F5;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin: 0 0 4px;
+}
+.gr-section-intro {
+  color: #7A7A7A;
+  font-size: 0.84rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
+@media (max-width: 575px) {
+  .gr-section-head { gap: 10px; }
+  .gr-section-num { font-size: 1.1rem; }
+  .gr-section-icon { width: 28px; height: 28px; }
+  .gr-section-title { font-size: 0.98rem; }
+  .gr-section-intro { font-size: 0.78rem; }
+}
+
+/* ── Individual rules ───────────────────────── */
+.gr-rules {
+  display: flex; flex-direction: column;
+  gap: 16px;
+}
+.gr-rule {
+  padding-left: 14px;
+  border-left: 2px solid rgba(197,48,48,0.2);
+  transition: border-color 0.2s ease;
+}
+.gr-rule:hover { border-left-color: #C53030; }
+.gr-rule-h {
+  color: #F5F5F5;
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+.gr-rule-p {
+  color: #B0B0B0;
+  font-size: 0.86rem;
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* ── Footer ─────────────────────────────────── */
+.gr-foot {
+  background: rgba(20,20,22,0.7);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 32px 28px;
+  text-align: center;
+  margin-top: 8px;
+}
+.gr-foot-icon {
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  background: rgba(197,48,48,0.12);
+  border: 1px solid rgba(197,48,48,0.35);
+  display: inline-flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+}
+.gr-foot h3 {
+  color: #F5F5F5;
+  font-family: 'Orbitron', monospace;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+.gr-foot p {
+  color: #B0B0B0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  max-width: 480px;
+  margin: 0 auto 18px;
+}
+.gr-foot-actions {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+.gr-foot-stamp {
+  color: #555;
+  font-size: 0.74rem;
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(255,255,255,0.06);
+}
+
+@media (max-width: 575px) {
+  .gr-foot { padding: 26px 18px; }
+  .gr-foot-actions .pp-btn { flex: 1; justify-content: center; }
+}
+
+/* ── Print styling ──────────────────────────── */
+@media print {
+  .pp-page { background: #fff !important; color: #000 !important; }
+  .gr-toc, .pp-back-link, .gr-foot-actions, .pp-header-top button { display: none !important; }
+  .gr-section, .gr-foot, .gr-notice {
+    background: #fff !important;
+    border: 1px solid #ccc !important;
+    color: #000 !important;
+    page-break-inside: avoid;
+  }
+  .gr-section-title, .gr-rule-h, .pp-title { color: #000 !important; }
+  .gr-section-intro, .gr-rule-p, .pp-subtitle { color: #444 !important; }
+}

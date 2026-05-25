@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap'
 import { CreditCard, CheckCircle, AlertTriangle } from 'lucide-react'
 import { useWallet } from '../../contexts/WalletContext'
@@ -124,7 +124,7 @@ const PaymentModal = ({ show, onHide, amount, onSuccess, title }) => {
       <Modal.Body>
         {step === 1 && (
           <>
-            <div className="payment-info cyber-card p-3 mb-3" style={{ background: 'rgba(0, 255, 133, 0.08)', border: '1px solid rgba(0, 255, 133, 0.2)' }}>
+            <div className="payment-info cyber-card p-3 mb-3" style={{ background: 'rgba(56, 161, 105, 0.08)', border: '1px solid rgba(56, 161, 105, 0.2)' }}>
               <h6 className="text-neon mb-2">Payment Details</h6>
               <div className="d-flex justify-content-between">
                 <span className="text-white">Amount:</span>
@@ -151,7 +151,7 @@ const PaymentModal = ({ show, onHide, amount, onSuccess, title }) => {
                   className="cyber-input"
                   style={{
                     background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(0, 240, 255, 0.2)',
+                    border: '1px solid rgba(49, 130, 206, 0.2)',
                     color: '#fff'
                   }}
                 />
@@ -181,13 +181,13 @@ const PaymentModal = ({ show, onHide, amount, onSuccess, title }) => {
         {step === 2 && (
           <div className="text-center py-4">
             <div className="mb-3">
-              <Spinner animation="border" style={{ color: '#00F0FF' }} />
+              <Spinner animation="border" style={{ color: '#3182CE' }} />
             </div>
             <h5 className="text-white mb-3">Payment Request Sent</h5>
             <p className="text-white mb-3">
               Please check your phone for the M-Pesa prompt and enter your PIN to complete the payment.
             </p>
-            <div className="alert p-3 mb-0" style={{ background: 'rgba(0, 240, 255, 0.1)', border: '1px solid rgba(0, 240, 255, 0.3)' }}>
+            <div className="alert p-3 mb-0" style={{ background: 'rgba(49, 130, 206, 0.1)', border: '1px solid rgba(49, 130, 206, 0.3)' }}>
               <small className="text-white">
                 <strong>Note:</strong> This may take up to 2 minutes to process. Do not close this window.
               </small>
@@ -205,7 +205,7 @@ const PaymentModal = ({ show, onHide, amount, onSuccess, title }) => {
         {step === 3 && (
           <div className="text-center py-4">
             <div className="success-animation mb-3">
-              <CheckCircle size={64} color="#00FF85" className="success-icon" />
+              <CheckCircle size={64} color="#38A169" className="success-icon" />
             </div>
             <h5 className="text-energy-green mb-2">Payment Successful!</h5>
             <p className="text-white mb-0">
@@ -219,7 +219,7 @@ const PaymentModal = ({ show, onHide, amount, onSuccess, title }) => {
       </Modal.Body>
 
       {step === 1 && (
-        <Modal.Footer style={{ borderTop: '1px solid rgba(0, 240, 255, 0.3)' }}>
+        <Modal.Footer style={{ borderTop: '1px solid rgba(49, 130, 206, 0.3)' }}>
           <Button 
             variant="outline-secondary" 
             onClick={handleClose} 
@@ -237,20 +237,20 @@ const PaymentModal = ({ show, onHide, amount, onSuccess, title }) => {
       <style jsx>{`
         .cyber-modal .modal-content {
           background: rgba(31, 31, 35, 0.95) !important;
-          border: 1px solid rgba(0, 240, 255, 0.3) !important;
+          border: 1px solid rgba(49, 130, 206, 0.3) !important;
           backdrop-filter: blur(10px);
         }
 
         .cyber-modal .modal-header {
-          border-bottom: 1px solid rgba(0, 240, 255, 0.3) !important;
+          border-bottom: 1px solid rgba(49, 130, 206, 0.3) !important;
         }
 
         .text-neon {
-          color: #00FF85;
+          color: #38A169;
         }
 
         .text-energy-green {
-          color: #00FF85;
+          color: #38A169;
         }
 
         .text-white-50 {
@@ -258,7 +258,7 @@ const PaymentModal = ({ show, onHide, amount, onSuccess, title }) => {
         }
 
         .btn-cyber {
-          background: linear-gradient(45deg, #00FF85, #00F0FF) !important;
+          background: linear-gradient(45deg, #38A169, #3182CE) !important;
           border: none !important;
           color: #0E0E10 !important;
           font-weight: bold !important;
@@ -267,12 +267,12 @@ const PaymentModal = ({ show, onHide, amount, onSuccess, title }) => {
           text-transform: uppercase !important;
           letter-spacing: 1px !important;
           transition: all 0.3s ease !important;
-          box-shadow: 0 0 20px rgba(0, 255, 133, 0.3) !important;
+          box-shadow: 0 0 20px rgba(56, 161, 105, 0.3) !important;
         }
 
         .btn-cyber:hover:not(:disabled) {
           transform: translateY(-2px) !important;
-          box-shadow: 0 5px 25px rgba(0, 255, 133, 0.5) !important;
+          box-shadow: 0 5px 25px rgba(56, 161, 105, 0.5) !important;
         }
 
         .btn-cyber:disabled {
@@ -291,7 +291,7 @@ const PaymentModal = ({ show, onHide, amount, onSuccess, title }) => {
         }
 
         .success-icon {
-          filter: drop-shadow(0 0 20px rgba(0, 255, 133, 0.5));
+          filter: drop-shadow(0 0 20px rgba(56, 161, 105, 0.5));
         }
       `}</style>
     </Modal>

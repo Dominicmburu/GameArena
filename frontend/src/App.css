@@ -1,10 +1,11 @@
-:root {
-  --neon-blue: #00F0FF;
-  --electric-purple: #9B00FF;
+﻿:root {
+  --neon-blue: #3182CE;
+  --electric-purple: #805AD5;
   --charcoal-black: #0E0E10;
   --gunmetal-gray: #1F1F23;
-  --cyber-red: #FF003C;
-  --energy-green: #00FF85;
+  --cyber-red: #C53030;
+  --energy-green: #38A169;
+  --accent-orange: #DD6B20;
   --white-smoke: #F5F5F5;
   --silver-gray: #B0B0B0;
 }
@@ -29,9 +30,16 @@ body {
 }
 
 .main-content {
-  padding-top: 80px;
-  padding-bottom: 80px;
+  padding-top: 64px;
+  padding-bottom: 0;
   min-height: 100vh;
+}
+
+@media (max-width: 991px) {
+  .main-content {
+    padding-top: 56px;
+    padding-bottom: 60px;
+  }
 }
 
 /* Cyberpunk Glow Effects */
@@ -74,8 +82,8 @@ body {
   width: 100%;
   height: 100%;
   background: 
-    radial-gradient(circle at 20% 80%, rgba(155, 0, 255, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(0, 240, 255, 0.1) 0%, transparent 50%);
+    radial-gradient(circle at 20% 80%, rgba(128, 90, 213, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(49, 130, 206, 0.1) 0%, transparent 50%);
   animation: pulse 4s ease-in-out infinite alternate;
   z-index: -1;
 }
@@ -88,7 +96,7 @@ body {
 /* Card Styles */
 .cyber-card {
   background: rgba(31, 31, 35, 0.9);
-  border: 1px solid rgba(0, 240, 255, 0.3);
+  border: 1px solid rgba(49, 130, 206, 0.3);
   backdrop-filter: blur(10px);
   border-radius: 12px;
   transition: all 0.3s ease;
@@ -103,7 +111,7 @@ body {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.1), transparent);
+  background: linear-gradient(90deg, transparent, rgba(49, 130, 206, 0.1), transparent);
   transition: left 0.5s ease;
 }
 
@@ -114,44 +122,27 @@ body {
 .cyber-card:hover {
   border-color: var(--neon-blue);
   transform: translateY(-5px);
-  box-shadow: 0 10px 30px rgba(0, 240, 255, 0.2);
+  box-shadow: 0 10px 30px rgba(49, 130, 206, 0.2);
 }
 
 /* Button Styles */
 .btn-cyber {
-  background: linear-gradient(45deg, var(--neon-blue), var(--electric-purple));
+  background: var(--cyber-red);
   border: none;
-  color: var(--charcoal-black);
-  font-weight: 600;
+  color: #fff;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
   padding: 10px 25px;
-  border-radius: 25px;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-cyber::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(45deg, var(--electric-purple), var(--neon-blue));
-  transition: left 0.3s ease;
-  z-index: -1;
-}
-
-.btn-cyber:hover::before {
-  left: 0;
+  border-radius: 4px;
+  transition: background 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
 }
 
 .btn-cyber:hover {
+  background: #9B2C2C;
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0, 240, 255, 0.4);
-  color: var(--white-smoke);
+  box-shadow: 0 6px 20px rgba(197, 48, 48, 0.4);
+  color: #fff;
 }
 
 .btn-outline-cyber {
@@ -162,14 +153,14 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
   padding: 8px 20px;
-  border-radius: 25px;
-  transition: all 0.3s ease;
+  border-radius: 4px;
+  transition: all 0.25s ease;
 }
 
 .btn-outline-cyber:hover {
   background: var(--neon-blue);
-  color: var(--charcoal-black);
-  box-shadow: 0 0 20px var(--neon-blue);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(49, 130, 206, 0.35);
   transform: translateY(-2px);
 }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+﻿import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { Container, Row, Col, Card, Form, Button, Alert, Spinner } from 'react-bootstrap'
@@ -136,7 +136,7 @@ const Auth = () => {
                             className="border-0 shadow-lg"
                             style={{
                                 background: 'rgba(31, 31, 35, 0.95)',
-                                border: '1px solid rgba(0, 240, 255, 0.3)',
+                                border: '1px solid rgba(49, 130, 206, 0.3)',
                                 borderRadius: '20px',
                                 backdropFilter: 'blur(20px)',
                                 boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
@@ -153,8 +153,8 @@ const Auth = () => {
                                     width: '200%',
                                     height: '200%',
                                     background: `
-                    radial-gradient(circle at 30% 20%, rgba(0, 240, 255, 0.05) 0%, transparent 50%),
-                    radial-gradient(circle at 70% 80%, rgba(155, 0, 255, 0.05) 0%, transparent 50%)
+                    radial-gradient(circle at 30% 20%, rgba(49, 130, 206, 0.05) 0%, transparent 50%),
+                    radial-gradient(circle at 70% 80%, rgba(128, 90, 213, 0.05) 0%, transparent 50%)
                   `,
                                     animation: 'rotate 20s linear infinite'
                                 }}
@@ -166,8 +166,8 @@ const Auth = () => {
                                         <div
                                             className={`p-2 rounded ${isLogin ? 'text-white' : 'text-muted'}`}
                                             style={{
-                                                background: isLogin ? 'rgba(0, 240, 255, 0.2)' : 'transparent',
-                                                border: `1px solid ${isLogin ? 'rgba(0, 240, 255, 0.5)' : 'rgba(255, 255, 255, 0.1)'}`
+                                                background: isLogin ? 'rgba(49, 130, 206, 0.2)' : 'transparent',
+                                                border: `1px solid ${isLogin ? 'rgba(49, 130, 206, 0.5)' : 'rgba(255, 255, 255, 0.1)'}`
                                             }}
                                         >
                                             <Shield size={20} />
@@ -175,8 +175,8 @@ const Auth = () => {
                                         <div
                                             className={`p-2 rounded ${!isLogin ? 'text-white' : 'text-muted'}`}
                                             style={{
-                                                background: !isLogin ? 'rgba(155, 0, 255, 0.2)' : 'transparent',
-                                                border: `1px solid ${!isLogin ? 'rgba(155, 0, 255, 0.5)' : 'rgba(255, 255, 255, 0.1)'}`
+                                                background: !isLogin ? 'rgba(128, 90, 213, 0.2)' : 'transparent',
+                                                border: `1px solid ${!isLogin ? 'rgba(128, 90, 213, 0.5)' : 'rgba(255, 255, 255, 0.1)'}`
                                             }}
                                         >
                                             <Zap size={20} />
@@ -198,9 +198,9 @@ const Auth = () => {
                                         <Alert
                                             className="border-0 mb-4"
                                             style={{
-                                                background: 'rgba(255, 0, 60, 0.1)',
-                                                border: '1px solid rgba(255, 0, 60, 0.3)',
-                                                color: '#FF003C',
+                                                background: 'rgba(197, 48, 48, 0.1)',
+                                                border: '1px solid rgba(197, 48, 48, 0.3)',
+                                                color: '#C53030',
                                                 borderRadius: '12px'
                                             }}
                                         >
@@ -229,7 +229,7 @@ const Auth = () => {
                                                 className="py-3"
                                                 style={{
                                                     background: 'rgba(20, 20, 25, 0.8)',
-                                                    border: '1px solid rgba(155, 0, 255, 0.3)',
+                                                    border: '1px solid rgba(128, 90, 213, 0.3)',
                                                     borderRadius: '12px',
                                                     color: 'white',
                                                     fontSize: '1rem'
@@ -258,7 +258,7 @@ const Auth = () => {
                                             className="py-3"
                                             style={{
                                                 background: 'rgba(20, 20, 25, 0.8)',
-                                                border: '1px solid rgba(0, 240, 255, 0.3)',
+                                                border: '1px solid rgba(49, 130, 206, 0.3)',
                                                 borderRadius: '12px',
                                                 color: 'white',
                                                 fontSize: '1rem'
@@ -287,7 +287,7 @@ const Auth = () => {
                                                 className="py-3 pe-5"
                                                 style={{
                                                     background: 'rgba(20, 20, 25, 0.8)',
-                                                    border: '1px solid rgba(0, 240, 255, 0.3)',
+                                                    border: '1px solid rgba(49, 130, 206, 0.3)',
                                                     borderRadius: '12px',
                                                     color: 'white',
                                                     fontSize: '1rem'
@@ -327,7 +327,7 @@ const Auth = () => {
                                                     className="py-3 pe-5"
                                                     style={{
                                                         background: 'rgba(20, 20, 25, 0.8)',
-                                                        border: '1px solid rgba(155, 0, 255, 0.3)',
+                                                        border: '1px solid rgba(128, 90, 213, 0.3)',
                                                         borderRadius: '12px',
                                                         color: 'white',
                                                         fontSize: '1rem'
@@ -355,24 +355,24 @@ const Auth = () => {
                                         disabled={isLoading}
                                         className="w-100 py-3 fw-bold text-uppercase letter-spacing-1 mb-4"
                                         style={{
-                                            background: 'linear-gradient(45deg, #00F0FF, #9B00FF)',
+                                            background: 'linear-gradient(45deg, #3182CE, #805AD5)',
                                             border: 'none',
                                             borderRadius: '12px',
                                             color: '#0E0E10',
                                             fontSize: '1rem',
                                             transition: 'all 0.3s ease',
-                                            boxShadow: '0 5px 15px rgba(0, 240, 255, 0.3)'
+                                            boxShadow: '0 5px 15px rgba(49, 130, 206, 0.3)'
                                         }}
                                         onMouseEnter={(e) => {
                                             if (!isLoading) {
                                                 e.target.style.transform = 'translateY(-2px)'
-                                                e.target.style.boxShadow = '0 10px 25px rgba(0, 240, 255, 0.4)'
+                                                e.target.style.boxShadow = '0 10px 25px rgba(49, 130, 206, 0.4)'
                                             }
                                         }}
                                         onMouseLeave={(e) => {
                                             if (!isLoading) {
                                                 e.target.style.transform = 'translateY(0)'
-                                                e.target.style.boxShadow = '0 5px 15px rgba(0, 240, 255, 0.3)'
+                                                e.target.style.boxShadow = '0 5px 15px rgba(49, 130, 206, 0.3)'
                                             }
                                         }}
                                     >
@@ -410,16 +410,16 @@ const Auth = () => {
                                             disabled={isLoading}
                                             className="p-0 fw-bold"
                                             style={{
-                                                color: '#00F0FF',
+                                                color: '#3182CE',
                                                 textDecoration: 'none',
                                                 border: 'none'
                                             }}
                                             onMouseEnter={(e) => {
-                                                e.target.style.color = '#9B00FF'
+                                                e.target.style.color = '#805AD5'
                                                 e.target.style.textDecoration = 'underline'
                                             }}
                                             onMouseLeave={(e) => {
-                                                e.target.style.color = '#00F0FF'
+                                                e.target.style.color = '#3182CE'
                                                 e.target.style.textDecoration = 'none'
                                             }}
                                         >

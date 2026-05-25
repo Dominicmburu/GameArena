@@ -1,7 +1,7 @@
-import React from 'react';
-import { Tabs, Tab, Card, Button } from 'react-bootstrap';
-import { GamepadIcon, Medal, UserPlus } from 'lucide-react';
-import CompetitionCard from './CompetitionCard';
+import React from 'react'
+import { Gamepad2, Medal, KeyRound, PlusCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import CompetitionCard from './CompetitionCard'
 
 const CompetitionsTabs = ({
   activeTab,
@@ -13,77 +13,74 @@ const CompetitionsTabs = ({
   onCopyCode,
   onLeave,
   copiedCode,
-  onJoinClick
+  onJoinClick,
 }) => {
+  const tabs = [
+    { key: 'active',    label: 'Active',    count: activeCompetitions.length },
+    { key: 'completed', label: 'Completed', count: completedCompetitions.length },
+  ]
+
+  const list = activeTab === 'active' ? activeCompetitions : completedCompetitions
+  const mode = activeTab === 'active' ? 'joined' : 'completed'
+
   return (
-    <Tabs
-      activeKey={activeTab}
-      onSelect={(tab) => setActiveTab(tab)}
-      className="cyber-tabs mb-4"
-    >
-      <Tab eventKey="active" title={`Active (${activeCompetitions.length})`}>
-        <div className="competitions-list">
-          {activeCompetitions.length === 0 ? (
-            <Card className="cyber-card text-center py-5">
-              <Card.Body>
-                <GamepadIcon size={48} className="text-grey mb-3" />
-                <h5 className="text-white mb-2">No Active Competitions</h5>
-                <p className="text-grey mb-3">Join or create a competition to start playing!</p>
-                <div className="d-flex gap-2 justify-content-center">
-                  <Button className="btn-cyber" onClick={onJoinClick}>
-                    <UserPlus size={20} className="me-2" />
-                    Join Competition
-                  </Button>
-                  <Button variant="outline-light" href="/create">
-                    Create Competition
-                  </Button>
-                </div>
-              </Card.Body>
-            </Card>
+    <div className="pp-mygames">
+      <div className="pp-subtabs">
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            type="button"
+            className={`pp-subtab ${activeTab === t.key ? 'active' : ''}`}
+            onClick={() => setActiveTab(t.key)}
+          >
+            {t.label}
+            <span className="pp-subtab-count">{t.count}</span>
+          </button>
+        ))}
+      </div>
+
+      {list.length === 0 ? (
+        <div className="pp-empty">
+          {activeTab === 'active' ? (
+            <>
+              <Gamepad2 size={42} color="#3A3A3A" />
+              <h5>No active competitions yet</h5>
+              <p>Browse public competitions, join by code, or create your own.</p>
+              <div className="pp-empty-actions">
+                <button type="button" className="pp-btn pp-btn-primary" onClick={onJoinClick}>
+                  <KeyRound size={14} /> Join by Code
+                </button>
+                <Link to="/create" className="pp-btn pp-btn-ghost">
+                  <PlusCircle size={14} /> Create Competition
+                </Link>
+              </div>
+            </>
           ) : (
-            activeCompetitions.map(comp => (
-              <CompetitionCard
-                key={comp.id}
-                competition={comp}
-                onPlay={onPlay}
-                onInvite={onInvite}
-                onCopyCode={onCopyCode}
-                onLeave={onLeave}
-                copiedCode={copiedCode}
-                isActive={true}
-              />
-            ))
+            <>
+              <Medal size={42} color="#3A3A3A" />
+              <h5>No completed games yet</h5>
+              <p>Your finished competitions will show up here.</p>
+            </>
           )}
         </div>
-      </Tab>
-
-      <Tab eventKey="completed" title={`Completed (${completedCompetitions.length})`}>
-        <div className="competitions-list">
-          {completedCompetitions.length === 0 ? (
-            <Card className="cyber-card text-center py-5">
-              <Card.Body>
-                <Medal size={48} className="text-grey mb-3" />
-                <h5 className="text-white mb-2">No Completed Competitions</h5>
-                <p className="text-grey">Complete some competitions to see your history here!</p>
-              </Card.Body>
-            </Card>
-          ) : (
-            completedCompetitions.map(comp => (
-              <CompetitionCard
-                key={comp.id}
-                competition={comp}
-                onPlay={onPlay}
-                onInvite={onInvite}
-                onCopyCode={onCopyCode}
-                copiedCode={copiedCode}
-                isActive={false}
-              />
-            ))
-          )}
+      ) : (
+        <div className="pp-cardlist">
+          {list.map(comp => (
+            <CompetitionCard
+              key={comp.id}
+              competition={comp}
+              mode={mode}
+              onPlay={onPlay}
+              onInvite={onInvite}
+              onCopyCode={onCopyCode}
+              onLeave={onLeave}
+              copiedCode={copiedCode}
+            />
+          ))}
         </div>
-      </Tab>
-    </Tabs>
-  );
-};
+      )}
+    </div>
+  )
+}
 
-export default CompetitionsTabs;
+export default CompetitionsTabs

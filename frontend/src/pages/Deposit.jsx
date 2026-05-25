@@ -1,1127 +1,820 @@
-import React, { useState, useEffect } from 'react'
-import { Container, Row, Col, Card, Form, Button, Badge, Alert, Modal, Spinner } from 'react-bootstrap'
-import { Wallet, CreditCard, DollarSign, Shield, Clock, CheckCircle, AlertCircle, Gift, Phone, ArrowDownToLine } from 'lucide-react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { Container, Spinner } from 'react-bootstrap'
+import {
+  Wallet, ArrowDown, ArrowUp, Plus, Phone, RefreshCw,
+  CheckCircle, AlertCircle, Clock, Activity, ChevronRight,
+  TrendingUp, TrendingDown, Trophy, Gamepad2, Receipt, ShieldCheck,
+  Info, ChevronDown,
+} from 'lucide-react'
 import { useWallet } from '../contexts/WalletContext'
-import ToastNotification from '../components/playpage/ToastNotification'
+import '../styles/PlayPage.css'
+import '../styles/WalletPage.css'
+
+const QUICK_AMOUNTS = [100, 500, 1000, 2000, 5000]
+const POLL_INTERVAL_MS = 3000
+const POLL_MAX_MS      = 5 * 60 * 1000   // 5 minutes
+const MIN_DEPOSIT      = 1
+const MAX_DEPOSIT      = 150000
+const MIN_WITHDRAW     = 100
+
+const formatKES = (n, opts = {}) =>
+  `KES ${Number(n || 0).toLocaleString('en-KE', {
+    minimumFractionDigits: opts.decimals ?? 0,
+    maximumFractionDigits: opts.decimals ?? 2,
+  })}`
+
+const formatPhoneNumber = (raw) => {
+  let cleaned = String(raw || '').replace(/\D/g, '')
+  if (cleaned.startsWith('0'))   cleaned = '254' + cleaned.slice(1)
+  if (!cleaned.startsWith('254')) cleaned = '254' + cleaned
+  return cleaned
+}
+
+const validatePhone = (raw) => /^254\d{9}$/.test(formatPhoneNumber(raw))
+
+const formatPhoneDisplay = (raw) => {
+  // Display-friendly version: 0712 345 678 if Kenyan, otherwise as-is
+  const cleaned = String(raw || '').replace(/\D/g, '')
+  if (cleaned.startsWith('254') && cleaned.length === 12) {
+    const local = '0' + cleaned.slice(3)
+    return `${local.slice(0,4)} ${local.slice(4,7)} ${local.slice(7)}`
+  }
+  if (cleaned.startsWith('0') && cleaned.length === 10) {
+    return `${cleaned.slice(0,4)} ${cleaned.slice(4,7)} ${cleaned.slice(7)}`
+  }
+  return raw
+}
+
+const sameDay = (a, b) => {
+  const d1 = new Date(a), d2 = new Date(b)
+  return d1.toDateString() === d2.toDateString()
+}
+
+const groupByDay = (txs) => {
+  const today     = new Date()
+  const yesterday = new Date(today.getTime() - 86400000)
+  const groups = {}
+  txs.forEach(tx => {
+    const d = new Date(tx.createdAt)
+    let key
+    if (sameDay(d, today))         key = 'Today'
+    else if (sameDay(d, yesterday)) key = 'Yesterday'
+    else                            key = d.toLocaleDateString('en-KE', {
+      weekday: 'long', month: 'short', day: 'numeric',
+    })
+    if (!groups[key]) groups[key] = []
+    groups[key].push(tx)
+  })
+  return groups
+}
+
+const TYPE_FILTERS = [
+  { key: 'all',        label: 'All' },
+  { key: 'DEPOSIT',    label: 'Deposits' },
+  { key: 'WITHDRAWAL', label: 'Withdrawals' },
+  { key: 'PRIZE',      label: 'Prizes' },
+  { key: 'ENTRY_FEE',  label: 'Entry Fees' },
+]
+
+const TYPE_META = {
+  DEPOSIT:    { label: 'Deposit',     icon: ArrowDown,  sign: '+', color: '#5BC58A' },
+  WITHDRAWAL: { label: 'Withdrawal',  icon: ArrowUp,    sign: '−', color: '#E08888' },
+  PRIZE:      { label: 'Prize Won',   icon: Trophy,     sign: '+', color: '#F6AD55' },
+  ENTRY_FEE:  { label: 'Entry Fee',   icon: Gamepad2,   sign: '−', color: '#B0B0B0' },
+  REFUND:     { label: 'Refund',      icon: ArrowDown,  sign: '+', color: '#5BC58A' },
+  TRANSFER:   { label: 'Transfer',    icon: Activity,   sign: '',  color: '#B0B0B0' },
+}
+
+const txStatus = (tx) => (tx.meta?.status || 'COMPLETED').toUpperCase()
+const STATUS_COLOR = {
+  COMPLETED: '#5BC58A',
+  PENDING:   '#F6AD55',
+  FAILED:    '#E08888',
+  CANCELLED: '#B0B0B0',
+}
 
 const Deposit = () => {
-  const [depositAmount, setDepositAmount] = useState('')
-  const [phoneNumber, setPhoneNumber] = useState('')
-  const [showConfirmModal, setShowConfirmModal] = useState(false)
-  const [showStatusModal, setShowStatusModal] = useState(false)
-  const [promoCode, setPromoCode] = useState('')
-  const [selectedBonus, setSelectedBonus] = useState(null)
-  const [checkoutRequestId, setCheckoutRequestId] = useState(null)
-  const [paymentStatus, setPaymentStatus] = useState('pending')
-  const [statusMessage, setStatusMessage] = useState('')
-  const [showToast, setShowToast] = useState(false)
-  const [toastMessage, setToastMessage] = useState('')
-  const [toastVariant, setToastVariant] = useState('success')
-  const [pollingInterval, setPollingInterval] = useState(null)
-  const pollingRef = React.useRef(null)
-  const isMountedRef = React.useRef(true)
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false)
-  const [withdrawAmount, setWithdrawAmount] = useState('')
-  const [withdrawPhone, setWithdrawPhone] = useState('')
-  const [withdrawing, setWithdrawing] = useState(false)
-
   const {
-    balance,
-    transactions,
-    isLoading,
-    error,
-    deposit: depositFunds,
-    querySTKStatus,
-    fetchBalance,
-    fetchTransactions
+    balance, transactions, isLoading, error,
+    deposit, withdraw, querySTKStatus,
+    fetchBalance, fetchTransactions,
   } = useWallet()
 
-  const showToastMessage = (message, variant = 'success') => {
-    setToastMessage(message)
-    setToastVariant(variant)
-    setShowToast(true)
-  }
+  const [tab, setTab] = useState('activity')     // 'activity' | 'deposit' | 'withdraw'
+  const [typeFilter, setTypeFilter] = useState('all')
 
+  // Deposit state
+  const [dAmount, setDAmount] = useState('')
+  const [dPhone, setDPhone]   = useState('')
+  const [dStage, setDStage]   = useState('idle') // idle | sending | waiting | success | failed
+  const [dStatusMsg, setDStatusMsg] = useState('')
+  const [dCheckoutId, setDCheckoutId] = useState(null)
+  const [dElapsed, setDElapsed] = useState(0)    // ms elapsed waiting
+
+  // Withdraw state
+  const [wAmount, setWAmount] = useState('')
+  const [wPhone, setWPhone]   = useState('')
+  const [wStage, setWStage]   = useState('idle') // idle | sending | success | failed
+  const [wStatusMsg, setWStatusMsg] = useState('')
+  const [showPochiGuide, setShowPochiGuide] = useState(false)
+
+  // Feedback toast (small, dismissible)
+  const [feedback, setFeedback] = useState(null)
+
+  // refs for polling lifecycle
+  const pollRef     = useRef(null)
+  const elapsedRef  = useRef(null)
+  const startTimeRef= useRef(0)
+  const isMountedRef= useRef(true)
+
+  // Initial load
   useEffect(() => {
     isMountedRef.current = true
-
-    // Fetch initial data
     fetchBalance()
     fetchTransactions()
-
-    // Cleanup polling on unmount
     return () => {
       isMountedRef.current = false
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current)
-        pollingRef.current = null
-      }
-      if (pollingInterval) {
-        clearInterval(pollingInterval)
-      }
+      clearAllTimers()
     }
   }, [])
 
-  // Deposit bonuses
-  const bonusOffers = [
-    {
-      id: 1,
-      title: 'First Deposit Bonus',
-      description: '100% match up to KES 500',
-      minDeposit: 50,
-      maxBonus: 500,
-      percentage: 100,
-      code: 'WELCOME100',
-      active: true
-    },
-    {
-      id: 2,
-      title: 'Weekend Warrior',
-      description: '50% bonus on weekend deposits',
-      minDeposit: 100,
-      maxBonus: 250,
-      percentage: 50,
-      code: 'WEEKEND50',
-      active: false
-    },
-    {
-      id: 3,
-      title: 'High Roller',
-      description: '25% bonus on deposits over KES 1000',
-      minDeposit: 1000,
-      maxBonus: 1000,
-      percentage: 25,
-      code: 'HIGHROLL25',
-      active: true
-    }
-  ]
-
-  const quickAmounts = [50, 100, 200, 500, 1000, 2000]
-
-  const handleQuickAmount = (amount) => {
-    setDepositAmount(amount.toString())
+  const clearAllTimers = () => {
+    if (pollRef.current)    { clearInterval(pollRef.current);    pollRef.current = null }
+    if (elapsedRef.current) { clearInterval(elapsedRef.current); elapsedRef.current = null }
   }
 
-  const formatPhoneNumber = (number) => {
-    let cleaned = number.replace(/\D/g, '')
-
-    if (cleaned.startsWith('0')) {
-      cleaned = '254' + cleaned.slice(1)
-    }
-
-    if (!cleaned.startsWith('254')) {
-      cleaned = '254' + cleaned
-    }
-
-    return cleaned
+  const showFeedback = (msg, type = 'ok') => {
+    setFeedback({ msg, type })
+    setTimeout(() => setFeedback(null), 5000)
   }
 
-  const validatePhoneNumber = (number) => {
-    const cleaned = formatPhoneNumber(number)
-    return /^254\d{9}$/.test(cleaned)
-  }
+  // ── Deposit flow ──────────────────────────────────────────
+  const submitDeposit = async () => {
+    const amt = parseFloat(dAmount)
+    if (!amt || amt < MIN_DEPOSIT)  return showFeedback(`Minimum deposit is ${formatKES(MIN_DEPOSIT)}`, 'err')
+    if (amt > MAX_DEPOSIT)           return showFeedback(`Maximum deposit is ${formatKES(MAX_DEPOSIT)}`, 'err')
+    if (!validatePhone(dPhone))      return showFeedback('Enter a valid Kenyan phone number', 'err')
 
-  const handleDeposit = () => {
-    if (!depositAmount || parseFloat(depositAmount) <= 0) {
-      showToastMessage('Please enter a valid deposit amount', 'error')
-      return
-    }
-
-    const amount = parseFloat(depositAmount)
-    if (amount < 1) {
-      showToastMessage('Minimum deposit amount is KES 1', 'error')
-      return
-    }
-
-    if (amount > 150000) {
-      showToastMessage('Maximum deposit amount is KES 150,000', 'error')
-      return
-    }
-
-    if (!phoneNumber) {
-      showToastMessage('Please enter your M-Pesa phone number', 'error')
-      return
-    }
-
-    if (!validatePhoneNumber(phoneNumber)) {
-      showToastMessage('Please enter a valid Kenyan phone number (e.g., 0712345678)', 'error')
-      return
-    }
-
-    setShowConfirmModal(true)
-  }
-
-  const handleWithdraw = async () => {
-    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
-      showToastMessage('Please enter a valid withdrawal amount', 'error')
-      return
-    }
-
-    const amount = parseFloat(withdrawAmount)
-
-    if (amount < 100) {
-      showToastMessage('Minimum withdrawal amount is KES 100', 'error')
-      return
-    }
-
-    if (amount > balance) {
-      showToastMessage('Insufficient balance', 'error')
-      return
-    }
-
-    if (!withdrawPhone) {
-      showToastMessage('Please enter your M-Pesa phone number', 'error')
-      return
-    }
-
-    if (!validatePhoneNumber(withdrawPhone)) {
-      showToastMessage('Please enter a valid Kenyan phone number', 'error')
-      return
-    }
-
-    setWithdrawing(true)
+    setDStage('sending')
+    setDStatusMsg('Sending request to M-Pesa...')
 
     try {
-      // TODO: Implement withdrawal API call
-      // const formattedPhone = formatPhoneNumber(withdrawPhone)
-      // const result = await withdrawFunds(amount, formattedPhone)
-
-      // Simulated response for now
-      showToastMessage('Withdrawal request submitted successfully!', 'success')
-      setShowWithdrawModal(false)
-      setWithdrawAmount('')
-      setWithdrawPhone('')
-
-      // Refresh balance
-      setTimeout(() => {
-        fetchBalance()
-        fetchTransactions()
-      }, 1000)
-    } catch (error) {
-      console.error('Withdrawal error:', error)
-      showToastMessage('Withdrawal failed. Please try again.', 'error')
-    } finally {
-      setWithdrawing(false)
-    }
-  }
-
-  const confirmDeposit = async () => {
-    setShowConfirmModal(false)
-    setShowStatusModal(true)
-    setPaymentStatus('initiating')
-    setStatusMessage('Initiating M-Pesa payment...')
-
-    try {
-      const formattedPhone = formatPhoneNumber(phoneNumber)
-      const result = await depositFunds(parseFloat(depositAmount), formattedPhone)
-
-      console.log('Deposit result:', result)
-
-      if (result.success && result.data?.checkoutRequestId) {
-        const checkoutId = result.data.checkoutRequestId
-
-        // Set state first
-        setCheckoutRequestId(checkoutId)
-        setPaymentStatus('pending')
-        setStatusMessage('STK Push sent to your phone. Please enter your M-Pesa PIN to complete the payment.')
-        showToastMessage('STK Push sent! Check your phone.', 'success')
-
-        // Start polling with the checkoutId directly (don't rely on state)
-        pollPaymentStatus(checkoutId)
+      const result = await deposit(amt, formatPhoneNumber(dPhone))
+      if (result?.success && result.data?.checkoutRequestId) {
+        setDCheckoutId(result.data.checkoutRequestId)
+        setDStage('waiting')
+        setDStatusMsg('Check your phone — enter your M-Pesa PIN to confirm')
+        startPolling(result.data.checkoutRequestId)
       } else {
-        setPaymentStatus('failed')
-        setStatusMessage(result.message || 'Failed to initiate payment')
-        showToastMessage(result.message || 'Payment initiation failed', 'error')
+        setDStage('failed')
+        setDStatusMsg(result?.message || 'Could not start M-Pesa payment')
       }
-    } catch (error) {
-      console.error('Deposit error:', error)
-      setPaymentStatus('failed')
-      setStatusMessage(error.response?.data?.error || error.message || 'Failed to initiate payment. Please try again.')
-      showToastMessage('Payment failed. Please try again.', 'error')
+    } catch (err) {
+      setDStage('failed')
+      setDStatusMsg(err?.response?.data?.error || err?.message || 'Deposit failed')
     }
   }
 
-  const pollPaymentStatus = async (checkoutId) => {
-    // Clear any existing polling interval
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current)
-      pollingRef.current = null
-    }
+  const startPolling = (checkoutId) => {
+    clearAllTimers()
+    startTimeRef.current = Date.now()
+    setDElapsed(0)
 
-    let attempts = 0
+    elapsedRef.current = setInterval(() => {
+      if (!isMountedRef.current) return
+      setDElapsed(Date.now() - startTimeRef.current)
+    }, 1000)
 
-    const poll = setInterval(async () => {
-      // Stop polling if component is unmounted
-      if (!isMountedRef.current) {
-        clearInterval(poll)
-        if (pollingRef.current === poll) {
-          pollingRef.current = null
-        }
+    pollRef.current = setInterval(async () => {
+      if (!isMountedRef.current) { clearAllTimers(); return }
+      const elapsed = Date.now() - startTimeRef.current
+      if (elapsed >= POLL_MAX_MS) {
+        clearAllTimers()
+        setDStage('failed')
+        setDStatusMsg("We haven't heard back from M-Pesa yet. Use 'Check status' below or try again.")
         return
       }
 
-      attempts++
-      console.log(`Polling attempt ${attempts} for checkout: ${checkoutId}`)
-
       try {
         const result = await querySTKStatus(checkoutId)
-        console.log('Status result:', result)
+        if (!isMountedRef.current) return
 
-        // Stop polling if component unmounted during request
-        if (!isMountedRef.current) {
-          clearInterval(poll)
-          if (pollingRef.current === poll) {
-            pollingRef.current = null
-          }
-          return
-        }
-
-        // Check for completed status
         if (result.status === 'COMPLETED') {
-          clearInterval(poll)
-          if (pollingRef.current === poll) {
-            pollingRef.current = null
-          }
-          setPollingInterval(null)
-          setPaymentStatus('success')
-          setStatusMessage('Payment successful! Your wallet has been credited.')
-          showToastMessage('Deposit successful!', 'success')
-
-          // Reset form
-          setDepositAmount('')
-          setPhoneNumber('')
-          setSelectedBonus(null)
-          setCheckoutRequestId(null)
-
-          // Refresh wallet data
-          setTimeout(() => {
-            if (isMountedRef.current) {
-              fetchBalance()
-              fetchTransactions()
-            }
-          }, 1000)
+          clearAllTimers()
+          setDStage('success')
+          setDStatusMsg(`Wallet credited with ${formatKES(parseFloat(dAmount))}`)
+          fetchBalance()
+          fetchTransactions()
+        } else if (result.status === 'FAILED') {
+          clearAllTimers()
+          setDStage('failed')
+          setDStatusMsg(result.failureReason || result.resultDesc || 'Payment failed')
+        } else if (result.status === 'CANCELLED') {
+          clearAllTimers()
+          setDStage('failed')
+          setDStatusMsg('Payment was cancelled')
         }
-        // Check for failed status
-        else if (result.status === 'FAILED') {
-          clearInterval(poll)
-          if (pollingRef.current === poll) {
-            pollingRef.current = null
-          }
-          setPollingInterval(null)
-          setPaymentStatus('failed')
-          setStatusMessage(result.failureReason || result.resultDesc || 'Payment failed')
-          showToastMessage('Payment failed', 'error')
-        }
-        // Check for cancelled status
-        else if (result.status === 'CANCELLED') {
-          clearInterval(poll)
-          if (pollingRef.current === poll) {
-            pollingRef.current = null
-          }
-          setPollingInterval(null)
-          setPaymentStatus('failed')
-          setStatusMessage('Payment was cancelled')
-          showToastMessage('Payment cancelled', 'warning')
-        }
-        // Still pending - continue polling indefinitely
-        else if (result.status === 'PENDING') {
-          console.log(`Payment still pending... (attempt ${attempts})`)
-          // Keep polling - no timeout
-        }
-      } catch (error) {
-        console.error('Status check error:', error)
-        // Continue polling even on errors - don't give up
-        console.log(`Error during polling, will retry... (attempt ${attempts})`)
+      } catch (err) {
+        // Continue polling
+        console.warn('Status check error', err)
       }
-    }, 3000) // Poll every 3 seconds
-
-    pollingRef.current = poll
-    setPollingInterval(poll)
+    }, POLL_INTERVAL_MS)
   }
 
-  const calculateBonus = () => {
-    if (!selectedBonus || !depositAmount) return 0
-    const amount = parseFloat(depositAmount)
-    const bonus = Math.min(amount * (selectedBonus.percentage / 100), selectedBonus.maxBonus)
-    return bonus
+  const manualStatusCheck = async () => {
+    if (!dCheckoutId) return
+    setDStage('waiting')
+    setDStatusMsg('Checking status...')
+    startPolling(dCheckoutId)
   }
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'COMPLETED': return '#00FF85'
-      case 'PENDING': return '#00F0FF'
-      case 'FAILED': return '#FF003C'
-      case 'CANCELLED': return '#FF8C00'
-      default: return '#B0B0B0'
+  const resetDeposit = () => {
+    clearAllTimers()
+    setDStage('idle')
+    setDAmount('')
+    setDStatusMsg('')
+    setDCheckoutId(null)
+    setDElapsed(0)
+  }
+
+  // ── Withdraw flow ─────────────────────────────────────────
+  const submitWithdraw = async () => {
+    const amt = parseFloat(wAmount)
+    if (!amt || amt < MIN_WITHDRAW)  return showFeedback(`Minimum withdrawal is ${formatKES(MIN_WITHDRAW)}`, 'err')
+    if (amt > balance)               return showFeedback('Insufficient balance', 'err')
+    if (!validatePhone(wPhone))      return showFeedback('Enter a valid Kenyan phone number', 'err')
+
+    setWStage('sending')
+    setWStatusMsg('Submitting withdrawal request...')
+
+    try {
+      const result = await withdraw(amt, formatPhoneNumber(wPhone))
+      if (result?.success !== false) {
+        setWStage('success')
+        setWStatusMsg(`Withdrawal of ${formatKES(amt)} submitted. M-Pesa processes within 1–24 hours.`)
+        await Promise.all([fetchBalance(), fetchTransactions()])
+      } else {
+        setWStage('failed')
+        setWStatusMsg(result?.message || 'Withdrawal failed')
+      }
+    } catch (err) {
+      setWStage('failed')
+      setWStatusMsg(err?.response?.data?.error || err?.message || 'Withdrawal failed')
     }
   }
 
-  const getTransactionIcon = (status) => {
-    switch (status) {
-      case 'COMPLETED': return <CheckCircle size={16} color="#00FF85" />
-      case 'PENDING': return <Clock size={16} color="#00F0FF" />
-      case 'FAILED': return <AlertCircle size={16} color="#FF003C" />
-      case 'CANCELLED': return <AlertCircle size={16} color="#FF8C00" />
-      default: return <Clock size={16} color="#B0B0B0" />
-    }
+  const resetWithdraw = () => {
+    setWStage('idle')
+    setWAmount('')
+    setWStatusMsg('')
   }
 
-  const closeStatusModal = () => {
-    // Clear polling if still running
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current)
-      pollingRef.current = null
-    }
-    if (pollingInterval) {
-      clearInterval(pollingInterval)
-      setPollingInterval(null)
-    }
+  // ── Derived data ──────────────────────────────────────────
+  const filteredTxs = useMemo(() => {
+    if (typeFilter === 'all') return transactions
+    return transactions.filter(t => t.type === typeFilter)
+  }, [transactions, typeFilter])
 
-    setShowStatusModal(false)
-    setPaymentStatus('pending')
-    setStatusMessage('')
-    setCheckoutRequestId(null)
-  }
+  const groupedTxs = useMemo(() => groupByDay(filteredTxs), [filteredTxs])
 
-  const retryStatusCheck = () => {
-    if (checkoutRequestId && isMountedRef.current) {
-      setPaymentStatus('pending')
-      setStatusMessage('Checking payment status...')
-      pollPaymentStatus(checkoutRequestId)
-    }
-  }
+  const monthlySummary = useMemo(() => {
+    const now = new Date()
+    const thisMonth = transactions.filter(t => {
+      const d = new Date(t.createdAt)
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+        && txStatus(t) === 'COMPLETED'
+    })
+    const sum = (type) => thisMonth.filter(t => t.type === type).reduce((s, t) => s + (t.amount || 0), 0)
+    const deposited = sum('DEPOSIT')
+    const won       = sum('PRIZE')
+    const spent     = sum('ENTRY_FEE')
+    const withdrew  = sum('WITHDRAWAL')
+    const net       = deposited + won - spent - withdrew
+    return { deposited, won, spent, withdrew, net }
+  }, [transactions])
+
+  const remainingPoll = useMemo(() => {
+    const left = POLL_MAX_MS - dElapsed
+    if (left <= 0) return '0:00'
+    const s = Math.floor(left / 1000)
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+  }, [dElapsed])
 
   return (
-    <div className="deposit-page animated-bg">
-      <Container fluid className="py-4">
+    <div className="pp-page">
+      <Container fluid className="pp-container">
         {/* Header */}
-        <Row className="mb-4">
-          <Col>
-            <div className="page-header cyber-card p-4">
-              <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                <div>
-                  <h1 className="cyber-text text-neon mb-2">
-                    <Wallet size={32} className="me-3" />
-                    Wallet & Deposits
-                  </h1>
-                  <p className="text-white mb-0">Manage your gaming funds and make secure deposits via M-Pesa</p>
-                </div>
-                <Button
-                  variant="success"
-                  size="lg"
-                  onClick={() => setShowWithdrawModal(true)}
-                  disabled={balance <= 0}
-                  className='btn-cyber'
-                >
-                  <ArrowDownToLine size={20} className="me-2" />
-                  Withdraw Funds
-                </Button>
-              </div>
+        <div className="pp-header wp-header">
+          <div className="pp-header-top">
+            <div className="pp-header-titleblock">
+              <h1 className="pp-title">
+                <Wallet size={20} style={{ marginRight: 10, verticalAlign: 'middle', color: '#C53030' }} />
+                Wallet
+              </h1>
+              <p className="pp-subtitle">Manage your funds and view transactions</p>
             </div>
-          </Col>
-        </Row>
 
-        {/* Error Alert */}
-        {error && (
-          <Row className="mb-4">
-            <Col>
-              <Alert variant="danger" dismissible onClose={() => { }}>
-                <AlertCircle size={20} className="me-2" />
-                {error}
-              </Alert>
-            </Col>
-          </Row>
-        )}
+            <div className="wp-balance">
+              <div className="wp-balance-label">Available Balance</div>
+              <div className="wp-balance-value">
+                {isLoading ? <Spinner animation="border" size="sm" /> : formatKES(balance, { decimals: 2 })}
+              </div>
+              <button
+                type="button"
+                onClick={fetchBalance}
+                disabled={isLoading}
+                className="wp-balance-refresh"
+                title="Refresh"
+                aria-label="Refresh balance"
+              >
+                <RefreshCw size={13} className={isLoading ? 'pp-spin' : ''} />
+              </button>
+            </div>
+          </div>
 
-        {/* Wallet Overview */}
-        <Row className="mb-4">
-          <Col lg={4} sm={6} className="mb-3">
-            <Card className="cyber-card wallet-card h-100">
-              <Card.Body className="text-center">
-                <DollarSign size={30} color="#00F0FF" className="mb-2" />
-                <h4 className="text-neon fw-bold">
-                  {isLoading ? (
-                    <Spinner animation="border" size="sm" />
-                  ) : (
-                    `KES ${balance.toFixed(2)}`
-                  )}
-                </h4>
-                <small className="text-white">Available Balance</small>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col lg={4} sm={6} className="mb-3">
-            <Card className="cyber-card wallet-card h-100">
-              <Card.Body className="text-center">
-                <Wallet size={30} color="#00FF85" className="mb-2" />
-                <h4 className="text-energy-green fw-bold">
-                  {transactions.filter(t => t.type === 'DEPOSIT').length}
-                </h4>
-                <small className="text-white">Total Deposits</small>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col lg={4} sm={6} className="mb-3">
-            <Card className="cyber-card wallet-card h-100">
-              <Card.Body className="text-center">
-                <Clock size={30} color="#9B00FF" className="mb-2" />
-                <h4 className="text-purple fw-bold">
-                  {transactions.filter(t => t.meta?.status === 'PENDING' || !t.meta?.status).length}
-                </h4>
-                <small className="text-white">Pending Transactions</small>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+          {error && (
+            <div className="tp-feedback tp-feedback--err" style={{ marginTop: 14 }}>
+              <AlertCircle size={14} style={{ marginRight: 6, verticalAlign: 'middle' }} />
+              {error}
+            </div>
+          )}
 
-        <Row>
-          {/* Deposit Form */}
-          <Col lg={8}>
-            <Card className="cyber-card mb-4">
-              <Card.Header>
-                <h5 className="mb-0 d-flex align-items-center">
-                  <CreditCard size={20} className="me-2 text-neon" />
-                  Make a Deposit via M-Pesa
-                </h5>
-              </Card.Header>
-              <Card.Body>
-                {/* Security Notice */}
-                <Alert className="security-alert mb-4" variant="info">
-                  <Shield size={20} className="me-2" />
-                  Your transactions are secured with M-Pesa. You will receive an STK push on your phone to complete the payment.
-                </Alert>
+          {feedback && (
+            <div className={`tp-feedback tp-feedback--${feedback.type}`} style={{ marginTop: 14 }}>
+              {feedback.msg}
+            </div>
+          )}
+        </div>
 
-                <Form>
-                  {/* Phone Number */}
-                  <Form.Group className="mb-4">
-                    <Form.Label className="text-white h6">M-Pesa Phone Number</Form.Label>
-                    <div className="input-group">
-                      <span
-                        className="input-group-text"
-                        style={{
-                          background: 'rgba(31, 31, 35, 0.8)',
-                          border: '1px solid rgba(0, 240, 255, 0.3)',
-                          color: '#00F0FF'
-                        }}
-                      >
-                        <Phone size={18} />
-                      </span>
-                      <Form.Control
-                        type="tel"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder="07XXXXXXXX or 2547XXXXXXXX"
-                        maxLength="12"
-                      />
+        {/* Tabs */}
+        <div className="pp-maintabs">
+          <button
+            type="button"
+            className={`pp-maintab ${tab === 'activity' ? 'active' : ''}`}
+            onClick={() => setTab('activity')}
+          >
+            <Activity size={15} /> <span>Activity</span>
+          </button>
+          <button
+            type="button"
+            className={`pp-maintab ${tab === 'deposit' ? 'active' : ''}`}
+            onClick={() => { setTab('deposit'); resetDeposit() }}
+          >
+            <ArrowDown size={15} /> <span>Deposit</span>
+          </button>
+          <button
+            type="button"
+            className={`pp-maintab ${tab === 'withdraw' ? 'active' : ''}`}
+            onClick={() => { setTab('withdraw'); resetWithdraw() }}
+          >
+            <ArrowUp size={15} /> <span>Withdraw</span>
+          </button>
+        </div>
+
+        <div className="pp-layout">
+          <div className="pp-main">
+
+            {/* ── DEPOSIT TAB ───────────────────────────── */}
+            {tab === 'deposit' && (
+              <div className="wp-card">
+                {dStage === 'idle' && (
+                  <>
+                    <div className="wp-form-head">
+                      <ArrowDown size={16} color="#5BC58A" />
+                      <h3>Deposit via M-Pesa</h3>
                     </div>
-                    <Form.Text className="text-white-50">
-                      Enter the M-Pesa phone number to receive the payment prompt
-                    </Form.Text>
-                  </Form.Group>
+                    <p className="wp-form-hint">
+                      <ShieldCheck size={12} /> You'll receive an STK push on your phone — enter your PIN to confirm.
+                    </p>
 
-                  {/* Deposit Amount */}
-                  <Form.Group className="mb-4">
-                    <Form.Label className="text-white h6">Deposit Amount (KES)</Form.Label>
-                    <div className="amount-input-container">
-                      <div className="input-group">
-                        <span
-                          className="input-group-text"
-                          style={{
-                            background: 'rgba(31, 31, 35, 0.8)',
-                            border: '1px solid rgba(0, 240, 255, 0.3)',
-                            color: '#00F0FF'
-                          }}
-                        >
-                          KES
-                        </span>
-                        <Form.Control
-                          type="number"
-                          value={depositAmount}
-                          onChange={(e) => setDepositAmount(e.target.value)}
-                          placeholder="Enter amount"
-                          min="1"
-                          max="150000"
-                          step="1"
-                          style={{
-                            fontSize: '1.2rem',
-                            fontWeight: 'bold'
-                          }}
+                    <div className="wp-field">
+                      <label className="wp-label">M-Pesa Phone Number</label>
+                      <div className="wp-input-prefix">
+                        <span className="wp-input-prefix-icon"><Phone size={14} /></span>
+                        <input
+                          type="tel"
+                          className="wp-input"
+                          placeholder="0712 345 678"
+                          value={dPhone}
+                          onChange={e => setDPhone(e.target.value)}
+                          maxLength={15}
+                          autoComplete="tel"
                         />
                       </div>
+                    </div>
 
-                      {/* Quick Amount Buttons */}
-                      <div className="quick-amounts mt-3">
-                        <div className="d-flex flex-wrap gap-2">
-                          {quickAmounts.map(amount => (
-                            <Button
-                              key={amount}
-                              className="quick-amount-btn"
-                              variant="outline-primary"
-                              size="sm"
-                              onClick={() => handleQuickAmount(amount)}
-                              style={{
-                                background: depositAmount === amount.toString() ? 'rgba(0, 240, 255, 0.2)' : 'transparent',
-                                borderColor: '#00F0FF',
-                                color: depositAmount === amount.toString() ? '#00F0FF' : '#B0B0B0'
-                              }}
-                            >
-                              KES {amount}
-                            </Button>
-                          ))}
+                    <div className="wp-field">
+                      <label className="wp-label">Amount (KES)</label>
+                      <div className="wp-input-prefix">
+                        <span className="wp-input-prefix-icon-text">KES</span>
+                        <input
+                          type="number"
+                          className="wp-input wp-input--big"
+                          placeholder="0"
+                          value={dAmount}
+                          onChange={e => setDAmount(e.target.value)}
+                          min={MIN_DEPOSIT}
+                          max={MAX_DEPOSIT}
+                          step="1"
+                        />
+                      </div>
+                      <div className="wp-quick-pills">
+                        {QUICK_AMOUNTS.map(a => (
+                          <button
+                            type="button"
+                            key={a}
+                            className={`wp-quick-pill ${dAmount === String(a) ? 'active' : ''}`}
+                            onClick={() => setDAmount(String(a))}
+                          >
+                            +{a}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="wp-help">
+                        Min {formatKES(MIN_DEPOSIT)} · Max {formatKES(MAX_DEPOSIT)}
+                      </p>
+                    </div>
+
+                    {dAmount && parseFloat(dAmount) > 0 && (
+                      <div className="wp-summary">
+                        <div className="wp-summary-row">
+                          <span>You'll receive</span>
+                          <strong>{formatKES(parseFloat(dAmount))}</strong>
                         </div>
                       </div>
-                      <Form.Text className="text-white-50 mt-2 d-block">
-                        Minimum: KES 1 | Maximum: KES 150,000
-                      </Form.Text>
-                    </div>
-                  </Form.Group>
+                    )}
 
-                  {/* Promo Code */}
-                  <Form.Group className="mb-4">
-                    <Form.Label className="text-white h6">Promo Code (Optional)</Form.Label>
-                    <div className="d-flex gap-2">
-                      <Form.Control
-                        type="text"
-                        value={promoCode}
-                        onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                        placeholder="Enter promo code"
-                      />
-                      <Button className="btn-outline-cyber" style={{ minWidth: '100px' }}>
-                        Apply
-                      </Button>
-                    </div>
-                  </Form.Group>
+                    <button
+                      type="button"
+                      className="pp-btn pp-btn-primary wp-submit"
+                      onClick={submitDeposit}
+                      disabled={!dAmount || !dPhone || isLoading}
+                    >
+                      <ArrowDown size={14} />
+                      Deposit
+                    </button>
+                  </>
+                )}
 
-                  {/* Deposit Summary */}
-                  {depositAmount && (
-                    <div className="deposit-summary cyber-card p-3 mb-4">
-                      <h6 className="text-neon mb-3">Deposit Summary</h6>
-                      <div className="summary-row d-flex justify-content-between mb-2">
-                        <span className="text-white">Deposit Amount:</span>
-                        <span className="text-white fw-bold">KES {parseFloat(depositAmount || 0).toFixed(2)}</span>
-                      </div>
-                      {selectedBonus && (
-                        <>
-                          <div className="summary-row d-flex justify-content-between mb-2">
-                            <span className="text-white">Bonus ({selectedBonus.percentage}%):</span>
-                            <span className="text-energy-green fw-bold">+KES {calculateBonus().toFixed(2)}</span>
-                          </div>
-                          <hr style={{ borderColor: 'rgba(0, 240, 255, 0.3)' }} />
-                          <div className="summary-row d-flex justify-content-between">
-                            <span className="text-white fw-bold">Total Credit:</span>
-                            <span className="text-neon fw-bold">KES {(parseFloat(depositAmount || 0) + calculateBonus()).toFixed(2)}</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  <Button
-                    className="btn-cyber w-100"
-                    size="lg"
-                    onClick={handleDeposit}
-                    disabled={!depositAmount || parseFloat(depositAmount) <= 0 || !phoneNumber || isLoading}
-                  >
-                    {isLoading ? (
+                {dStage !== 'idle' && (
+                  <div className="wp-stage">
+                    {dStage === 'sending' && (
                       <>
-                        <Spinner animation="border" size="sm" className="me-2" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard size={20} className="me-2" />
-                        Deposit KES {parseFloat(depositAmount || 0).toFixed(2)}
+                        <Spinner animation="border" style={{ color: '#C53030', width: 48, height: 48, borderWidth: 4 }} />
+                        <h3 className="wp-stage-title">Contacting M-Pesa...</h3>
+                        <p className="wp-stage-msg">{dStatusMsg}</p>
                       </>
                     )}
-                  </Button>
-                </Form>
-              </Card.Body>
-            </Card>
-          </Col>
-
-          {/* Sidebar */}
-          <Col lg={4}>
-            {/* Bonus Offers */}
-            <Card className="cyber-card mb-4">
-              <Card.Header>
-                <h6 className="mb-0 d-flex align-items-center">
-                  <Gift size={20} className="me-2 text-purple" />
-                  Bonus Offers
-                </h6>
-              </Card.Header>
-              <Card.Body className="p-0">
-                {bonusOffers.map(bonus => (
-                  <div
-                    key={bonus.id}
-                    className={`bonus-offer p-3 cursor-pointer ${selectedBonus?.id === bonus.id ? 'selected' : ''} ${!bonus.active ? 'disabled' : ''}`}
-                    onClick={() => bonus.active && setSelectedBonus(bonus)}
-                    style={{
-                      borderBottom: '1px solid rgba(0, 240, 255, 0.1)',
-                      cursor: bonus.active ? 'pointer' : 'not-allowed',
-                      opacity: bonus.active ? 1 : 0.5,
-                      background: selectedBonus?.id === bonus.id ? 'rgba(0, 240, 255, 0.1)' : 'transparent'
-                    }}
-                  >
-                    <div className="d-flex justify-content-between align-items-start mb-2">
-                      <h6 className="text-white mb-0">{bonus.title}</h6>
-                      {bonus.active ? (
-                        <Badge style={{ background: '#00FF85' }}>Active</Badge>
-                      ) : (
-                        <Badge style={{ background: '#B0B0B0' }}>Expired</Badge>
-                      )}
-                    </div>
-                    <p className="text-white small mb-2">{bonus.description}</p>
-                    <div className="bonus-details">
-                      <small className="text-white">
-                        Min deposit: KES {bonus.minDeposit} | Max bonus: KES {bonus.maxBonus}
-                      </small>
-                    </div>
-                    {selectedBonus?.id === bonus.id && (
-                      <div className="bonus-code mt-2">
-                        <Badge
-                          className="w-100 text-center py-2"
-                          style={{
-                            background: 'rgba(0, 240, 255, 0.2)',
-                            border: '1px solid #00F0FF',
-                            color: '#00F0FF'
-                          }}
+                    {dStage === 'waiting' && (
+                      <>
+                        <Spinner animation="border" style={{ color: '#C53030', width: 48, height: 48, borderWidth: 4 }} />
+                        <h3 className="wp-stage-title">Waiting for confirmation</h3>
+                        <p className="wp-stage-msg">{dStatusMsg}</p>
+                        <div className="wp-timer">
+                          <Clock size={13} /> {remainingPoll} remaining
+                        </div>
+                        <button
+                          type="button"
+                          className="pp-btn pp-btn-ghost"
+                          onClick={resetDeposit}
+                          style={{ marginTop: 16 }}
                         >
-                          Code: {bonus.code}
-                        </Badge>
-                      </div>
+                          Cancel
+                        </button>
+                      </>
+                    )}
+                    {dStage === 'success' && (
+                      <>
+                        <div className="wp-stage-icon wp-stage-icon--ok">
+                          <CheckCircle size={48} color="#5BC58A" />
+                        </div>
+                        <h3 className="wp-stage-title" style={{ color: '#5BC58A' }}>Deposit Successful</h3>
+                        <p className="wp-stage-msg">{dStatusMsg}</p>
+                        <button type="button" className="pp-btn pp-btn-primary" onClick={resetDeposit} style={{ marginTop: 16 }}>
+                          New Deposit
+                        </button>
+                      </>
+                    )}
+                    {dStage === 'failed' && (
+                      <>
+                        <div className="wp-stage-icon wp-stage-icon--err">
+                          <AlertCircle size={48} color="#E08888" />
+                        </div>
+                        <h3 className="wp-stage-title" style={{ color: '#E08888' }}>Payment Issue</h3>
+                        <p className="wp-stage-msg">{dStatusMsg}</p>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+                          {dCheckoutId && (
+                            <button type="button" className="pp-btn pp-btn-ghost" onClick={manualStatusCheck}>
+                              <RefreshCw size={14} /> Check status
+                            </button>
+                          )}
+                          <button type="button" className="pp-btn pp-btn-primary" onClick={resetDeposit}>
+                            Try Again
+                          </button>
+                        </div>
+                      </>
                     )}
                   </div>
-                ))}
-              </Card.Body>
-            </Card>
+                )}
+              </div>
+            )}
 
-            {/* Recent Transactions */}
-            <Card className="cyber-card">
-              <Card.Header>
-                <h6 className="mb-0 d-flex align-items-center">
-                  <Clock size={20} className="me-2 text-neon" />
-                  Recent Transactions
-                </h6>
-              </Card.Header>
-              <Card.Body className="p-0">
-                {isLoading ? (
-                  <div className="text-center p-4">
-                    <Spinner animation="border" variant="primary" />
+            {/* ── WITHDRAW TAB ──────────────────────────── */}
+            {tab === 'withdraw' && (
+              <div className="wp-card">
+                {wStage === 'idle' && (
+                  <>
+                    <div className="wp-form-head">
+                      <ArrowUp size={16} color="#E08888" />
+                      <h3>Withdraw to M-Pesa</h3>
+                    </div>
+                    <p className="wp-form-hint">
+                      <Clock size={12} /> Processing time: 1–24 hours via M-Pesa B2C.
+                    </p>
+
+                    {/* Pochi La Biashara notice */}
+                    <div className="wp-pochi">
+                      <div className="wp-pochi-head">
+                        <Info size={14} color="#F6AD55" />
+                        <span>
+                          Make sure <strong>Pochi La Biashara</strong> is activated on the number you're withdrawing to —
+                          payouts can fail if it's not.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className={`wp-pochi-toggle ${showPochiGuide ? 'open' : ''}`}
+                        onClick={() => setShowPochiGuide(v => !v)}
+                      >
+                        How to activate Pochi La Biashara
+                        <ChevronDown size={13} />
+                      </button>
+
+                      {showPochiGuide && (
+                        <div className="wp-pochi-guide">
+                          <div className="wp-pochi-method">
+                            <div className="wp-pochi-method-label">Option 1 — USSD (any phone)</div>
+                            <ol className="wp-pochi-steps">
+                              <li>Dial <code>*334#</code> on your M-Pesa number</li>
+                              <li>Select <strong>"My Account"</strong></li>
+                              <li>Choose <strong>"Pochi La Biashara"</strong></li>
+                              <li>Select <strong>"Activate"</strong></li>
+                              <li>Accept the terms and enter your M-Pesa PIN</li>
+                              <li>You'll get an SMS confirming activation</li>
+                            </ol>
+                          </div>
+
+                          <div className="wp-pochi-method">
+                            <div className="wp-pochi-method-label">Option 2 — M-Pesa App</div>
+                            <ol className="wp-pochi-steps">
+                              <li>Open the <strong>M-Pesa</strong> app</li>
+                              <li>Tap <strong>"Grow your Business"</strong> or <strong>"Pochi La Biashara"</strong></li>
+                              <li>Tap <strong>"Activate"</strong></li>
+                              <li>Accept terms and confirm with your M-Pesa PIN</li>
+                            </ol>
+                          </div>
+
+                          <p className="wp-pochi-foot">
+                            Activation is free and takes under a minute. Once activated, your number can receive
+                            business-to-customer (B2C) payouts like withdrawals from GameArena.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="wp-field">
+                      <label className="wp-label">M-Pesa Phone Number</label>
+                      <div className="wp-input-prefix">
+                        <span className="wp-input-prefix-icon"><Phone size={14} /></span>
+                        <input
+                          type="tel"
+                          className="wp-input"
+                          placeholder="0712 345 678"
+                          value={wPhone}
+                          onChange={e => setWPhone(e.target.value)}
+                          maxLength={15}
+                          autoComplete="tel"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="wp-field">
+                      <label className="wp-label">Amount (KES)</label>
+                      <div className="wp-input-prefix">
+                        <span className="wp-input-prefix-icon-text">KES</span>
+                        <input
+                          type="number"
+                          className="wp-input wp-input--big"
+                          placeholder="0"
+                          value={wAmount}
+                          onChange={e => setWAmount(e.target.value)}
+                          min={MIN_WITHDRAW}
+                          max={balance}
+                          step="1"
+                        />
+                      </div>
+                      <p className="wp-help">
+                        Min {formatKES(MIN_WITHDRAW)} · Available {formatKES(balance, { decimals: 2 })}
+                      </p>
+                    </div>
+
+                    {wAmount && parseFloat(wAmount) > 0 && (
+                      <div className="wp-summary">
+                        <div className="wp-summary-row">
+                          <span>Amount</span>
+                          <strong>{formatKES(parseFloat(wAmount))}</strong>
+                        </div>
+                        <div className="wp-summary-row">
+                          <span>Processing fee</span>
+                          <strong>{formatKES(0)}</strong>
+                        </div>
+                        <div className="wp-summary-row wp-summary-row--total">
+                          <span>You'll receive</span>
+                          <strong style={{ color: '#5BC58A' }}>{formatKES(parseFloat(wAmount))}</strong>
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      className="pp-btn pp-btn-primary wp-submit"
+                      onClick={submitWithdraw}
+                      disabled={!wAmount || !wPhone || isLoading || parseFloat(wAmount) > balance}
+                    >
+                      <ArrowUp size={14} />
+                      Withdraw to Pochi
+                    </button>
+                  </>
+                )}
+
+                {wStage !== 'idle' && (
+                  <div className="wp-stage">
+                    {wStage === 'sending' && (
+                      <>
+                        <Spinner animation="border" style={{ color: '#C53030', width: 48, height: 48, borderWidth: 4 }} />
+                        <h3 className="wp-stage-title">Submitting...</h3>
+                        <p className="wp-stage-msg">{wStatusMsg}</p>
+                      </>
+                    )}
+                    {wStage === 'success' && (
+                      <>
+                        <div className="wp-stage-icon wp-stage-icon--ok">
+                          <CheckCircle size={48} color="#5BC58A" />
+                        </div>
+                        <h3 className="wp-stage-title" style={{ color: '#5BC58A' }}>Withdrawal Submitted</h3>
+                        <p className="wp-stage-msg">{wStatusMsg}</p>
+                        <button type="button" className="pp-btn pp-btn-primary" onClick={resetWithdraw} style={{ marginTop: 16 }}>
+                          Done
+                        </button>
+                      </>
+                    )}
+                    {wStage === 'failed' && (
+                      <>
+                        <div className="wp-stage-icon wp-stage-icon--err">
+                          <AlertCircle size={48} color="#E08888" />
+                        </div>
+                        <h3 className="wp-stage-title" style={{ color: '#E08888' }}>Withdrawal Failed</h3>
+                        <p className="wp-stage-msg">{wStatusMsg}</p>
+                        <button type="button" className="pp-btn pp-btn-primary" onClick={resetWithdraw} style={{ marginTop: 16 }}>
+                          Try Again
+                        </button>
+                      </>
+                    )}
                   </div>
-                ) : transactions.length === 0 ? (
-                  <div className="text-center p-4">
-                    <p className="text-white mb-0">No transactions yet</p>
+                )}
+              </div>
+            )}
+
+            {/* ── ACTIVITY TAB ──────────────────────────── */}
+            {tab === 'activity' && (
+              <>
+                <div className="pp-filterbar">
+                  <div className="pp-status-pills">
+                    {TYPE_FILTERS.map(f => (
+                      <button
+                        key={f.key}
+                        type="button"
+                        className={`pp-status-pill ${typeFilter === f.key ? 'active' : ''}`}
+                        onClick={() => setTypeFilter(f.key)}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {filteredTxs.length === 0 ? (
+                  <div className="pp-empty">
+                    <Receipt size={42} color="#3A3A3A" />
+                    <h5>No transactions yet</h5>
+                    <p>Deposits, withdrawals, prizes, and entry fees will show up here.</p>
+                    <button type="button" className="pp-btn pp-btn-primary" onClick={() => setTab('deposit')}>
+                      <Plus size={14} /> Make a Deposit
+                    </button>
                   </div>
                 ) : (
-                  transactions.slice(0, 5).map(transaction => {
-                    const txStatus = transaction.meta?.status || 'PENDING'
-                    const receipt = transaction.meta?.MpesaReceiptNumber || transaction.meta?.mpesaReceiptNumber
-
-                    return (
-                      <div
-                        key={transaction.id}
-                        className="transaction-item p-3"
-                        style={{
-                          borderBottom: '1px solid rgba(0, 240, 255, 0.1)'
-                        }}
-                      >
-                        <div className="d-flex justify-content-between align-items-center">
-                          <div className="transaction-info">
-                            <div className="d-flex align-items-center mb-1">
-                              <span className={`transaction-type me-2 ${transaction.type === 'DEPOSIT' ? 'text-energy-green' : 'text-cyber-red'}`}>
-                                {transaction.type === 'DEPOSIT' ? '+' : '-'}KES {transaction.amount}
-                              </span>
-                              <Badge
-                                style={{
-                                  background: getStatusColor(txStatus),
-                                  color: '#0E0E10',
-                                  fontSize: '0.7rem'
-                                }}
-                              >
-                                {txStatus}
-                              </Badge>
+                  <div className="wp-tx-list">
+                    {Object.entries(groupedTxs).map(([day, txs]) => (
+                      <div key={day} className="wp-tx-group">
+                        <div className="wp-tx-day">{day}</div>
+                        {txs.map(tx => {
+                          const meta   = TYPE_META[tx.type] || { label: tx.type, icon: Activity, sign: '', color: '#B0B0B0' }
+                          const status = txStatus(tx)
+                          const Icon   = meta.icon
+                          return (
+                            <div key={tx.id} className="wp-tx-row">
+                              <div className="wp-tx-icon" style={{ background: `${meta.color}22`, color: meta.color }}>
+                                <Icon size={16} />
+                              </div>
+                              <div className="wp-tx-info">
+                                <div className="wp-tx-title">{meta.label}</div>
+                                <div className="wp-tx-meta">
+                                  {tx.meta?.MpesaReceiptNumber || tx.meta?.mpesaReceiptNumber || (tx.type === 'DEPOSIT' || tx.type === 'WITHDRAWAL' ? 'M-Pesa' : '—')}
+                                  {' · '}
+                                  {new Date(tx.createdAt).toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                              </div>
+                              <div className="wp-tx-right">
+                                <div className="wp-tx-amount" style={{ color: meta.color }}>
+                                  {meta.sign}{formatKES(tx.amount, { decimals: 2 })}
+                                </div>
+                                <span
+                                  className="wp-tx-status"
+                                  style={{
+                                    background: `${STATUS_COLOR[status] || '#B0B0B0'}22`,
+                                    color: STATUS_COLOR[status] || '#B0B0B0',
+                                    border: `1px solid ${STATUS_COLOR[status] || '#B0B0B0'}55`,
+                                  }}
+                                >
+                                  {status}
+                                </span>
+                              </div>
                             </div>
-                            <div className="transaction-details">
-                              <small className="text-white">
-                                {receipt || 'M-Pesa'} • {new Date(transaction.createdAt).toLocaleDateString()}
-                              </small>
-                            </div>
-                          </div>
-                          <div className="transaction-icon">
-                            {getTransactionIcon(txStatus)}
-                          </div>
-                        </div>
+                          )
+                        })}
                       </div>
-                    )
-                  })
+                    ))}
+                  </div>
                 )}
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+              </>
+            )}
+          </div>
+
+          {/* ── Sidebar: This Month ───────────────────── */}
+          <aside className="pp-aside">
+            <div className="wp-side-card">
+              <div className="wp-side-head">
+                <TrendingUp size={14} color="#C53030" />
+                <span>This Month</span>
+              </div>
+              <div className="wp-side-body">
+                <div className="wp-month-row">
+                  <span><ArrowDown size={12} color="#5BC58A" /> Deposited</span>
+                  <strong>{formatKES(monthlySummary.deposited)}</strong>
+                </div>
+                <div className="wp-month-row">
+                  <span><Trophy size={12} color="#F6AD55" /> Won (prizes)</span>
+                  <strong>{formatKES(monthlySummary.won)}</strong>
+                </div>
+                <div className="wp-month-row">
+                  <span><Gamepad2 size={12} color="#B0B0B0" /> Entry fees</span>
+                  <strong style={{ color: '#E08888' }}>−{formatKES(monthlySummary.spent)}</strong>
+                </div>
+                <div className="wp-month-row">
+                  <span><ArrowUp size={12} color="#E08888" /> Withdrew</span>
+                  <strong style={{ color: '#E08888' }}>−{formatKES(monthlySummary.withdrew)}</strong>
+                </div>
+                <div className="wp-month-row wp-month-row--total">
+                  <span>Net</span>
+                  <strong style={{ color: monthlySummary.net >= 0 ? '#5BC58A' : '#E08888' }}>
+                    {monthlySummary.net >= 0 ? '+' : ''}{formatKES(monthlySummary.net)}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="wp-side-card">
+              <div className="wp-side-head">
+                <ShieldCheck size={14} color="#3182CE" />
+                <span>Quick Actions</span>
+              </div>
+              <div className="wp-side-actions">
+                <button type="button" className="pp-btn pp-btn-primary" onClick={() => { setTab('deposit'); resetDeposit() }}>
+                  <Plus size={14} /> Deposit
+                </button>
+                <button
+                  type="button"
+                  className="pp-btn pp-btn-ghost"
+                  onClick={() => { setTab('withdraw'); resetWithdraw() }}
+                  disabled={balance <= 0}
+                >
+                  <ArrowUp size={14} /> Withdraw
+                </button>
+              </div>
+            </div>
+          </aside>
+        </div>
       </Container>
-
-      {/* Confirmation Modal */}
-      <Modal
-        show={showConfirmModal}
-        onHide={() => setShowConfirmModal(false)}
-        className="cyber-modal"
-        centered
-      >
-        <Modal.Header closeButton>
-          <Modal.Title className="d-flex align-items-center">
-            <Shield size={24} className="me-2 text-neon" />
-            Confirm Deposit
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <div className="confirmation-details">
-            <Alert variant="info" className="mb-3">
-              <Shield size={20} className="me-2" />
-              Please review your deposit details before confirming.
-            </Alert>
-
-            <div className="deposit-details cyber-card p-3 mb-3">
-              <div className="detail-row d-flex justify-content-between mb-2">
-                <span className="text-white">Phone Number:</span>
-                <span className="text-white fw-bold">{phoneNumber}</span>
-              </div>
-              <div className="detail-row d-flex justify-content-between mb-2">
-                <span className="text-white">Amount:</span>
-                <span className="text-white fw-bold">KES {parseFloat(depositAmount || 0).toFixed(2)}</span>
-              </div>
-              <div className="detail-row d-flex justify-content-between mb-2">
-                <span className="text-white">Payment Method:</span>
-                <span className="text-white">M-Pesa STK Push</span>
-              </div>
-              {selectedBonus && (
-                <>
-                  <div className="detail-row d-flex justify-content-between mb-2">
-                    <span className="text-white">Bonus:</span>
-                    <span className="text-energy-green fw-bold">+KES {calculateBonus().toFixed(2)}</span>
-                  </div>
-                  <hr style={{ borderColor: 'rgba(0, 240, 255, 0.3)' }} />
-                  <div className="detail-row d-flex justify-content-between">
-                    <span className="text-white fw-bold">Total Credit:</span>
-                    <span className="text-neon fw-bold">KES {(parseFloat(depositAmount || 0) + calculateBonus()).toFixed(2)}</span>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <small className="text-white">
-              You will receive an M-Pesa prompt on your phone. Enter your PIN to complete the transaction.
-            </small>
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="outline-secondary"
-            onClick={() => setShowConfirmModal(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            className="btn-cyber"
-            onClick={confirmDeposit}
-          >
-            <CheckCircle size={18} className="me-2" />
-            Confirm Deposit
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Payment Status Modal */}
-      <Modal
-        show={showStatusModal}
-        onHide={closeStatusModal}
-        className="cyber-modal"
-        centered
-        backdrop="static"
-        keyboard={paymentStatus === 'success' || paymentStatus === 'failed'}
-      >
-        <Modal.Header closeButton={paymentStatus === 'success' || paymentStatus === 'failed'}>
-          <Modal.Title className="d-flex align-items-center">
-            {paymentStatus === 'success' && <CheckCircle size={24} className="me-2 text-energy-green" />}
-            {paymentStatus === 'failed' && <AlertCircle size={24} className="me-2 text-cyber-red" />}
-            {(paymentStatus === 'pending' || paymentStatus === 'initiating') && <Clock size={24} className="me-2 text-neon" />}
-            {paymentStatus === 'timeout' && <Clock size={24} className="me-2 text-warning" />}
-            Payment Status
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="text-center py-4">
-          {(paymentStatus === 'initiating' || paymentStatus === 'pending') && (
-            <Spinner animation="border" variant="primary" className="mb-3" />
-          )}
-          {paymentStatus === 'success' && (
-            <CheckCircle size={64} color="#00FF85" className="mb-3" />
-          )}
-          {paymentStatus === 'failed' && (
-            <AlertCircle size={64} color="#FF003C" className="mb-3" />
-          )}
-          {paymentStatus === 'timeout' && (
-            <Clock size={64} color="#FFA500" className="mb-3" />
-          )}
-
-          <p className="text-white h5 mb-3">{statusMessage}</p>
-
-          {paymentStatus === 'pending' && (
-            <small className="text-white-50">
-              Waiting for payment confirmation... Please complete the payment on your phone.
-            </small>
-          )}
-
-          {checkoutRequestId && (
-            <small className="text-white-50 d-block mt-2">
-              Transaction ID: {checkoutRequestId.substring(0, 20)}...
-            </small>
-          )}
-        </Modal.Body>
-        {(paymentStatus === 'success' || paymentStatus === 'failed' || paymentStatus === 'timeout') && (
-          <Modal.Footer>
-            <Button
-              className="btn-cyber w-100"
-              onClick={closeStatusModal}
-            >
-              Close
-            </Button>
-            {paymentStatus === 'timeout' && (
-              <Button
-                variant="outline-primary"
-                className="w-100 mt-2"
-                onClick={retryStatusCheck}
-              >
-                Retry Status Check
-              </Button>
-            )}
-          </Modal.Footer>
-        )}
-      </Modal>
-
-      {/* Withdrawal Modal */}
-      <Modal
-        show={showWithdrawModal}
-        onHide={() => setShowWithdrawModal(false)}
-        className="cyber-modal"
-        centered
-      >
-        <Modal.Header closeButton>
-          <Modal.Title className="d-flex align-items-center">
-            <ArrowDownToLine size={24} className="me-2 text-energy-green" />
-            Withdraw Funds
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Alert variant="info" className="mb-3">
-            <Shield size={20} className="me-2" />
-            Withdrawals are processed within 24 hours to your M-Pesa account.
-          </Alert>
-
-          {/* Current Balance */}
-          <div className="cyber-card p-3 mb-4">
-            <div className="text-center">
-              <small className="text-white d-block mb-1">Available Balance</small>
-              <h3 className="text-neon mb-0">KES {balance.toFixed(2)}</h3>
-            </div>
-          </div>
-
-          <Form>
-            {/* M-Pesa Phone Number */}
-            <Form.Group className="mb-3">
-              <Form.Label className="text-white">M-Pesa Phone Number</Form.Label>
-              <div className="input-group">
-                <span
-                  className="input-group-text"
-                  style={{
-                    background: 'rgba(31, 31, 35, 0.8)',
-                    border: '1px solid rgba(0, 240, 255, 0.3)',
-                    color: '#00F0FF'
-                  }}
-                >
-                  <Phone size={18} />
-                </span>
-                <Form.Control
-                  type="tel"
-                  value={withdrawPhone}
-                  onChange={(e) => setWithdrawPhone(e.target.value)}
-                  placeholder="07XXXXXXXX or 2547XXXXXXXX"
-                  maxLength="12"
-                />
-              </div>
-              <Form.Text className="text-white-50">
-                Enter your M-Pesa number to receive the funds
-              </Form.Text>
-            </Form.Group>
-
-            {/* Withdrawal Amount */}
-            <Form.Group className="mb-3">
-              <Form.Label className="text-white">Withdrawal Amount (KES)</Form.Label>
-              <div className="input-group">
-                <span
-                  className="input-group-text"
-                  style={{
-                    background: 'rgba(31, 31, 35, 0.8)',
-                    border: '1px solid rgba(0, 240, 255, 0.3)',
-                    color: '#00FF85'
-                  }}
-                >
-                  KES
-                </span>
-                <Form.Control
-                  type="number"
-                  value={withdrawAmount}
-                  onChange={(e) => setWithdrawAmount(e.target.value)}
-                  placeholder="Enter amount"
-                  min="100"
-                  max={balance}
-                  step="1"
-                />
-              </div>
-              <Form.Text className="text-white-50">
-                Minimum: KES 100 | Available: KES {balance.toFixed(2)}
-              </Form.Text>
-            </Form.Group>
-
-            {/* Withdrawal Summary */}
-            {withdrawAmount && parseFloat(withdrawAmount) > 0 && (
-              <div className="cyber-card p-3 mb-3" style={{ background: 'rgba(0, 255, 133, 0.05)', border: '1px solid rgba(0, 255, 133, 0.2)' }}>
-                <h6 className="text-energy-green mb-3">Withdrawal Summary</h6>
-                <div className="d-flex justify-content-between mb-2">
-                  <span className="text-white">Amount to withdraw:</span>
-                  <span className="text-white fw-bold">KES {parseFloat(withdrawAmount).toFixed(2)}</span>
-                </div>
-                <div className="d-flex justify-content-between mb-2">
-                  <span className="text-white">Processing fee:</span>
-                  <span className="text-white">KES 0.00</span>
-                </div>
-                <hr style={{ borderColor: 'rgba(0, 255, 133, 0.3)' }} />
-                <div className="d-flex justify-content-between">
-                  <span className="text-white fw-bold">You will receive:</span>
-                  <span className="text-energy-green fw-bold">KES {parseFloat(withdrawAmount).toFixed(2)}</span>
-                </div>
-              </div>
-            )}
-
-            <Alert variant="warning" className="small mb-0">
-              <AlertCircle size={16} className="me-2" />
-              Processing time: 1-24 hours. You'll receive an M-Pesa confirmation once processed.
-            </Alert>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="outline-secondary"
-            onClick={() => setShowWithdrawModal(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="success"
-            onClick={handleWithdraw}
-            disabled={!withdrawAmount || parseFloat(withdrawAmount) <= 0 || !withdrawPhone || withdrawing || parseFloat(withdrawAmount) > balance}
-          >
-            {withdrawing ? (
-              <>
-                <Spinner animation="border" size="sm" className="me-2" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <ArrowDownToLine size={18} className="me-2" />
-                Withdraw KES {parseFloat(withdrawAmount || 0).toFixed(2)}
-              </>
-            )}
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* Toast Notification */}
-      <ToastNotification
-        show={showToast}
-        message={toastMessage}
-        variant={toastVariant}
-        onClose={() => setShowToast(false)}
-      />
-
-      <style jsx>{`
-        .wallet-card {
-          transition: all 0.3s ease;
-        }
-
-        .wallet-card:hover {
-          transform: translateY(-3px);
-        }
-
-        .security-alert {
-          background: rgba(0, 240, 255, 0.1) !important;
-          border: 1px solid rgba(0, 240, 255, 0.3) !important;
-          color: #F5F5F5 !important;
-        }
-
-        .quick-amount-btn {
-          transition: all 0.3s ease;
-        }
-
-        .quick-amount-btn:hover {
-          background: rgba(0, 240, 255, 0.2) !important;
-          color: #00F0FF !important;
-          transform: translateY(-2px);
-        }
-
-        .deposit-summary {
-          background: rgba(0, 240, 255, 0.05) !important;
-          border: 1px solid rgba(0, 240, 255, 0.2) !important;
-        }
-
-        .bonus-offer {
-          transition: all 0.3s ease;
-        }
-
-        .bonus-offer:hover:not(.disabled) {
-          background: rgba(0, 240, 255, 0.05) !important;
-        }
-
-        .bonus-offer.selected {
-          position: relative;
-        }
-
-        .bonus-offer.selected::before {
-          content: '';
-          position: absolute;
-          left: 0;
-          top: 0;
-          bottom: 0;
-          width: 3px;
-          background: linear-gradient(45deg, #00F0FF, #9B00FF);
-        }
-
-        .transaction-item {
-          transition: all 0.3s ease;
-        }
-
-        .transaction-item:hover {
-          background: rgba(0, 240, 255, 0.05);
-        }
-
-        .cyber-modal .modal-content {
-          background: rgba(31, 31, 35, 0.95) !important;
-          border: 1px solid rgba(0, 240, 255, 0.3) !important;
-          backdrop-filter: blur(10px);
-        }
-
-        .cyber-modal .modal-header {
-          border-bottom: 1px solid rgba(0, 240, 255, 0.3) !important;
-        }
-
-        .cyber-modal .modal-footer {
-          border-top: 1px solid rgba(0, 240, 255, 0.3) !important;
-        }
-
-        .deposit-details {
-          background: rgba(0, 240, 255, 0.05) !important;
-          border: 1px solid rgba(0, 240, 255, 0.2) !important;
-        }
-      `}</style>
     </div>
   )
 }

@@ -1,0 +1,454 @@
+/* ════════════════════════════════════════
+   WALLET PAGE — Reuses .pp-* + .wp-* classes
+════════════════════════════════════════ */
+
+/* ── Header w/ inline balance card ─────────────── */
+.wp-header .pp-header-top {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.wp-balance {
+  display: inline-flex; align-items: center; gap: 12px;
+  background: linear-gradient(135deg, rgba(197,48,48,0.12), rgba(128,90,213,0.06));
+  border: 1px solid rgba(197,48,48,0.3);
+  border-radius: 10px;
+  padding: 12px 18px;
+  flex-shrink: 0;
+}
+.wp-balance-label {
+  color: #B0B0B0;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.wp-balance-value {
+  color: #F5F5F5;
+  font-family: 'Orbitron', monospace;
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 100px;
+  text-align: right;
+}
+.wp-balance-refresh {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  background: rgba(197,48,48,0.15);
+  border: 1px solid rgba(197,48,48,0.3);
+  color: #C53030;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.wp-balance-refresh:hover:not(:disabled) { background: rgba(197,48,48,0.25); }
+.wp-balance-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 575px) {
+  .wp-balance {
+    width: 100%;
+    justify-content: space-between;
+    padding: 10px 14px;
+  }
+  .wp-balance-value { font-size: 1.2rem; min-width: auto; }
+}
+
+/* ── Card containers ──────────────────────────── */
+.wp-card {
+  background: rgba(20,20,22,0.7);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 22px 24px;
+}
+
+.wp-form-head {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 6px;
+}
+.wp-form-head h3 {
+  color: #F5F5F5;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  margin: 0;
+}
+.wp-form-hint {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: #7A7A7A;
+  font-size: 0.78rem;
+  margin: 0 0 22px;
+}
+
+/* ── Form fields ──────────────────────────────── */
+.wp-field { margin-bottom: 18px; }
+.wp-label {
+  display: block;
+  color: #B0B0B0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.wp-input-prefix {
+  display: flex; align-items: stretch;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+.wp-input-prefix:focus-within { border-color: rgba(197,48,48,0.5); }
+.wp-input-prefix-icon,
+.wp-input-prefix-icon-text {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 14px;
+  background: rgba(0,0,0,0.25);
+  color: #C53030;
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.5px;
+  border-right: 1px solid rgba(255,255,255,0.05);
+  flex-shrink: 0;
+}
+.wp-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #F5F5F5;
+  padding: 11px 14px;
+  font-size: 0.9rem;
+  outline: none;
+  font-family: inherit;
+  width: 100%;
+}
+.wp-input::placeholder { color: #555; }
+.wp-input--big {
+  font-family: 'Orbitron', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.wp-help {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: #555;
+  font-size: 0.74rem;
+  margin: 6px 0 0;
+}
+
+/* Quick amount pills */
+.wp-quick-pills {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-top: 10px;
+}
+.wp-quick-pill {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #B0B0B0;
+  padding: 7px 14px;
+  border-radius: 18px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+.wp-quick-pill:hover {
+  border-color: rgba(197,48,48,0.4);
+  color: #F5F5F5;
+}
+.wp-quick-pill.active {
+  background: rgba(197,48,48,0.15);
+  border-color: #C53030;
+  color: #F5F5F5;
+}
+
+/* Summary block */
+.wp-summary {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+.wp-summary-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0;
+  color: #B0B0B0;
+  font-size: 0.84rem;
+}
+.wp-summary-row strong {
+  font-family: 'Orbitron', monospace;
+  font-weight: 700;
+  color: #F5F5F5;
+}
+.wp-summary-row--total {
+  border-top: 1px solid rgba(255,255,255,0.06);
+  margin-top: 4px; padding-top: 10px;
+  color: #F5F5F5; font-weight: 700;
+}
+
+.wp-submit {
+  width: 100%;
+  justify-content: center;
+  padding: 13px 22px;
+  font-size: 0.86rem;
+}
+
+/* ── Pochi La Biashara notice ─────────────────── */
+.wp-pochi {
+  background: rgba(246,173,85,0.06);
+  border: 1px solid rgba(246,173,85,0.3);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 22px;
+}
+.wp-pochi-head {
+  display: flex; align-items: flex-start; gap: 8px;
+  color: #D8C19E;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+.wp-pochi-head strong { color: #F6AD55; font-weight: 700; }
+.wp-pochi-head > svg { flex-shrink: 0; margin-top: 2px; }
+
+.wp-pochi-toggle {
+  margin-top: 10px;
+  display: inline-flex; align-items: center; gap: 5px;
+  background: transparent;
+  border: none;
+  color: #F6AD55;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  transition: color 0.2s ease;
+}
+.wp-pochi-toggle:hover { color: #FDB572; }
+.wp-pochi-toggle > svg {
+  transition: transform 0.2s ease;
+}
+.wp-pochi-toggle.open > svg { transform: rotate(180deg); }
+
+.wp-pochi-guide {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(246,173,85,0.18);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.wp-pochi-method-label {
+  color: #F6AD55;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.wp-pochi-steps {
+  margin: 0;
+  padding-left: 22px;
+  color: #D0D0D0;
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+.wp-pochi-steps li { padding: 2px 0; }
+.wp-pochi-steps strong { color: #F5F5F5; font-weight: 600; }
+.wp-pochi-steps code {
+  display: inline-block;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #F6AD55;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+.wp-pochi-foot {
+  color: #7A7A7A;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  margin: 0;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(255,255,255,0.06);
+}
+
+/* ── Stage views (sending/waiting/success/failed) ─ */
+.wp-stage {
+  text-align: center;
+  padding: 24px 16px 16px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.wp-stage-title {
+  color: #F5F5F5;
+  font-family: 'Orbitron', monospace;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin: 18px 0 8px;
+}
+.wp-stage-msg {
+  color: #B0B0B0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  max-width: 360px;
+  margin: 0;
+}
+.wp-stage-icon {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.wp-stage-icon--ok {
+  background: rgba(56,161,105,0.12);
+  border: 1px solid rgba(56,161,105,0.35);
+}
+.wp-stage-icon--err {
+  background: rgba(197,48,48,0.12);
+  border: 1px solid rgba(197,48,48,0.35);
+}
+.wp-timer {
+  margin-top: 16px;
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #B0B0B0;
+  font-family: 'Orbitron', monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 16px;
+}
+
+/* ── Transaction list ─────────────────────────── */
+.wp-tx-list { display: flex; flex-direction: column; gap: 22px; }
+.wp-tx-group { display: flex; flex-direction: column; gap: 4px; }
+.wp-tx-day {
+  color: #7A7A7A;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.wp-tx-row {
+  display: flex; align-items: center; gap: 14px;
+  background: rgba(20,20,22,0.7);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 10px;
+  padding: 12px 16px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.wp-tx-row:hover {
+  border-color: rgba(197,48,48,0.2);
+  transform: translateX(2px);
+}
+.wp-tx-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.wp-tx-info { flex: 1; min-width: 0; }
+.wp-tx-title {
+  color: #F5F5F5;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+.wp-tx-meta {
+  color: #7A7A7A;
+  font-size: 0.74rem;
+  margin-top: 2px;
+}
+.wp-tx-right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  flex-shrink: 0;
+}
+.wp-tx-amount {
+  font-family: 'Orbitron', monospace;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+.wp-tx-status {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+@media (max-width: 575px) {
+  .wp-tx-row { padding: 10px 12px; gap: 10px; }
+  .wp-tx-amount { font-size: 0.84rem; }
+  .wp-tx-icon { width: 32px; height: 32px; }
+}
+
+/* ── Sidebar cards ────────────────────────────── */
+.wp-side-card {
+  background: rgba(20,20,22,0.7);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.wp-side-card:last-child { margin-bottom: 0; }
+.wp-side-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: rgba(197,48,48,0.04);
+  color: #F5F5F5;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.wp-side-body { padding: 12px 16px 14px; }
+
+.wp-month-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0;
+  color: #B0B0B0;
+  font-size: 0.82rem;
+}
+.wp-month-row > span {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.wp-month-row strong {
+  font-family: 'Orbitron', monospace;
+  color: #F5F5F5;
+  font-weight: 700;
+}
+.wp-month-row--total {
+  border-top: 1px solid rgba(255,255,255,0.06);
+  margin-top: 6px;
+  padding-top: 11px;
+  color: #F5F5F5;
+  font-weight: 700;
+}
+
+.wp-side-actions {
+  padding: 12px 16px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.wp-side-actions .pp-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* ── Responsive tweaks ────────────────────────── */
+@media (max-width: 575px) {
+  .wp-card { padding: 18px 16px; }
+  .wp-form-head h3 { font-size: 0.9rem; }
+  .wp-stage-title { font-size: 0.95rem; }
+}
