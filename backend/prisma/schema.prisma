@@ -69,6 +69,8 @@ model User {
   username            String               @unique
   isActive            Boolean              @default(true)
   isAdmin             Boolean              @default(false)
+  emailVerified       Boolean              @default(false)
+  emailVerifiedAt     DateTime?
   lastLoginAt         DateTime?
   passwordHash        String
   createdAt           DateTime             @default(now())
@@ -83,11 +85,39 @@ model User {
   training            TrainingSession[]
   pendingTransactions PendingTransaction[]
   b2cTransactions     B2CTransaction[]
+  verificationCodes   EmailVerificationCode[]
+  passwordResetTokens PasswordResetToken[]
 
   // Friend system
   sentFriendRequests     FriendRequest[] @relation("SentRequests")
   receivedFriendRequests FriendRequest[] @relation("ReceivedRequests")
   gameHistory            GameHistory[]
+}
+
+model EmailVerificationCode {
+  id        String   @id @default(cuid())
+  userId   String
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  User      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Profile {
@@ -111,7 +141,7 @@ model Session {
 model Wallet {
   id      String        @id @default(cuid())
   userId  String        @unique
-  balance Int           @default(2000) // store in cents
+  balance Int           @default(2000) // whole KES (no cents/decimals)
   User    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   tx      Transaction[]
 
@@ -139,7 +169,7 @@ model Transaction {
   id             String          @id @default(cuid())
   walletId       String
   type           TxType
-  amount         Int // cents; positive values only
+  amount         Int // whole KES; positive values only
   meta           Json?
   createdAt      DateTime        @default(now())
   Wallet         Wallet          @relation(fields: [walletId], references: [id], onDelete: Cascade)
@@ -156,7 +186,7 @@ model PendingTransaction {
   checkoutRequestId  String                   @unique
   merchantRequestId  String
   phone              String
-  amount             Int // cents
+  amount             Int // whole KES
   type               TxType
   status             PendingTransactionStatus @default(PENDING)
   mpesaReceiptNumber String?
@@ -225,7 +255,7 @@ model Game {
   level        Level
   minPlayers   Int           @default(1)
   maxPlayers   Int           @default(100)
-  minEntryFee  Int           @default(0) // cents
+  minEntryFee  Int           @default(0) // whole KES
   isPopular    Boolean       @default(false)
   imageUrl     String?
   isActive     Boolean       @default(true)
@@ -264,6 +294,7 @@ model Competition {
   @@index([status])
   @@index([creatorId])
   @@index([privacy, status])
+  @@index([privacy, status, createdAt])
   @@index([status, endsAt])
   @@index([endsAt])
   @@index([startsAt])

@@ -458,7 +458,7 @@ const useModalHandlers = ({
       await leaveCompetition(pendingLeaveCompetition.code); // Use from GameContext
 
       showToastMessage(
-        `Successfully left "${pendingLeaveCompetition.title}". Refund: KSh ${pendingLeaveCompetition.entryFee}`,
+        `Successfully left "${pendingLeaveCompetition.title}". Refund: KES ${Math.floor(pendingLeaveCompetition.entryFee || 0).toLocaleString('en-KE')}`,
         'success'
       );
 

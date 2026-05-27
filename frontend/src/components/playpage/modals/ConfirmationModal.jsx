@@ -1,6 +1,7 @@
 ﻿import React from 'react'
 import { Modal, Button, Row, Col, Alert } from 'react-bootstrap'
 import { Info, DollarSign, AlertTriangle, Gamepad2, CreditCard } from 'lucide-react'
+import { formatKES } from '../../../utils/formatters'
 
 const ConfirmationModal = ({ 
   show, 
@@ -49,7 +50,7 @@ const ConfirmationModal = ({
                   <div>
                     <strong className="text-cyber-red d-block mb-2">Important Payment Notice</strong>
                     <p className="text-white mb-0">
-                      <strong>KSh {entryFee.toFixed(2)}</strong> will be deducted from your wallet immediately when you {actionType === 'join' ? 'join' : 'accept'} this competition. 
+                      <strong>{formatKES(entryFee)}</strong> will be deducted from your wallet immediately when you {actionType === 'join' ? 'join' : 'accept'} this competition.
                       This payment is processed upfront and is non-refundable once you start playing.
                     </p>
                   </div>
@@ -66,7 +67,7 @@ const ConfirmationModal = ({
                   <div>
                     <strong className="text-cyber-red d-block mb-2 fs-5">Insufficient Balance</strong>
                     <p className="text-white mb-2">
-                      You don't have enough balance to join this competition. You need an additional <strong>KSh {shortfall.toFixed(2)}</strong> to proceed.
+                      You don't have enough balance to join this competition. You need an additional <strong>{formatKES(shortfall)}</strong> to proceed.
                     </p>
                     <p className="text-white-50 small mb-0">
                       Please top up your wallet to continue.
@@ -130,7 +131,7 @@ const ConfirmationModal = ({
             ) : (
               <>
                 <DollarSign size={18} className="me-2" />
-                Confirm & Pay KSh {entryFee.toFixed(2)}
+                Confirm & Pay {formatKES(entryFee)}
               </>
             )}
           </Button>

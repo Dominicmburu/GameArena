@@ -858,46 +858,19 @@ export const GameProvider = ({ children }) => {
     getTimeRemaining
   };
 
-  // Load initial data
-useEffect(() => {
-    let mounted = true;
-
-    const loadInitialData = async () => {
-      if (!mounted) return;
-
-      try {
-        // Load core data first (no auth required)
-        await Promise.all([
-          fetchGames().catch(err => console.warn('Could not load games:', err)),
-          fetchGameTypes().catch(err => console.warn('Could not load game types:', err)),
-          fetchPopularGames().catch(err => console.warn('Could not load popular games:', err)),
-          fetchPublicCompetitions().catch(err => console.warn('Could not load public competitions:', err))
-        ]);
-
-        if (isAuthenticated && !authLoading) {
-          await Promise.all([
-            fetchMyCompetitions().catch(err => console.warn('Could not load my competitions:', err)),
-            fetchParticipatedCompetitions().catch(err => console.warn('Could not load participated competitions:', err)),
-            fetchGlobalLeaderboard().catch(err => console.warn('Could not load global leaderboard:', err)),
-            fetchFriends().catch(err => console.warn('Could not load friends:', err)),
-            fetchFriendRequests().catch(err => console.warn('Could not load friend requests:', err)),
-            fetchGameHistory().catch(err => console.warn('Could not load game history:', err)),
-            fetchPendingInvites().catch(err => console.warn('Could not load pending invites:', err)),
-            fetchSentInvites().catch(err => console.warn('Could not load sent invites:', err))
-          ])
-        }
-
-      } catch (error) {
-        console.error('Failed to load initial data:', error);
-      }
-    };
-
-    loadInitialData();
-
-    return () => {
-      mounted = false;
-    };
-  }, []); // Empty dependency array - runs only once
+  // No eager data load on mount.
+  //
+  // Each page now fetches what IT needs in its own useEffect, so visiting
+  // /create no longer triggers fetches for friends, leaderboards, game history,
+  // and 9 other things the Create page never displays. Previously, opening
+  // any page fired ~12 parallel API calls.
+  //
+  // Per-page loading lives in:
+  //   - Homepage:     fetchPublicCompetitions + getHomepageStats (+ participated if auth)
+  //   - MakeGame:     fetchGames
+  //   - TrainPage:    fetchGames
+  //   - HistoryPage:  fetchMyCompetitions, fetchParticipatedCompetitions, fetchGameHistory
+  //   - PlayPage:     useDataLoader.loadUserData() (the full auth-required batch)
 
   return (
     <GameContext.Provider value={value}>

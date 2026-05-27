@@ -134,33 +134,36 @@ export function generatePassword(businessShortCode, passkey, timestamp) {
 }
 
 /**
- * Validate M-Pesa amount
+ * Validate M-Pesa amount. Always floored to whole KES (no cents).
  */
 export function validateAmount(amount, type = 'DEPOSIT') {
   const numAmount = Number(amount);
-  
+
   if (isNaN(numAmount) || numAmount <= 0) {
     throw new Error('Amount must be a positive number');
   }
+
+  // Drop any decimals: 10.76 → 10, 10.23 → 10
+  const wholeAmount = Math.floor(numAmount);
 
   // M-Pesa limits
   const MIN_AMOUNT = 1;
   const MAX_STK_AMOUNT = 150000; // KES 150,000
   const MAX_B2C_AMOUNT = 70000;  // KES 70,000 per transaction
 
-  if (numAmount < MIN_AMOUNT) {
+  if (wholeAmount < MIN_AMOUNT) {
     throw new Error(`Minimum amount is KES ${MIN_AMOUNT}`);
   }
 
-  if (type === 'DEPOSIT' && numAmount > MAX_STK_AMOUNT) {
+  if (type === 'DEPOSIT' && wholeAmount > MAX_STK_AMOUNT) {
     throw new Error(`Maximum deposit amount is KES ${MAX_STK_AMOUNT}`);
   }
 
-  if (type === 'WITHDRAWAL' && numAmount > MAX_B2C_AMOUNT) {
+  if (type === 'WITHDRAWAL' && wholeAmount > MAX_B2C_AMOUNT) {
     throw new Error(`Maximum withdrawal amount is KES ${MAX_B2C_AMOUNT}`);
   }
 
-  return Math.round(numAmount); // M-Pesa doesn't support decimals
+  return wholeAmount;
 }
 
 /**

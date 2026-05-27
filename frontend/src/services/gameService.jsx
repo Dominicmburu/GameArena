@@ -74,6 +74,17 @@ class CompetitionService {
     }
   }
 
+  // Aggregate homepage stats (server-side counts/sums; no auth required)
+  async getHomepageStats() {
+    try {
+      const { data } = await api.get('/stats/homepage');
+      return data;
+    } catch (error) {
+      const msg = error?.response?.data?.message || error.message || 'Failed to fetch stats';
+      throw new Error(msg);
+    }
+  }
+
   // My created competitions
   async getMyCompetitions() {
     try {

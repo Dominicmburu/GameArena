@@ -2,6 +2,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
+import compression from "compression";
 import http from "http";
 import { Server } from "socket.io";
 import { env } from "./config/env.js";
@@ -17,6 +18,10 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false,
     contentSecurityPolicy: false
 }));
+
+// Gzip/brotli compression — applied to all responses above ~1KB by default.
+// Must be registered before route handlers to wrap their output.
+app.use(compression());
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));

@@ -64,6 +64,14 @@ export const env = {
   // Base API URL for callbacks
   apiBaseUrl: process.env.BACKEND_URL,
 
+  frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
+
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY || "",
+    from: process.env.EMAIL_FROM || "GameArena <onboarding@resend.dev>",
+    appName: process.env.APP_NAME || "GameArena",
+  },
+
   mpesa: {
     env: mpesaEnv,
     isProduction: mpesaEnv === "production",

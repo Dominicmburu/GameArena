@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, memo, useCallback } from 'react'
 import { Container, Spinner } from 'react-bootstrap'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -9,10 +9,8 @@ import {
 import { useGame } from '../contexts/GameContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useWallet } from '../contexts/WalletContext'
+import { formatKES, floorKES } from '../utils/formatters'
 import '../styles/MakeGame.css'
-
-const formatKES = (n) =>
-  `KES ${Number(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 
 const formatRelative = (date) => {
   const diff = Math.round((date.getTime() - Date.now()) / 60000)
@@ -61,6 +59,37 @@ const minutesBetween = (startIso, endIso) => {
   return Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000)
 }
 
+// Memoized to skip re-render when sibling cards (or unrelated form fields) change.
+// Re-renders only when `game`, `isPicked`, or `onSelect` identity changes.
+const GameCard = memo(function GameCard({ game, isPicked, onSelect }) {
+  return (
+    <button
+      type="button"
+      className={`mg-game-card ${isPicked ? 'picked' : ''}`}
+      onClick={() => onSelect(game)}
+    >
+      {isPicked && (
+        <span className="mg-game-check"><Check size={12} /></span>
+      )}
+      <div className="mg-game-img">
+        {game.imageUrl ? (
+          <img
+            src={game.imageUrl}
+            alt={game.name}
+            onError={(e) => { e.currentTarget.style.display = 'none' }}
+          />
+        ) : (
+          <Gamepad2 size={28} color="#7A7A7A" />
+        )}
+      </div>
+      <div className="mg-game-name">{game.name}</div>
+      <div className="mg-game-meta">
+        {game.minPlayers}-{game.maxPlayers} players · {game.level || 'Mixed'}
+      </div>
+    </button>
+  )
+})
+
 const MakeGame = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -69,9 +98,17 @@ const MakeGame = () => {
     games,
     loading,
     errors,
+    fetchGames,
     createCompetition,
     invitePlayerByUsername,
   } = useGame()
+
+  // Load the game list on mount — replaces the old global eager load.
+  useEffect(() => {
+    if (games.length === 0) {
+      fetchGames().catch(err => console.warn('Could not load games:', err))
+    }
+  }, [])
 
   const [selectedGame, setSelectedGame] = useState(null)
   const [form, setForm] = useState({
@@ -108,12 +145,12 @@ const MakeGame = () => {
     return new Date(start.getTime() + form.durationMins * 60000).toISOString().slice(0, 16)
   }, [form.durationMins, form.customEnd, startIso])
 
-  // Derived: financials
-  const fee          = parseFloat(form.entryFee) || 0
+  // Derived: financials — everything is whole KES, no decimals
+  const fee          = floorKES(form.entryFee)
   const players      = parseInt(form.maxPlayers) || 0
   const pool         = fee * players
   const platformPct  = form.privacy === 'PRIVATE' ? 15 : 20
-  const platformFee  = pool * (platformPct / 100)
+  const platformFee  = Math.floor(pool * (platformPct / 100))
   const prize        = pool - platformFee
   const walletAfter  = balance - fee
 
@@ -122,18 +159,24 @@ const MakeGame = () => {
   const minPlayers = selectedGame?.minPlayers || 2
   const maxPlayers = selectedGame?.maxPlayers || 8
 
-  const handleSelectGame = (game) => {
+  // Stable filtered list — array identity changes only when `games` does.
+  const activeGames = useMemo(
+    () => games.filter(g => g.isActive !== false),
+    [games]
+  )
+
+  // Stable identity so GameCard's memo doesn't trip on every parent render.
+  const handleSelectGame = useCallback((game) => {
     setSelectedGame(game)
     setForm(prev => ({
       ...prev,
       maxPlayers: Math.min(Math.max(prev.maxPlayers, game.minPlayers || 2), game.maxPlayers || 8),
       entryFee: Math.max(prev.entryFee, game.minEntryFee || 0),
     }))
-    // smooth scroll to setup section
     setTimeout(() => {
       document.getElementById('mg-setup')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 50)
-  }
+  }, [])
 
   const updateField = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -182,7 +225,7 @@ const MakeGame = () => {
         gameId: selectedGame.id,
         privacy: form.privacy,
         maxPlayers: players,
-        entryFee: Math.round(fee),
+        entryFee: floorKES(fee),
         startsAt: new Date(startIso).toISOString(),
         endsAt:   new Date(endIso).toISOString(),
       })
@@ -365,36 +408,14 @@ const MakeGame = () => {
 
               {!loading.games && !errors.games && (
                 <div className="mg-game-grid">
-                  {games.filter(g => g.isActive !== false).map(game => {
-                    const isPicked = selectedGame?.id === game.id
-                    return (
-                      <button
-                        type="button"
-                        key={game.id}
-                        className={`mg-game-card ${isPicked ? 'picked' : ''}`}
-                        onClick={() => handleSelectGame(game)}
-                      >
-                        {isPicked && (
-                          <span className="mg-game-check"><Check size={12} /></span>
-                        )}
-                        <div className="mg-game-img">
-                          {game.imageUrl ? (
-                            <img
-                              src={game.imageUrl}
-                              alt={game.name}
-                              onError={(e) => { e.currentTarget.style.display = 'none' }}
-                            />
-                          ) : (
-                            <Gamepad2 size={28} color="#7A7A7A" />
-                          )}
-                        </div>
-                        <div className="mg-game-name">{game.name}</div>
-                        <div className="mg-game-meta">
-                          {game.minPlayers}-{game.maxPlayers} players · {game.level || 'Mixed'}
-                        </div>
-                      </button>
-                    )
-                  })}
+                  {activeGames.map(game => (
+                    <GameCard
+                      key={game.id}
+                      game={game}
+                      isPicked={selectedGame?.id === game.id}
+                      onSelect={handleSelectGame}
+                    />
+                  ))}
                 </div>
               )}
 

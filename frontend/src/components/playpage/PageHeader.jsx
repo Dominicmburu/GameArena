@@ -2,6 +2,7 @@ import React from 'react'
 import { Wallet, KeyRound, Mail, Users, History, RefreshCw, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useWallet } from '../../contexts/WalletContext'
+import { formatKES } from '../../utils/formatters'
 
 const NotifBtn = ({ Icon, count, onClick, title, to }) => {
   const inner = (
@@ -57,7 +58,7 @@ const PageHeader = ({
           <Wallet size={16} color="#C53030" />
           <span className="pp-wallet-label">Balance</span>
           <span className="pp-wallet-value">
-            {isLoading ? '...' : `KES ${balance.toFixed(2)}`}
+            {isLoading ? '...' : formatKES(balance)}
           </span>
           <button
             type="button"

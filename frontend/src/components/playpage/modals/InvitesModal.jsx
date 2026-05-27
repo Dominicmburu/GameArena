@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Modal, Spinner } from 'react-bootstrap'
 import { Mail, Send, Check, X, Inbox } from 'lucide-react'
+import { formatKES } from '../../../utils/formatters'
 
 const formatDate = (iso) => {
   if (!iso) return ''
@@ -8,9 +9,6 @@ const formatDate = (iso) => {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 }
-
-const formatKES = (n) =>
-  `KES ${Number(n || 0).toLocaleString('en-KE')}`
 
 const InvitesModal = ({
   show,

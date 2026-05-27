@@ -8,6 +8,7 @@ import { training } from "./training.routes.js";
 import { history } from "./history.routes.js";
 import { games } from "./game.routes.js";
 import { profile } from "./profile.routes.js";
+import { stats } from "./stats.routes.js";
 
 export const routes = Router();
 
@@ -20,3 +21,4 @@ routes.use("/training", training);
 routes.use("/history", history);
 routes.use("/games", games);
 routes.use("/profile", profile);
+routes.use("/stats", stats);

@@ -10,6 +10,9 @@ import TrainPage from './pages/TrainPage'
 import Profile from './pages/Profile'
 import Deposit from './pages/Deposit'
 import Auth from './pages/Auth'
+import VerifyEmail from './pages/VerifyEmail'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import './App.css'
 import AppLayout from './components/common/AppLayout'
 import { GameProvider } from './contexts/GameContext'
@@ -30,6 +33,9 @@ function App() {
                   <main className="main-content">
                     <Routes>
                       <Route path="/auth" element={<Auth />} />
+                      <Route path="/verify-email" element={<VerifyEmail />} />
+                      <Route path="/forgot-password" element={<ForgotPassword />} />
+                      <Route path="/reset-password" element={<ResetPassword />} />
 
                       {/* Public routes — Header shows Sign Up / Log In for guests */}
                       <Route element={<AppLayout />}>

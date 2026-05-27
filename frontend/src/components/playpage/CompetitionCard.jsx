@@ -1,5 +1,6 @@
 import React, { memo, useState, useEffect } from 'react'
 import { Trophy, Clock, Users, Zap, Send, Play, Check, Copy, LogOut, AlertCircle, ChevronRight } from 'lucide-react'
+import { formatKES } from '../../utils/formatters'
 
 const STATUS_COLOR = {
   UPCOMING:  '#3182CE',
@@ -16,9 +17,6 @@ const rankColor = (rank) => {
   if (rank <= 25) return '#805AD5'
   return '#B0B0B0'
 }
-
-const formatKES = (n) =>
-  `KES ${Number(n || 0).toLocaleString('en-KE')}`
 
 const formatTime = (seconds) => {
   if (seconds <= 0) return 'EXPIRED'

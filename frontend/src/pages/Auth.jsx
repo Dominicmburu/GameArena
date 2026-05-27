@@ -1,14 +1,71 @@
-﻿import React, { useState } from 'react'
+import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Container, Row, Col, Card, Form, Button, Alert, Spinner } from 'react-bootstrap'
-import { Mail, User, Lock, Eye, EyeOff, Gamepad2, Shield, Zap } from 'lucide-react'
+import { Mail, User, Lock, Eye, EyeOff, Shield, Zap, AlertCircle, CheckCircle2 } from 'lucide-react'
 import '../styles/auth.css'
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/
+
+const validateField = (name, value, formData, isLogin) => {
+    switch (name) {
+        case 'email':
+            if (!value.trim()) return 'Email is required'
+            if (value.length > 254) return 'Email is too long'
+            if (!EMAIL_REGEX.test(value.trim())) return 'Enter a valid email address'
+            return ''
+
+        case 'username':
+            if (isLogin) return ''
+            if (!value.trim()) return 'Username is required'
+            if (value.length < 3) return 'Username must be at least 3 characters'
+            if (value.length > 20) return 'Username must be 20 characters or fewer'
+            if (!USERNAME_REGEX.test(value)) return 'Only letters, numbers, and underscores'
+            return ''
+
+        case 'password':
+            if (!value) return 'Password is required'
+            if (!isLogin) {
+                if (value.length < 6) return 'Password must be at least 6 characters'
+                if (!/[a-zA-Z]/.test(value)) return 'Password must contain at least one letter'
+                if (!/[0-9]/.test(value)) return 'Password must contain at least one number'
+            }
+            return ''
+
+        case 'confirmPassword':
+            if (isLogin) return ''
+            if (!value) return 'Please confirm your password'
+            if (value !== formData.password) return 'Passwords do not match'
+            return ''
+
+        default:
+            return ''
+    }
+}
+
+const FieldError = ({ message }) => {
+    if (!message) return null
+    return (
+        <div
+            className="d-flex align-items-center mt-2"
+            style={{ color: '#FC8181', fontSize: '0.8rem' }}
+        >
+            <AlertCircle size={13} className="me-1 flex-shrink-0" />
+            <span>{message}</span>
+        </div>
+    )
+}
+
+const errorBorder = (hasError, baseColor) =>
+    hasError ? '1px solid rgba(252, 129, 129, 0.6)' : `1px solid ${baseColor}`
 
 const Auth = () => {
     const [isLogin, setIsLogin] = useState(true)
     const [isLoading, setIsLoading] = useState(false)
     const [errors, setErrors] = useState({})
+    const [touched, setTouched] = useState({})
+    const [unverifiedEmail, setUnverifiedEmail] = useState('')
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
     const [formData, setFormData] = useState({
@@ -21,91 +78,92 @@ const Auth = () => {
     const { login, signup } = useAuth()
     const navigate = useNavigate()
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }))
-
-        // Clear specific error when user starts typing
-        if (errors[name]) {
-            setErrors(prev => ({
-                ...prev,
-                [name]: ''
-            }))
+    const runValidation = (data = formData) => {
+        const fields = isLogin ? ['email', 'password'] : ['email', 'username', 'password', 'confirmPassword']
+        const next = {}
+        for (const f of fields) {
+            const msg = validateField(f, data[f], data, isLogin)
+            if (msg) next[f] = msg
         }
+        return next
     }
 
-    const validateForm = () => {
-        const newErrors = {}
+    const handleInputChange = (e) => {
+        const { name, value } = e.target
+        const nextData = { ...formData, [name]: value }
+        setFormData(nextData)
 
-        // Email validation
-        if (!formData.email) {
-            newErrors.email = 'Email is required'
-        } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            newErrors.email = 'Email is invalid'
+        if (touched[name]) {
+            const msg = validateField(name, value, nextData, isLogin)
+            setErrors(prev => ({ ...prev, [name]: msg }))
         }
 
-        // Username validation (only for signup)
-        if (!isLogin) {
-            if (!formData.username) {
-                newErrors.username = 'Username is required'
-            } else if (formData.username.length < 3) {
-                newErrors.username = 'Username must be at least 3 characters'
-            }
+        if (name === 'password' && touched.confirmPassword) {
+            const msg = validateField('confirmPassword', nextData.confirmPassword, nextData, isLogin)
+            setErrors(prev => ({ ...prev, confirmPassword: msg }))
         }
 
-        // Password validation
-        if (!formData.password) {
-            newErrors.password = 'Password is required'
-        } else if (!isLogin && formData.password.length < 6) {
-            newErrors.password = 'Password must be at least 6 characters'
+        if (errors.general) {
+            setErrors(prev => ({ ...prev, general: '' }))
         }
+        if (unverifiedEmail) setUnverifiedEmail('')
+    }
 
-        // Confirm password validation (only for signup)
-        if (!isLogin) {
-            if (!formData.confirmPassword) {
-                newErrors.confirmPassword = 'Please confirm your password'
-            } else if (formData.password !== formData.confirmPassword) {
-                newErrors.confirmPassword = 'Passwords do not match'
-            }
-        }
-
-        setErrors(newErrors)
-        return Object.keys(newErrors).length === 0
+    const handleBlur = (e) => {
+        const { name, value } = e.target
+        setTouched(prev => ({ ...prev, [name]: true }))
+        const msg = validateField(name, value, formData, isLogin)
+        setErrors(prev => ({ ...prev, [name]: msg }))
     }
 
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        if (!validateForm()) {
+        const validationErrors = runValidation()
+        if (Object.keys(validationErrors).length > 0) {
+            const allTouched = Object.keys(validationErrors).reduce((acc, k) => {
+                acc[k] = true
+                return acc
+            }, {})
+            setTouched(prev => ({ ...prev, ...allTouched }))
+            setErrors(validationErrors)
             return
         }
 
         setIsLoading(true)
         setErrors({})
+        setUnverifiedEmail('')
 
         try {
             if (isLogin) {
                 await login({
-                    email: formData.email,
+                    email: formData.email.trim(),
                     password: formData.password
                 })
+                navigate('/')
             } else {
-                await signup({
-                    email: formData.email,
-                    username: formData.username,
+                const response = await signup({
+                    email: formData.email.trim(),
+                    username: formData.username.trim(),
                     password: formData.password
+                })
+
+                if (response?.requiresVerification) {
+                    navigate(`/verify-email?email=${encodeURIComponent(formData.email.trim())}`)
+                    return
+                }
+
+                navigate('/')
+            }
+        } catch (error) {
+            if (error.code === 'EMAIL_NOT_VERIFIED') {
+                setUnverifiedEmail(error.data?.email || formData.email.trim())
+                setErrors({})
+            } else {
+                setErrors({
+                    general: error.message || 'Something went wrong. Please try again.'
                 })
             }
-
-            // Redirect to homepage on success
-            navigate('/')
-        } catch (error) {
-            setErrors({
-                general: error.message || 'Something went wrong. Please try again.'
-            })
         } finally {
             setIsLoading(false)
         }
@@ -120,18 +178,23 @@ const Auth = () => {
             confirmPassword: ''
         })
         setErrors({})
+        setTouched({})
+        setUnverifiedEmail('')
         setShowPassword(false)
         setShowConfirmPassword(false)
     }
 
+    const passwordsMatch =
+        !isLogin &&
+        formData.password &&
+        formData.confirmPassword &&
+        formData.password === formData.confirmPassword
+
     return (
-        <div
-            className="min-vh-100 d-flex align-items-center"
-        >
+        <div className="min-vh-100 d-flex align-items-center">
             <Container>
                 <Row className="justify-content-center">
                     <Col lg={5} md={7} sm={9}>
-                        {/* Auth Card */}
                         <Card
                             className="border-0 shadow-lg"
                             style={{
@@ -144,7 +207,6 @@ const Auth = () => {
                                 overflow: 'hidden'
                             }}
                         >
-                            {/* Animated background elements */}
                             <div
                                 style={{
                                     position: 'absolute',
@@ -188,25 +250,53 @@ const Auth = () => {
                                     <p className="text-grey small mb-0">
                                         {isLogin
                                             ? 'Access your gaming dashboard'
-                                            : 'Start your competitive journey'
-                                        }
+                                            : 'Start your competitive journey'}
                                     </p>
                                 </div>
 
-                                <Form onSubmit={handleSubmit}>
+                                <Form onSubmit={handleSubmit} noValidate>
                                     {errors.general && (
                                         <Alert
                                             className="border-0 mb-4"
                                             style={{
                                                 background: 'rgba(197, 48, 48, 0.1)',
                                                 border: '1px solid rgba(197, 48, 48, 0.3)',
-                                                color: '#C53030',
+                                                color: '#FC8181',
                                                 borderRadius: '12px'
                                             }}
                                         >
                                             <div className="d-flex align-items-center">
-                                                <Shield size={16} className="me-2" />
+                                                <AlertCircle size={16} className="me-2 flex-shrink-0" />
                                                 {errors.general}
+                                            </div>
+                                        </Alert>
+                                    )}
+
+                                    {unverifiedEmail && (
+                                        <Alert
+                                            className="border-0 mb-4"
+                                            style={{
+                                                background: 'rgba(49, 130, 206, 0.08)',
+                                                border: '1px solid rgba(49, 130, 206, 0.4)',
+                                                color: '#90CDF4',
+                                                borderRadius: '12px'
+                                            }}
+                                        >
+                                            <div className="d-flex align-items-start">
+                                                <Mail size={16} className="me-2 mt-1 flex-shrink-0" />
+                                                <div>
+                                                    <div className="fw-bold mb-1">One more step</div>
+                                                    <div className="small mb-2">
+                                                        Please confirm your email address to continue. We can send a code to your inbox.
+                                                    </div>
+                                                    <Link
+                                                        to={`/verify-email?email=${encodeURIComponent(unverifiedEmail)}`}
+                                                        className="fw-bold"
+                                                        style={{ color: '#90CDF4', textDecoration: 'underline' }}
+                                                    >
+                                                        Continue to verification →
+                                                    </Link>
+                                                </div>
                                             </div>
                                         </Alert>
                                     )}
@@ -223,21 +313,21 @@ const Auth = () => {
                                                 name="username"
                                                 value={formData.username}
                                                 onChange={handleInputChange}
+                                                onBlur={handleBlur}
                                                 placeholder="Choose your gamer tag"
                                                 disabled={isLoading}
-                                                isInvalid={!!errors.username}
+                                                autoComplete="username"
+                                                maxLength={20}
                                                 className="py-3"
                                                 style={{
                                                     background: 'rgba(20, 20, 25, 0.8)',
-                                                    border: '1px solid rgba(128, 90, 213, 0.3)',
+                                                    border: errorBorder(!!errors.username, 'rgba(128, 90, 213, 0.3)'),
                                                     borderRadius: '12px',
                                                     color: 'white',
                                                     fontSize: '1rem'
                                                 }}
                                             />
-                                            <Form.Control.Feedback type="invalid">
-                                                {errors.username}
-                                            </Form.Control.Feedback>
+                                            <FieldError message={errors.username} />
                                         </Form.Group>
                                     )}
 
@@ -252,21 +342,20 @@ const Auth = () => {
                                             name="email"
                                             value={formData.email}
                                             onChange={handleInputChange}
+                                            onBlur={handleBlur}
                                             placeholder="Enter your email"
                                             disabled={isLoading}
-                                            isInvalid={!!errors.email}
+                                            autoComplete="email"
                                             className="py-3"
                                             style={{
                                                 background: 'rgba(20, 20, 25, 0.8)',
-                                                border: '1px solid rgba(49, 130, 206, 0.3)',
+                                                border: errorBorder(!!errors.email, 'rgba(49, 130, 206, 0.3)'),
                                                 borderRadius: '12px',
                                                 color: 'white',
                                                 fontSize: '1rem'
                                             }}
                                         />
-                                        <Form.Control.Feedback type="invalid">
-                                            {errors.email}
-                                        </Form.Control.Feedback>
+                                        <FieldError message={errors.email} />
                                     </Form.Group>
 
                                     {/* Password Field */}
@@ -281,13 +370,14 @@ const Auth = () => {
                                                 name="password"
                                                 value={formData.password}
                                                 onChange={handleInputChange}
-                                                placeholder="Enter your password"
+                                                onBlur={handleBlur}
+                                                placeholder={isLogin ? "Enter your password" : "At least 6 characters"}
                                                 disabled={isLoading}
-                                                isInvalid={!!errors.password}
+                                                autoComplete={isLogin ? "current-password" : "new-password"}
                                                 className="py-3 pe-5"
                                                 style={{
                                                     background: 'rgba(20, 20, 25, 0.8)',
-                                                    border: '1px solid rgba(49, 130, 206, 0.3)',
+                                                    border: errorBorder(!!errors.password, 'rgba(49, 130, 206, 0.3)'),
                                                     borderRadius: '12px',
                                                     color: 'white',
                                                     fontSize: '1rem'
@@ -303,9 +393,29 @@ const Auth = () => {
                                                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                             </Button>
                                         </div>
-                                        <Form.Control.Feedback type="invalid">
-                                            {errors.password}
-                                        </Form.Control.Feedback>
+                                        <FieldError message={errors.password} />
+                                        {isLogin && (
+                                            <div className="text-end mt-2">
+                                                <Link
+                                                    to="/forgot-password"
+                                                    className="small fw-medium"
+                                                    style={{
+                                                        color: '#3182CE',
+                                                        textDecoration: 'none'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.target.style.color = '#805AD5'
+                                                        e.target.style.textDecoration = 'underline'
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.target.style.color = '#3182CE'
+                                                        e.target.style.textDecoration = 'none'
+                                                    }}
+                                                >
+                                                    Forgot password?
+                                                </Link>
+                                            </div>
+                                        )}
                                     </Form.Group>
 
                                     {/* Confirm Password Field (Signup only) */}
@@ -321,13 +431,17 @@ const Auth = () => {
                                                     name="confirmPassword"
                                                     value={formData.confirmPassword}
                                                     onChange={handleInputChange}
-                                                    placeholder="Confirm your password"
+                                                    onBlur={handleBlur}
+                                                    placeholder="Re-enter your password"
                                                     disabled={isLoading}
-                                                    isInvalid={!!errors.confirmPassword}
+                                                    autoComplete="new-password"
                                                     className="py-3 pe-5"
                                                     style={{
                                                         background: 'rgba(20, 20, 25, 0.8)',
-                                                        border: '1px solid rgba(128, 90, 213, 0.3)',
+                                                        border: errorBorder(
+                                                            !!errors.confirmPassword,
+                                                            passwordsMatch ? 'rgba(72, 187, 120, 0.5)' : 'rgba(128, 90, 213, 0.3)'
+                                                        ),
                                                         borderRadius: '12px',
                                                         color: 'white',
                                                         fontSize: '1rem'
@@ -343,9 +457,16 @@ const Auth = () => {
                                                     {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                                 </Button>
                                             </div>
-                                            <Form.Control.Feedback type="invalid">
-                                                {errors.confirmPassword}
-                                            </Form.Control.Feedback>
+                                            <FieldError message={errors.confirmPassword} />
+                                            {!errors.confirmPassword && passwordsMatch && (
+                                                <div
+                                                    className="d-flex align-items-center mt-2"
+                                                    style={{ color: '#48BB78', fontSize: '0.8rem' }}
+                                                >
+                                                    <CheckCircle2 size={13} className="me-1" />
+                                                    <span>Passwords match</span>
+                                                </div>
+                                            )}
                                         </Form.Group>
                                     )}
 
@@ -430,7 +551,6 @@ const Auth = () => {
                             </Card.Body>
                         </Card>
 
-                        {/* Footer */}
                         <div className="text-center mt-4">
                             <p className="text-white small mb-0">
                                 By continuing, you agree to our Terms of Service and Privacy Policy

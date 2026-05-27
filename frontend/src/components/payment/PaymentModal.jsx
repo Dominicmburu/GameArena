@@ -2,6 +2,7 @@
 import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap'
 import { CreditCard, CheckCircle, AlertTriangle } from 'lucide-react'
 import { useWallet } from '../../contexts/WalletContext'
+import { formatKES } from '../../utils/formatters'
 
 const PaymentModal = ({ show, onHide, amount, onSuccess, title }) => {
   const { deposit, querySTKStatus, fetchBalance } = useWallet()
@@ -128,7 +129,7 @@ const PaymentModal = ({ show, onHide, amount, onSuccess, title }) => {
               <h6 className="text-neon mb-2">Payment Details</h6>
               <div className="d-flex justify-content-between">
                 <span className="text-white">Amount:</span>
-                <span className="text-white fw-bold">KSh {parseFloat(amount).toFixed(2)}</span>
+                <span className="text-white fw-bold">{formatKES(amount)}</span>
               </div>
             </div>
 
@@ -171,7 +172,7 @@ const PaymentModal = ({ show, onHide, amount, onSuccess, title }) => {
                     Processing...
                   </>
                 ) : (
-                  `Pay KSh ${parseFloat(amount).toFixed(2)}`
+                  `Pay ${formatKES(amount)}`
                 )}
               </Button>
             </Form>
@@ -209,7 +210,7 @@ const PaymentModal = ({ show, onHide, amount, onSuccess, title }) => {
             </div>
             <h5 className="text-energy-green mb-2">Payment Successful!</h5>
             <p className="text-white mb-0">
-              Your payment of <strong>KSh {parseFloat(amount).toFixed(2)}</strong> has been processed successfully.
+              Your payment of <strong>{formatKES(amount)}</strong> has been processed successfully.
             </p>
             <p className="text-white-50 small mt-2">
               Your wallet balance will be updated shortly.

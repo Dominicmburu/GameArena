@@ -155,6 +155,9 @@ export const listPublic = async (req, res, next) => {
       ...(gameLevel && { game: { level: gameLevel } })
     };
 
+    // Lean response: no User join, only the hasPlayed boolean per row.
+    // This keeps currentPlayers/playedCount/totalPlayers accurate without
+    // shipping usernames, scores, or any other player fields to the list view.
     const competitions = await prisma.competition.findMany({
       where,
       include: {
@@ -169,10 +172,7 @@ export const listPublic = async (req, res, next) => {
           }
         },
         players: {
-          include: {
-            User: { select: { username: true } }
-          },
-          orderBy: { score: 'desc' }
+          select: { hasPlayed: true }
         },
         creator: { select: { username: true } }
       },
@@ -182,7 +182,8 @@ export const listPublic = async (req, res, next) => {
     });
 
     const formattedCompetitions = competitions.map(c => {
-      const playedCount = c.players.filter(p => p.hasPlayed).length;
+      const totalPlayers = c.players.length;
+      const playedCount = c.players.reduce((n, p) => n + (p.hasPlayed ? 1 : 0), 0);
 
       return {
         id: c.id,
@@ -191,8 +192,8 @@ export const listPublic = async (req, res, next) => {
         privacy: c.privacy,
         status: c.status,
         maxPlayers: c.maxPlayers,
-        currentPlayers: c.players.length,
-        playedCount: playedCount,
+        currentPlayers: totalPlayers,
+        playedCount,
         entryFee: c.entryFee,
         totalPrizePool: c.totalPrizePool,
         startsAt: c.startsAt,
@@ -201,7 +202,7 @@ export const listPublic = async (req, res, next) => {
         updatedAt: c.updatedAt,
         creator: c.creator.username,
         gameLevel: c.game.level.toLowerCase(),
-        totalPlayers: c.players.length,
+        totalPlayers,
         Game: {
           name: c.game.name,
           gameType: c.game.gameType,
@@ -209,14 +210,8 @@ export const listPublic = async (req, res, next) => {
           playerRange: `${c.game.minPlayers}-${c.game.maxPlayers}`,
           imageUrl: c.game.imageUrl
         },
-        players: c.players.map(p => ({
-          id: p.id,
-          username: p.User.username,
-          score: p.score,
-          hasPlayed: p.hasPlayed,
-          playedAt: p.playedAt,
-          rank: p.rank
-        }))
+        // Full player list available via GET /competitions/:code (detail endpoint)
+        players: []
       };
     });
 
@@ -314,7 +309,7 @@ const createCompetitionSchema = z.object({
   gameId: z.string().cuid("Invalid game ID"),
   privacy: z.enum(["PUBLIC", "PRIVATE"]).default("PRIVATE"),
   maxPlayers: z.number().int().min(2, "Must allow at least 2 players").max(1000, "Cannot exceed 1000 players"),
-  entryFee: z.number().int().min(0, "Entry fee cannot be negative"),
+  entryFee: z.number().int("Entry fee must be a whole number (KES, no cents)").min(0, "Entry fee cannot be negative"),
   startsAt: z.string().datetime("Invalid start date"),
   endsAt: z.string().datetime("Invalid end date")
 });
@@ -371,7 +366,7 @@ export const create = async (req, res, next) => {
     if (body.entryFee < game.minEntryFee) {
       return res.status(400).json({
         error: "ENTRY_FEE_BELOW_MIN",
-        message: `Entry fee must be at least ${game.minEntryFee} cents`
+        message: `Entry fee must be at least KES ${game.minEntryFee}`
       });
     }
 
@@ -410,7 +405,9 @@ export const create = async (req, res, next) => {
     // const status = startsAt <= now ? "ONGOING" : "UPCOMING";
     const status = "UPCOMING";
 
-    // Create competition and auto-join creator in a transaction
+    // Create competition and auto-join creator atomically.
+    // The wallet debit MUST be inside this transaction — otherwise a later
+    // failure would leave the user debited with no competition created.
     const competition = await prisma.$transaction(async (tx) => {
       const newCompetition = await tx.competition.create({
         data: {
@@ -425,38 +422,29 @@ export const create = async (req, res, next) => {
           status,
           startsAt,
           endsAt
-        },
-        include: {
-          game: {
-            select: {
-              name: true,
-              gameType: true,
-              level: true,
-              minPlayers: true,
-              maxPlayers: true,
-              imageUrl: true
-            }
-          }
         }
       });
 
-      // Deduct entry fee from creator's wallet if applicable
-      if (body.entryFee > 0) {
-        await WalletOps.debit(uid, body.entryFee, "ENTRY_FEE", {
-          competitionId: newCompetition.id
-        });
+      // Auto-join + revenue + debit can all run in parallel once we have the new ID.
+      // Each touches a different table, so no lock contention inside the transaction.
+      const ops = [
+        tx.competitionPlayer.create({
+          data: {
+            competitionId: newCompetition.id,
+            userId: uid,
+            paid: true
+          }
+        })
+      ];
 
-        await recordPlatformRevenue(newCompetition.id, body.entryFee, body.privacy, tx);
+      if (body.entryFee > 0) {
+        ops.push(
+          WalletOps.debit(uid, body.entryFee, "ENTRY_FEE", { competitionId: newCompetition.id }, tx),
+          recordPlatformRevenue(newCompetition.id, body.entryFee, body.privacy, tx)
+        );
       }
 
-      // Auto-join creator as first player
-      await tx.competitionPlayer.create({
-        data: {
-          competitionId: newCompetition.id,
-          userId: uid,
-          paid: true
-        }
-      });
+      await Promise.all(ops);
 
       return newCompetition;
     });
@@ -551,32 +539,23 @@ export const leaveCompetition = async (req, res, next) => {
           hasAnyonePlayed
         );
 
-        await WalletOps.credit(uid, refundAmount, "REFUND", {
-          competitionId: competition.id,
-          reason: "Left competition before game started",
-          fullRefund: true
-        });
+        await WalletOps.credit(
+          uid,
+          refundAmount,
+          "REFUND",
+          {
+            competitionId: competition.id,
+            reason: "Left competition before game started",
+            fullRefund: true
+          },
+          tx
+        );
 
         await tx.competition.update({
           where: { id: competition.id },
           data: { totalPrizePool: { decrement: competition.entryFee } }
         });
 
-        // ✅ FIX: Decrement platform revenue
-        // const revenue = await tx.platformRevenue.findFirst({
-        //   where: { competitionId: competition.id },
-        //   orderBy: { createdAt: 'desc' }
-        // });
-
-        // if (revenue) {
-        //   await tx.platformRevenue.update({
-        //     where: { id: revenue.id },
-        //     data: {
-        //       playersJoined: { decrement: 1 },
-        //       amount: { decrement: platformFee }
-        //     }
-        //   });
-        // }
         await decrementPlatformRevenue(competition.id, tx);
       }
 
@@ -711,19 +690,29 @@ export const joinByCode = async (req, res, next) => {
       });
     }
 
-    // Check if user has sufficient balance
+    // Pre-check balance (cheap read) so we can fail fast before the transaction.
+    // The actual debit happens inside the transaction below — atomic with the join.
     const wallet = await WalletOps.getOrCreateWallet(uid);
     if (wallet.balance < competition.entryFee) {
       return res.status(400).json({ error: "INSUFFICIENT_FUNDS", message: "Insufficient wallet balance" });
     }
-
-    await WalletOps.debit(uid, competition.entryFee, "ENTRY_FEE", { competitionId: competition.id });
 
     // Calculate prize pool with dynamic fee
     const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
     const addToPool = competition.entryFee - platformFee;
 
     await prisma.$transaction(async (tx) => {
+      // Atomic: debit + join + pool update + revenue + history. All-or-nothing.
+      if (competition.entryFee > 0) {
+        await WalletOps.debit(
+          uid,
+          competition.entryFee,
+          "ENTRY_FEE",
+          { competitionId: competition.id },
+          tx
+        );
+      }
+
       await tx.competition.update({
         where: { id: competition.id },
         data: { totalPrizePool: { increment: addToPool } }
@@ -964,18 +953,26 @@ export const acceptInvite = async (req, res, next) => {
       return res.status(400).json({ error: "FULL", message: "Competition is full" });
     }
 
-    // Check if user has sufficient balance
+    // Pre-check balance so we can fail fast; actual debit is inside the tx below.
     const wallet = await WalletOps.getOrCreateWallet(uid);
     if (wallet.balance < competition.entryFee) {
       return res.status(400).json({ error: "INSUFFICIENT_FUNDS", message: "Insufficient wallet balance" });
     }
 
-    await WalletOps.debit(uid, competition.entryFee, "ENTRY_FEE", { competitionId: competition.id });
-
     const platformFee = calculatePlatformFee(competition.entryFee, competition.privacy);
     const addToPool = competition.entryFee - platformFee;
 
     await prisma.$transaction(async (tx) => {
+      if (competition.entryFee > 0) {
+        await WalletOps.debit(
+          uid,
+          competition.entryFee,
+          "ENTRY_FEE",
+          { competitionId: competition.id },
+          tx
+        );
+      }
+
       await tx.invite.update({
         where: { id: inviteId },
         data: { accepted: true }

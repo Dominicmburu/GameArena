@@ -27,29 +27,22 @@ export const listGames = async (req, res, next) => {
             ...(isActive !== undefined && { isActive: parseBool(isActive) })
         };
 
+        // Lean response: drops `description` (long text), `isPopular` (server-
+        // side sort only, not displayed), and the `_count.competitions`
+        // per-game subquery (no UI surface reads it). Kept: `gameType` (used
+        // by TrainPage) and `isActive` (MakeGame filters on it).
         const games = await prisma.game.findMany({
             where,
             select: {
                 id: true,
                 name: true,
-                description: true,
                 gameType: true,
                 level: true,
                 minPlayers: true,
                 maxPlayers: true,
                 minEntryFee: true,
-                isPopular: true,
                 imageUrl: true,
-                isActive: true,
-                _count: {
-                    select: {
-                        competitions: {
-                            where: {
-                                status: { in: ["UPCOMING", "ONGOING"] }
-                            }
-                        }
-                    }
-                }
+                isActive: true
             },
             orderBy: [
                 { isPopular: "desc" },
@@ -62,15 +55,14 @@ export const listGames = async (req, res, next) => {
         const formattedGames = games.map(game => ({
             id: game.id,
             name: game.name,
-            description: game.description,
             gameType: game.gameType,
             level: game.level,
-            playerRange: `${game.minPlayers}-${game.maxPlayers}`,
+            minPlayers: game.minPlayers,
+            maxPlayers: game.maxPlayers,
             minEntryFee: game.minEntryFee,
-            isPopular: game.isPopular,
             imageUrl: game.imageUrl,
             isActive: game.isActive,
-            activeCompetitions: game._count.competitions
+            playerRange: `${game.minPlayers}-${game.maxPlayers}`
         }));
 
         res.json({
@@ -512,8 +504,8 @@ export const getGameStats = async (req, res, next) => {
             totalCompetitions: game._count.competitions,
             totalPlayers,
             totalPrizesAwarded,
-            averageEntryFee: Math.round(avgStats._avg.entryFee || 0),
-            averagePrizePool: Math.round(avgStats._avg.totalPrizePool || 0),
+            averageEntryFee: Math.floor(avgStats._avg.entryFee || 0),
+            averagePrizePool: Math.floor(avgStats._avg.totalPrizePool || 0),
             statusBreakdown: statusCounts.reduce((acc, item) => {
                 acc[item.status.toLowerCase()] = item._count.status;
                 return acc;

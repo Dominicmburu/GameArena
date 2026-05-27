@@ -5,9 +5,8 @@ import {
   History, Trophy, Users, TrendingUp, Calendar, ChevronLeft, Gamepad2, Send,
 } from 'lucide-react'
 import { useGame } from '../contexts/GameContext'
+import { formatKES } from '../utils/formatters'
 import '../styles/PlayPage.css'
-
-const formatKES = (n) => `KES ${Number(n || 0).toLocaleString('en-KE')}`
 
 const formatDate = (iso) => {
   if (!iso) return '—'

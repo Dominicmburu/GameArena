@@ -77,17 +77,6 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsLoading(true)
       const response = await authService.signup(userData)
-      
-      // Wait a brief moment for cookie/token to be set
-      // await new Promise(resolve => setTimeout(resolve, 100))
-      
-      // // Then get user data
-      // const user = await checkAuthStatus()
-      
-      // if (!user) {
-      //   throw new Error('Failed to retrieve user data after signup')
-      // }
-      
       return response
     } catch (error) {
       setUser(null)
@@ -96,6 +85,30 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const verifyEmail = async ({ email, code }) => {
+    try {
+      setIsLoading(true)
+      const response = await authService.verifyEmail({ email, code })
+
+      await new Promise(resolve => setTimeout(resolve, 100))
+      const userData = await checkAuthStatus()
+
+      if (!userData) {
+        throw new Error('Failed to retrieve user data after verification')
+      }
+
+      return response
+    } catch (error) {
+      throw error
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const resendVerification = async (email) => {
+    return authService.resendVerification(email)
   }
 
   const logout = async () => {
@@ -116,6 +129,8 @@ export const AuthProvider = ({ children }) => {
     isLoading,
     login,
     signup,
+    verifyEmail,
+    resendVerification,
     logout,
     checkAuthStatus
   }

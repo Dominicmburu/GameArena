@@ -7,6 +7,7 @@ import {
   Info, ChevronDown,
 } from 'lucide-react'
 import { useWallet } from '../contexts/WalletContext'
+import { formatKES, floorKES } from '../utils/formatters'
 import '../styles/PlayPage.css'
 import '../styles/WalletPage.css'
 
@@ -16,12 +17,6 @@ const POLL_MAX_MS      = 5 * 60 * 1000   // 5 minutes
 const MIN_DEPOSIT      = 1
 const MAX_DEPOSIT      = 150000
 const MIN_WITHDRAW     = 100
-
-const formatKES = (n, opts = {}) =>
-  `KES ${Number(n || 0).toLocaleString('en-KE', {
-    minimumFractionDigits: opts.decimals ?? 0,
-    maximumFractionDigits: opts.decimals ?? 2,
-  })}`
 
 const formatPhoneNumber = (raw) => {
   let cleaned = String(raw || '').replace(/\D/g, '')
@@ -150,7 +145,7 @@ const Deposit = () => {
 
   // ── Deposit flow ──────────────────────────────────────────
   const submitDeposit = async () => {
-    const amt = parseFloat(dAmount)
+    const amt = floorKES(dAmount)
     if (!amt || amt < MIN_DEPOSIT)  return showFeedback(`Minimum deposit is ${formatKES(MIN_DEPOSIT)}`, 'err')
     if (amt > MAX_DEPOSIT)           return showFeedback(`Maximum deposit is ${formatKES(MAX_DEPOSIT)}`, 'err')
     if (!validatePhone(dPhone))      return showFeedback('Enter a valid Kenyan phone number', 'err')
@@ -202,7 +197,7 @@ const Deposit = () => {
         if (result.status === 'COMPLETED') {
           clearAllTimers()
           setDStage('success')
-          setDStatusMsg(`Wallet credited with ${formatKES(parseFloat(dAmount))}`)
+          setDStatusMsg(`Wallet credited with ${formatKES(dAmount)}`)
           fetchBalance()
           fetchTransactions()
         } else if (result.status === 'FAILED') {
@@ -239,7 +234,7 @@ const Deposit = () => {
 
   // ── Withdraw flow ─────────────────────────────────────────
   const submitWithdraw = async () => {
-    const amt = parseFloat(wAmount)
+    const amt = floorKES(wAmount)
     if (!amt || amt < MIN_WITHDRAW)  return showFeedback(`Minimum withdrawal is ${formatKES(MIN_WITHDRAW)}`, 'err')
     if (amt > balance)               return showFeedback('Insufficient balance', 'err')
     if (!validatePhone(wPhone))      return showFeedback('Enter a valid Kenyan phone number', 'err')
@@ -317,7 +312,7 @@ const Deposit = () => {
             <div className="wp-balance">
               <div className="wp-balance-label">Available Balance</div>
               <div className="wp-balance-value">
-                {isLoading ? <Spinner animation="border" size="sm" /> : formatKES(balance, { decimals: 2 })}
+                {isLoading ? <Spinner animation="border" size="sm" /> : formatKES(balance)}
               </div>
               <button
                 type="button"
@@ -439,7 +434,7 @@ const Deposit = () => {
                       <div className="wp-summary">
                         <div className="wp-summary-row">
                           <span>You'll receive</span>
-                          <strong>{formatKES(parseFloat(dAmount))}</strong>
+                          <strong>{formatKES(dAmount)}</strong>
                         </div>
                       </div>
                     )}
@@ -614,7 +609,7 @@ const Deposit = () => {
                         />
                       </div>
                       <p className="wp-help">
-                        Min {formatKES(MIN_WITHDRAW)} · Available {formatKES(balance, { decimals: 2 })}
+                        Min {formatKES(MIN_WITHDRAW)} · Available {formatKES(balance)}
                       </p>
                     </div>
 
@@ -622,7 +617,7 @@ const Deposit = () => {
                       <div className="wp-summary">
                         <div className="wp-summary-row">
                           <span>Amount</span>
-                          <strong>{formatKES(parseFloat(wAmount))}</strong>
+                          <strong>{formatKES(wAmount)}</strong>
                         </div>
                         <div className="wp-summary-row">
                           <span>Processing fee</span>
@@ -630,7 +625,7 @@ const Deposit = () => {
                         </div>
                         <div className="wp-summary-row wp-summary-row--total">
                           <span>You'll receive</span>
-                          <strong style={{ color: '#5BC58A' }}>{formatKES(parseFloat(wAmount))}</strong>
+                          <strong style={{ color: '#5BC58A' }}>{formatKES(wAmount)}</strong>
                         </div>
                       </div>
                     )}
@@ -736,7 +731,7 @@ const Deposit = () => {
                               </div>
                               <div className="wp-tx-right">
                                 <div className="wp-tx-amount" style={{ color: meta.color }}>
-                                  {meta.sign}{formatKES(tx.amount, { decimals: 2 })}
+                                  {meta.sign}{formatKES(tx.amount)}
                                 </div>
                                 <span
                                   className="wp-tx-status"

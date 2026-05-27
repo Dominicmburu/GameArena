@@ -8,6 +8,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useGame } from '../contexts/GameContext'
 import { useAuth } from '../contexts/AuthContext'
 import { REACT_APP_API_URL } from '../utils/constants'
+import { formatKES } from '../utils/formatters'
+import { competitionService } from '../services/gameService'
 
 // ─── Hero slides ─────────────────────────────────────────────────────────────
 const HERO_SLIDES = [
@@ -96,12 +98,24 @@ const Homepage = () => {
   const [selectedCompetition,  setSelectedCompetition]  = useState(null)
   const [joiningCompetition,   setJoiningCompetition]   = useState(false)
   const [heroIndex,            setHeroIndex]            = useState(0)
+  const [homepageStats,        setHomepageStats]        = useState({
+    activeCompetitions: 0,
+    totalPrizePool: 0,
+    playersCompeting: 0,
+    gameCategories: 0,
+  })
 
   const videoRef = useRef(null)
 
   // ── Data fetching ─────────────────────────────────────────────────────────
+  // Stats come from a dedicated aggregate endpoint (one query, ~80 bytes).
+  // The competitions list is capped to 24 — enough for the grid + carousel.
   useEffect(() => {
-    fetchPublicCompetitions()
+    competitionService.getHomepageStats()
+      .then(setHomepageStats)
+      .catch(err => console.warn('Stats fetch failed:', err))
+
+    fetchPublicCompetitions({ limit: 24 })
     if (isAuthenticated) fetchParticipatedCompetitions()
   }, [isAuthenticated])
 
@@ -121,9 +135,6 @@ const Homepage = () => {
   const slide      = HERO_SLIDES[heroIndex]
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  const formatKES = (cents) =>
-    `KES ${Number(cents).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-
   const hasJoinedCompetition = (id) =>
     participatedCompetitions.some(c => c.id === id)
 
@@ -171,7 +182,11 @@ const Homepage = () => {
       await joinCompetitionByCode(competition.code)
       alert(`Successfully joined ${competition.title}!`)
       setShowCompetitionModal(false)
-      await Promise.all([fetchPublicCompetitions(), fetchParticipatedCompetitions()])
+      await Promise.all([
+        fetchPublicCompetitions({ limit: 24 }),
+        fetchParticipatedCompetitions(),
+        competitionService.getHomepageStats().then(setHomepageStats).catch(() => {}),
+      ])
       navigate('/play')
     } catch (err) {
       alert(err.message || 'Failed to join competition')
@@ -181,11 +196,13 @@ const Homepage = () => {
   }
 
   // ── Derived data ──────────────────────────────────────────────────────────
+  // Stats are now authoritative from the server (aggregate query, not a reduce).
+  // Local field names preserved so existing JSX/ticker keep working.
   const stats = {
-    activeCompetitions: publicCompetitions.filter(c => c.status === 'ONGOING' || c.status === 'UPCOMING').length,
-    totalPrizePool:     publicCompetitions.reduce((s, c) => s + (c.totalPrizePool || 0), 0),
-    gameCategories:     games.length || 0,
-    totalPlayers:       publicCompetitions.reduce((s, c) => s + (c.currentPlayers || 0), 0),
+    activeCompetitions: homepageStats.activeCompetitions,
+    totalPrizePool:     homepageStats.totalPrizePool,
+    gameCategories:     homepageStats.gameCategories,
+    totalPlayers:       homepageStats.playersCompeting,
   }
 
   const liveCompetitions = publicCompetitions.filter(c => c.status === 'ONGOING').slice(0, 3)

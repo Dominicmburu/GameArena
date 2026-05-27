@@ -61,8 +61,10 @@ const AdminRevenueDashboard = () => {
     }
   };
 
-  const formatCurrency = (cents) => {
-    return `KSh ${(cents / 100).toLocaleString('en-KE', { minimumFractionDigits: 2 })}`;
+  const formatCurrency = (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 0) return 'KSh 0';
+    return `KSh ${Math.floor(n).toLocaleString('en-KE')}`;
   };
 
   if (loading) {

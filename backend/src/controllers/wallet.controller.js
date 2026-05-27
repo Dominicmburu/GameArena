@@ -342,13 +342,20 @@ async function initiateB2C(userId, phone, amount, commandId = 'BusinessPayment')
 }
 
 /**
- * Wallet Operations - FIXED to use meta field
+ * Wallet Operations
+ *
+ * All three accept an optional `tx` (Prisma transaction client). When provided,
+ * the operation joins the caller's transaction instead of opening its own —
+ * this is critical for atomicity: e.g. "create competition + debit entry fee"
+ * must succeed or fail as a single unit, otherwise users can be debited
+ * without a competition being created.
  */
-async function getOrCreateWallet(userId) {
-  let wallet = await prisma.wallet.findUnique({ where: { userId } });
+async function getOrCreateWallet(userId, tx = null) {
+  const client = tx || prisma;
+  let wallet = await client.wallet.findUnique({ where: { userId } });
 
   if (!wallet) {
-    wallet = await prisma.wallet.create({
+    wallet = await client.wallet.create({
       data: { userId, balance: 0 }
     });
     console.log(`Created new wallet for user ${userId}`);
@@ -357,64 +364,46 @@ async function getOrCreateWallet(userId) {
   return wallet;
 }
 
-async function credit(userId, amount, type = TxType.DEPOSIT, meta = {}) {
-  if (amount <= 0) {
-    throw Object.assign(
-      new Error("Amount must be positive"),
-      { status: 400, code: "INVALID_AMOUNT" }
-    );
+async function _doCredit(client, userId, amount, type, meta) {
+  // Idempotency: skip if we've already recorded this M-Pesa receipt
+  if (meta.mpesaReceiptId || meta.MpesaReceiptNumber) {
+    const receiptId = meta.mpesaReceiptId || meta.MpesaReceiptNumber;
+    const existingTx = await client.transaction.findFirst({
+      where: {
+        meta: { path: ['MpesaReceiptNumber'], equals: receiptId }
+      }
+    });
+    if (existingTx) {
+      console.log(`Duplicate transaction detected: ${receiptId}`);
+      return existingTx;
+    }
   }
 
-  const wallet = await getOrCreateWallet(userId);
+  const wallet = await getOrCreateWallet(userId, client);
 
-  return await prisma.$transaction(async (tx) => {
-    // Check for duplicate transaction by mpesaReceiptId in meta
-    if (meta.mpesaReceiptId || meta.MpesaReceiptNumber) {
-      const receiptId = meta.mpesaReceiptId || meta.MpesaReceiptNumber;
-      const existingTx = await tx.transaction.findFirst({
-        where: {
-          meta: {
-            path: ['MpesaReceiptNumber'],
-            equals: receiptId
-          }
-        }
-      });
+  await client.wallet.update({
+    where: { id: wallet.id },
+    data: { balance: { increment: amount } }
+  });
 
-      if (existingTx) {
-        console.log(`Duplicate transaction detected: ${receiptId}`);
-        return existingTx;
+  const transaction = await client.transaction.create({
+    data: {
+      walletId: wallet.id,
+      type,
+      amount,
+      meta: {
+        ...meta,
+        status: TxStatus.COMPLETED,
+        completedAt: new Date().toISOString()
       }
     }
-
-    // Update wallet balance
-    await tx.wallet.update({
-      where: { id: wallet.id },
-      data: { balance: { increment: amount } }
-    });
-
-    // Create transaction record - everything in meta
-    const transaction = await tx.transaction.create({
-      data: {
-        walletId: wallet.id,
-        type,
-        amount,
-        meta: {
-          ...meta,
-          status: TxStatus.COMPLETED,
-          completedAt: new Date().toISOString()
-        }
-      }
-    });
-
-    console.log(`Credited ${amount} to user ${userId}. New balance: ${wallet.balance + amount}`);
-    return transaction;
-  }, {
-    maxWait: 5000,
-    timeout: 10000,
   });
+
+  console.log(`Credited ${amount} to user ${userId}. New balance: ${wallet.balance + amount}`);
+  return transaction;
 }
 
-async function debit(userId, amount, type = TxType.ENTRY_FEE, meta = {}) {
+async function credit(userId, amount, type = TxType.DEPOSIT, meta = {}, tx = null) {
   if (amount <= 0) {
     throw Object.assign(
       new Error("Amount must be positive"),
@@ -422,7 +411,18 @@ async function debit(userId, amount, type = TxType.ENTRY_FEE, meta = {}) {
     );
   }
 
-  const wallet = await getOrCreateWallet(userId);
+  if (tx) {
+    return _doCredit(tx, userId, amount, type, meta);
+  }
+
+  return prisma.$transaction(
+    (tx) => _doCredit(tx, userId, amount, type, meta),
+    { maxWait: 5000, timeout: 10000 }
+  );
+}
+
+async function _doDebit(client, userId, amount, type, meta) {
+  const wallet = await getOrCreateWallet(userId, client);
 
   if (wallet.balance < amount) {
     throw Object.assign(
@@ -431,33 +431,44 @@ async function debit(userId, amount, type = TxType.ENTRY_FEE, meta = {}) {
     );
   }
 
-  return await prisma.$transaction(async (tx) => {
-    // Update wallet balance
-    await tx.wallet.update({
-      where: { id: wallet.id },
-      data: { balance: { decrement: amount } }
-    });
-
-    // Create transaction record
-    const transaction = await tx.transaction.create({
-      data: {
-        walletId: wallet.id,
-        type,
-        amount,
-        meta: {
-          ...meta,
-          status: TxStatus.COMPLETED,
-          completedAt: new Date().toISOString()
-        }
-      }
-    });
-
-    console.log(`Debited ${amount} from user ${userId}. New balance: ${wallet.balance - amount}`);
-    return transaction;
-  }, {
-    maxWait: 5000,
-    timeout: 10000,
+  await client.wallet.update({
+    where: { id: wallet.id },
+    data: { balance: { decrement: amount } }
   });
+
+  const transaction = await client.transaction.create({
+    data: {
+      walletId: wallet.id,
+      type,
+      amount,
+      meta: {
+        ...meta,
+        status: TxStatus.COMPLETED,
+        completedAt: new Date().toISOString()
+      }
+    }
+  });
+
+  console.log(`Debited ${amount} from user ${userId}. New balance: ${wallet.balance - amount}`);
+  return transaction;
+}
+
+async function debit(userId, amount, type = TxType.ENTRY_FEE, meta = {}, tx = null) {
+  if (amount <= 0) {
+    throw Object.assign(
+      new Error("Amount must be positive"),
+      { status: 400, code: "INVALID_AMOUNT" }
+    );
+  }
+
+  if (tx) {
+    return _doDebit(tx, userId, amount, type, meta);
+  }
+
+  return prisma.$transaction(
+    (tx) => _doDebit(tx, userId, amount, type, meta),
+    { maxWait: 5000, timeout: 10000 }
+  );
 }
 
 export const WalletOps = { getOrCreateWallet, credit, debit };

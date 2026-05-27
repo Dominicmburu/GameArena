@@ -320,7 +320,7 @@ export const getStats = async (req, res, next) => {
       totalGames,
       wins,
       winRate: Math.round(winRate * 10) / 10,
-      totalPrize: Math.round(totalPrize),
+      totalPrize: Math.floor(totalPrize),
       globalRank: globalRank || 0,
       totalHours: Math.round((trainingStats._sum?.duration || 0) / 60),
       achievements: 0,

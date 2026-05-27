@@ -28,9 +28,12 @@ export function errorHandler(err, req, res, next) {
 
   // Zod validation errors
   if (err instanceof ZodError) {
-    return res.status(400).json({ 
-      error: "VALIDATION_ERROR", 
-      message: "Invalid input data",
+    const firstIssue = err.errors?.[0];
+    const fieldPath = firstIssue?.path?.join(".") || "input";
+    return res.status(400).json({
+      error: "VALIDATION_ERROR",
+      message: firstIssue?.message || "Invalid input data",
+      field: fieldPath,
       details: err.errors
     });
   }
